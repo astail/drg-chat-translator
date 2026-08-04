@@ -1,0 +1,834 @@
+"""翻訳エンジン・言語判定・キャッシュ・用語集。
+
+対応プロバイダは deepl / claude / openai の3つ。
+deepl は標準ライブラリだけで動く。claude と openai は各社の公式SDKを使うが、
+import は実際に使うときまで遅延させてあるので、未インストールでも
+bridge の起動自体は成功する（翻訳しようとしたときにだけ案内を出す）。
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+import sys
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+log = logging.getLogger("drgtl.translate")
+
+
+# ---------------------------------------------------------------------------
+# 言語判定（文字種ベース）
+# ---------------------------------------------------------------------------
+
+_RANGES = {
+    "hangul": ((0xAC00, 0xD7A3), (0x1100, 0x11FF), (0x3130, 0x318F)),
+    "kana": ((0x3040, 0x30FF), (0xFF66, 0xFF9D)),
+    "han": ((0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF)),
+    "cyrillic": ((0x0400, 0x04FF),),
+    "latin": ((0x0041, 0x005A), (0x0061, 0x007A), (0x00C0, 0x024F)),
+}
+
+
+def _script_counts(text: str) -> dict[str, int]:
+    counts = dict.fromkeys(_RANGES, 0)
+    for ch in text:
+        cp = ord(ch)
+        for name, ranges in _RANGES.items():
+            if any(lo <= cp <= hi for lo, hi in ranges):
+                counts[name] += 1
+                break
+    return counts
+
+
+def detect_language(text: str) -> str:
+    """ざっくりした言語判定。'ja' / 'ko' / 'zh' / 'ru' / 'en' / 'und' を返す。
+
+    チャットは短文なので統計的な判定器より文字種で見たほうが安定する。
+    """
+    c = _script_counts(text)
+    if c["kana"] > 0:
+        return "ja"
+    if c["hangul"] > 0:
+        return "ko"
+    if c["han"] > 0:
+        # かなを伴わない漢字のみ。DRG のチャットでは中国語のことが多い
+        return "zh"
+    if c["cyrillic"] > 0:
+        return "ru"
+    if c["latin"] > 0:
+        return "en"
+    return "und"
+
+
+_URL_RE = re.compile(r"https?://\S+")
+_EMOTE_RE = re.compile(r"^[\W\d_]+$", re.UNICODE)
+
+
+def is_translatable(text: str) -> bool:
+    """記号だけ・数字だけ・URL だけの発言は翻訳しない。"""
+    t = _URL_RE.sub("", text).strip()
+    if not t:
+        return False
+    if _EMOTE_RE.match(t):
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# 用語集
+# ---------------------------------------------------------------------------
+
+_NORM_RE = re.compile(r"[\s!?！？。、.,~〜ー\-_*]+")
+
+
+def _normalize(text: str) -> str:
+    return _NORM_RE.sub("", text.strip().lower())
+
+
+class Glossary:
+    """定型句をAPIに投げずに直接置き換えるための対応表。
+
+    DRG のチャットは "Rock and Stone!" のような定型句が非常に多いので、
+    ここで拾えるとレスポンスも翻訳品質も安定する。
+    """
+
+    def __init__(self, path: str | None):
+        self.incoming: dict[str, str] = {}
+        self.outgoing: dict[str, dict[str, str]] = {}
+        if path and os.path.exists(path):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+                self.incoming = {_normalize(k): v for k, v in data.get("incoming", {}).items()}
+                self.outgoing = {
+                    _normalize(k): v for k, v in data.get("outgoing", {}).items()
+                }
+                log.info("用語集を読み込みました: %s (受信 %d / 送信 %d)",
+                         path, len(self.incoming), len(self.outgoing))
+            except Exception as exc:  # noqa: BLE001
+                log.warning("用語集の読み込みに失敗しました (%s): %s", path, exc)
+
+    def lookup_incoming(self, text: str) -> str | None:
+        return self.incoming.get(_normalize(text))
+
+    def lookup_outgoing(self, text: str, target: str) -> str | None:
+        entry = self.outgoing.get(_normalize(text))
+        if entry:
+            return entry.get(target)
+        return None
+
+
+# ---------------------------------------------------------------------------
+# キャッシュ
+# ---------------------------------------------------------------------------
+
+
+class Cache:
+    """翻訳結果の保存。
+
+    キーには scope（プロバイダ名＋モデル名）を含める。これが無いと
+    プロバイダを変えても前のプロバイダの訳が返ってしまうし、テスト用の
+    --fake の結果が本番のキャッシュに紛れ込む。
+    """
+
+    def __init__(self, path: str, max_entries: int = 5000, enabled: bool = True):
+        self.path = path
+        self.max_entries = max_entries
+        self.enabled = enabled
+        self._data: dict[str, str] = {}
+        self._lock = threading.Lock()
+        self._dirty = False
+        self._last_save = 0.0
+        if enabled and os.path.exists(path):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    self._data = json.load(f)
+                log.info("キャッシュを読み込みました: %d 件", len(self._data))
+            except Exception as exc:  # noqa: BLE001
+                log.warning("キャッシュの読み込みに失敗しました: %s", exc)
+
+    @staticmethod
+    def key(scope: str, text: str, src: str, tgt: str) -> str:
+        return f"{scope}|{src}|{tgt}|{text}"
+
+    def get(self, scope: str, text: str, src: str, tgt: str) -> str | None:
+        if not self.enabled:
+            return None
+        with self._lock:
+            return self._data.get(self.key(scope, text, src, tgt))
+
+    def put(self, scope: str, text: str, src: str, tgt: str, value: str) -> None:
+        if not self.enabled or not value:
+            return
+        with self._lock:
+            if len(self._data) >= self.max_entries:
+                # 単純に古いものから捨てる（dict は挿入順を保つ）
+                for k in list(self._data)[: max(1, self.max_entries // 10)]:
+                    del self._data[k]
+            self._data[self.key(scope, text, src, tgt)] = value
+            self._dirty = True
+
+    def maybe_save(self, interval: float = 10.0, force: bool = False) -> None:
+        if not self.enabled:
+            return
+        now = time.time()
+        with self._lock:
+            if not self._dirty:
+                return
+            if not force and (now - self._last_save) < interval:
+                return
+            snapshot = dict(self._data)
+            self._dirty = False
+            self._last_save = now
+        try:
+            tmp = self.path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(snapshot, f, ensure_ascii=False)
+            os.replace(tmp, self.path)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("キャッシュの保存に失敗しました: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# 翻訳プロバイダ
+# ---------------------------------------------------------------------------
+
+
+class TranslationError(RuntimeError):
+    pass
+
+
+def _http(url: str, *, data: bytes | None = None, headers: dict | None = None,
+          timeout: float = 6.0) -> bytes:
+    req = urllib.request.Request(url, data=data, headers=headers or {})
+    req.add_header("User-Agent", "DRGTranslate/0.1 (+local mod bridge)")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", "replace")[:300]
+        except Exception:  # noqa: BLE001
+            pass
+        raise TranslationError(f"HTTP {exc.code}: {body}") from exc
+    except urllib.error.URLError as exc:
+        raise TranslationError(f"接続失敗: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise TranslationError("タイムアウト") from exc
+
+
+LANG_NAMES = {
+    "ja": "Japanese", "en": "English", "ko": "Korean", "zh": "Chinese",
+    "ru": "Russian", "de": "German", "fr": "French", "es": "Spanish",
+    "pt": "Portuguese", "it": "Italian", "pl": "Polish", "tr": "Turkish",
+}
+
+
+def lang_name(code: str) -> str:
+    return LANG_NAMES.get(code, code)
+
+
+class Provider:
+    name = "base"
+
+    def __init__(self, opts: dict, timeout: float = 6.0):
+        self.opts = opts or {}
+        self.timeout = timeout
+
+    def cache_scope(self) -> str:
+        """キャッシュを分ける単位。訳文が変わりうる要素をすべて含めること。"""
+        return self.name
+
+    def setup_problem(self) -> str | None:
+        """設定不足があれば案内文を返す。無ければ None。
+
+        起動直後に呼んで警告を出すためのもの。これが無いと、APIキーを
+        入れ忘れたまま起動 → ゲーム内で翻訳が出ない → 原因が分からない、
+        という流れになりやすい。
+        """
+        return None
+
+    def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
+        """(翻訳文, 検出された元言語) を返す。source=None なら自動判定。"""
+        raise NotImplementedError
+
+    def translate_multi(self, text: str, source: str | None,
+                        targets: list[str]) -> dict[str, str]:
+        """複数の言語へまとめて翻訳する。
+
+        既定では 1 言語ずつ呼ぶ。LLM 系のプロバイダは 1 回の呼び出しで
+        全言語を返せるのでオーバーライドしている（料金と待ち時間が半分以下になる）。
+        """
+        out: dict[str, str] = {}
+        for target in targets:
+            translated, _ = self.translate(text, source, target)
+            if translated:
+                out[target] = translated
+        return out
+
+
+class StubProvider(Provider):
+    """テスト専用。APIを呼ばず目印を付けて返すだけ。
+
+    provider として設定から選ぶことはできない（PROVIDERS に登録していない）。
+    `drg_bridge.py --fake` からのみ使われ、ネットワークもAPIキーも無い環境で
+    ファイルIPCとMODのロジックを確認するためにある。
+    """
+
+    name = "stub"
+
+    def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
+        return f"[{target}] {text}", source or detect_language(text)
+
+
+class DeepLProvider(Provider):
+    """DeepL API。api_key が空なら環境変数 DEEPL_AUTH_KEY を使う。"""
+
+    name = "deepl"
+
+    _LANG = {"en": "EN-US", "ko": "KO", "ja": "JA", "zh": "ZH", "de": "DE",
+             "fr": "FR", "es": "ES", "ru": "RU", "pt": "PT-BR", "it": "IT"}
+
+    def setup_problem(self) -> str | None:
+        if (self.opts.get("api_key") or os.environ.get("DEEPL_AUTH_KEY") or "").strip():
+            return None
+        return ".env に DEEPL_AUTH_KEY を設定してください（https://www.deepl.com/pro-api）"
+
+    def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
+        key = (self.opts.get("api_key") or os.environ.get("DEEPL_AUTH_KEY") or "").strip()
+        if not key:
+            raise TranslationError(
+                "DeepL のAPIキーが設定されていません"
+                "（.env の DEEPL_AUTH_KEY）"
+            )
+        url = self.opts.get("api_url") or (
+            "https://api-free.deepl.com/v2/translate"
+            if key.endswith(":fx")
+            else "https://api.deepl.com/v2/translate"
+        )
+        params = {"text": text, "target_lang": self._LANG.get(target, target.upper())}
+        if source:
+            params["source_lang"] = self._LANG.get(source, source.upper()).split("-")[0]
+        raw = _http(
+            url,
+            data=urllib.parse.urlencode(params).encode("utf-8"),
+            headers={
+                "Authorization": f"DeepL-Auth-Key {key}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            timeout=self.timeout,
+        )
+        data = json.loads(raw.decode("utf-8"))
+        tr = data["translations"][0]
+        return tr["text"], (tr.get("detected_source_language") or "").lower() or (source or "")
+
+
+# ---------------------------------------------------------------------------
+# LLM 系プロバイダ（Claude / OpenAI）
+#
+# 機械翻訳と違い、ゲーム内スラング・略語・打ち間違いに強い。
+# "gg", "bulk inc", "res me" のような発言を文脈込みで訳せる。
+# ---------------------------------------------------------------------------
+
+GAME_CONTEXT = """\
+You translate in-game text chat for the co-op game Deep Rock Galactic.
+Messages are short, informal, and often contain typos, abbreviations, or
+game-specific slang. Players are dwarven miners fighting bugs underground.
+
+When translating into Japanese, use exactly these renderings. They are the
+forms Japanese DRG players actually use — do not invent your own katakana.
+
+Minerals: nitra=ナイトラ, morkite=モーカイト, gold=ゴールド,
+  compressed gold=固まったゴールド, bismor=ビスモル, croppa=クロッパ,
+  enor pearl=エノアパール, jadiz=ジャディズ, magnite=マグナイト,
+  umanite=ユマナイト, aquarq=アクアーク, hollomite=ホロマイト,
+  dystrum=ダイストラム, phazyonite=フェイジオナイト, red sugar=レッドシュガー,
+  error cube=エラーキューブ, bittergem=ビタージェム, alien egg=エイリアンの卵,
+  apoca bloom=アポカブルーム, boolo cap=ブールーキャップ, ebonut=エボナッツ,
+  gunk seed=ガンクシード, oil shale=オイルシェール, fossil=エイリアンの化石
+Enemies: grunt=グラント, guard=ガード, slasher=スラッシャー,
+  praetorian=プレトリアン, oppressor=オプレッサー, exploder=エクスプローダー,
+  bulk / bulk detonator=デトネーター, swarmer=スウォーマー, spawn=スポーン,
+  web spitter=ウェブスピッター, acid spitter=アシッドスピッター, menace=メナス,
+  warden=ウォーデン, brood nexus=ブルードネクサス, dreadnought=ドレッドノート,
+  mactera=マクテラ, grabber=グラバー, goo bomber=グーボンバー,
+  tri-jaw=トライジョー, brundle=ブランドル, breeder=ブリーダー,
+  patrol bot=パトロールボット, nemesis=ネメシス, korlok=コーロック,
+  leech / cave leech=リーチ, stingtail=スティングテイル
+Classes: driller=ドリラー, gunner=ガンナー, scout=スカウト, engineer=エンジニア
+Gear: zipline=ジップライン, platform=プラットフォーム, flare=フレア,
+  resupply=補給, drop pod=ドロップポッド, molly / mule=モリー,
+  doretta / dotty / drilldozer=ドレッタ, bosco=ボスコ, BET-C=BET-C
+Missions: mining expedition=採掘遠征, egg hunt=卵狩り, elimination=殲滅,
+  point extraction=地点採掘, salvage=回収作戦, on-site refining=現地精錬,
+  escort=護衛任務, industrial sabotage=妨害工作, deep dive=ディープダイブ
+Other: haz / hazard=ハザード, overclock=オーバークロック, perk=パーク,
+  promotion=昇進, swarm=スウォーム, machine event=マシンイベント,
+  Hoxxes=ホクシス, Karl=カール
+
+Keep these as-is rather than translating them: Rock and Stone (the players'
+rallying cry), leaf lover (an insult for a non-dwarf — リーフラバー).
+
+Watch for these meanings, which differ from everyday English:
+- "run" / "mission" = one playthrough of a mission, not physical running
+- "res" / "rez" = revive a downed player
+- "inc" = incoming
+- "down" / "dwarf down" = a teammate is incapacitated
+- "leaf lover" = a mild insult, not a literal description
+
+Rules:
+- Output only the translation. No preamble, no quotes, no notes, no explanation.
+- Match the register of the original: casual chat stays casual, short stays short.
+- Keep player names, numbers, and emotes as they are.
+- If the message is already in the target language, return it unchanged.
+- Do not include internal or system XML tags in your response.\
+"""
+
+
+def _missing_sdk_message(package: str) -> str:
+    """SDK 未導入の案内。
+
+    Windows では Python が複数入っていて「pip install したのに見つからない」が
+    起きやすいので、いま動いている実行ファイルのパスをそのまま案内に出す。
+    このコマンドをコピペすれば確実に同じ Python へ入る。
+    """
+    return (
+        f"{package} パッケージが見つかりません。次のコマンドで入れてください:\n"
+        f'    "{sys.executable}" -m pip install {package}'
+    )
+
+
+class LLMProvider(Provider):
+    """Claude / OpenAI 共通の土台。プロンプト組み立てと応答の後始末を持つ。"""
+
+    name = "llm"
+    default_model = ""
+
+    def __init__(self, opts: dict, timeout: float = 6.0):
+        super().__init__(opts, timeout)
+        self.model = (self.opts.get("model") or self.default_model).strip()
+        self.max_tokens = int(self.opts.get("max_tokens") or 1024)
+        self._client = None
+        self._prompts: dict[str, str] = {}
+
+    def cache_scope(self) -> str:
+        # モデルを変えれば訳も変わるのでキャッシュも分ける
+        return f"{self.name}:{self.model}"
+
+    # 派生クラスで指定する。SDKのパッケージ名と、キーの環境変数名
+    sdk_package = ""
+    key_env = ""
+    key_url = ""
+
+    def api_key(self) -> str:
+        return (self.opts.get("api_key") or os.environ.get(self.key_env) or "").strip()
+
+    def _require_key(self) -> None:
+        """キーが無いことを SDK より先に自前で判定する。
+
+        SDK 任せにすると、生成時に投げるもの（openai）と実際のリクエストまで
+        投げないもの（anthropic）があり、案内文が揃わないため。
+        """
+        if not self.api_key():
+            raise TranslationError(
+                f".env に {self.key_env} を設定してください（{self.key_url}）"
+            )
+
+    def setup_problem(self) -> str | None:
+        try:
+            __import__(self.sdk_package)
+        except ImportError:
+            return _missing_sdk_message(self.sdk_package)
+        if not self.api_key():
+            return f".env に {self.key_env} を設定してください（{self.key_url}）"
+        return None
+
+    # -- プロンプト -------------------------------------------------------
+
+    def system_prompt(self, source: str | None, targets: list[str],
+                      as_json: bool) -> str:
+        key = f"{source or 'auto'}|{','.join(targets)}|{as_json}"
+        cached = self._prompts.get(key)
+        if cached:
+            return cached
+
+        src = lang_name(source) if source else "whatever language it is written in"
+        parts = [GAME_CONTEXT, ""]
+        if as_json:
+            fields = ", ".join(f'"{t}" ({lang_name(t)})' for t in targets)
+            parts.append(
+                f"Translate the user's message from {src} into each of these "
+                f"languages and return a JSON object with exactly these keys: {fields}. "
+                "Each value is the translation as a plain string."
+            )
+        else:
+            parts.append(
+                f"Translate the user's message from {src} into {lang_name(targets[0])}."
+            )
+        prompt = "\n".join(parts)
+        self._prompts[key] = prompt
+        return prompt
+
+    @staticmethod
+    def _clean(text: str) -> str:
+        text = (text or "").strip()
+        # 稀に前後を引用符で囲んで返してくるので剥がす
+        for quote in ('"', "'", "「", "『"):
+            if text.startswith(quote):
+                closing = {'"': '"', "'": "'", "「": "」", "『": "』"}[quote]
+                if text.endswith(closing) and len(text) > 1:
+                    text = text[1:-1].strip()
+                break
+        return text
+
+    def _parse_json(self, raw: str, targets: list[str]) -> dict[str, str]:
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`")
+            raw = raw.split("\n", 1)[-1] if "\n" in raw else raw
+            raw = raw.rsplit("```", 1)[0]
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise TranslationError(f"JSON として読めない応答: {raw[:120]}") from exc
+        if not isinstance(data, dict):
+            raise TranslationError("JSON オブジェクトではない応答")
+        return {t: self._clean(str(data[t])) for t in targets
+                if isinstance(data.get(t), str) and data[t].strip()}
+
+    # -- 実装側が用意するもの ---------------------------------------------
+
+    def _complete(self, system: str, user: str, json_targets: list[str] | None) -> str:
+        raise NotImplementedError
+
+    # -- Provider インターフェース ----------------------------------------
+
+    def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
+        raw = self._complete(self.system_prompt(source, [target], False), text, None)
+        out = self._clean(raw)
+        if not out:
+            raise TranslationError("空の応答")
+        return out, (source or detect_language(text))
+
+    def translate_multi(self, text: str, source: str | None,
+                        targets: list[str]) -> dict[str, str]:
+        if len(targets) == 1:
+            translated, _ = self.translate(text, source, targets[0])
+            return {targets[0]: translated}
+        raw = self._complete(self.system_prompt(source, targets, True), text, targets)
+        return self._parse_json(raw, targets)
+
+
+class ClaudeProvider(LLMProvider):
+    """Anthropic Claude (Messages API)。`pip install anthropic` が必要。
+
+    既定は Haiku 4.5。チャットは短文なので上位モデルは費用対効果が悪い。
+    訳が物足りなければ config の model を claude-sonnet-5 などに変えられる。
+    """
+
+    name = "claude"
+    default_model = "claude-haiku-4-5"
+    sdk_package = "anthropic"
+    key_env = "ANTHROPIC_API_KEY"
+    key_url = "https://console.anthropic.com/"
+
+    def __init__(self, opts: dict, timeout: float = 6.0):
+        super().__init__(opts, timeout)
+        self._warned_effort = False
+
+    def _get_client(self):
+        if self._client is not None:
+            return self._client
+        try:
+            import anthropic
+        except ImportError as exc:
+            raise TranslationError(_missing_sdk_message("anthropic")) from exc
+        self._require_key()
+
+        key = (self.opts.get("api_key") or "").strip()
+        kwargs: dict = {"timeout": self.timeout, "max_retries": 1}
+        if key:
+            kwargs["api_key"] = key
+        # キー未指定なら SDK が ANTHROPIC_API_KEY / ant のプロファイルから解決する。
+        # そこにも無ければ SDK 側が独自の例外を投げるので、包み直して案内にする。
+        try:
+            self._client = anthropic.Anthropic(**kwargs)
+        except Exception as exc:  # noqa: BLE001
+            raise TranslationError(
+                f".env に {self.key_env} を設定してください（{self.key_url}）"
+            ) from exc
+        return self._client
+
+    # 世代によって受け付けるパラメータが違う。ここに載っていないモデルは
+    # 「古い世代」として扱う（余計なパラメータを送ると 400 になるため、
+    #  送らない方向に倒すのが安全）。
+    _MODERN = (
+        "claude-opus-5", "claude-fable-5", "claude-mythos-5",
+        "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6",
+        "claude-sonnet-5", "claude-sonnet-4-6",
+    )
+    # 安全性判定で拒否されたとき別モデルへ回せるモデル
+    _FALLBACK_CAPABLE = ("claude-opus-5", "claude-fable-5", "claude-mythos-5")
+
+    def _is_modern(self) -> bool:
+        return self.model.startswith(self._MODERN)
+
+    def _use_fallback(self) -> bool:
+        setting = self.opts.get("refusal_fallback", "auto")
+        if setting == "auto" or setting is None:
+            return self.model.startswith(self._FALLBACK_CAPABLE)
+        return bool(setting)
+
+    def _complete(self, system: str, user: str, json_targets: list[str] | None) -> str:
+        client = self._get_client()
+        modern = self._is_modern()
+
+        output_config: dict = {}
+        if modern:
+            # 4.6 以降は思考の深さを effort で指定する。
+            # チャット翻訳は待ち時間が命なので既定は low。
+            effort = self.opts.get("effort") or "auto"
+            output_config["effort"] = "low" if effort == "auto" else effort
+        elif self.opts.get("effort") not in (None, "", "auto"):
+            if not self._warned_effort:
+                self._warned_effort = True
+                log.warning(
+                    "%s は effort に対応していないため無視します（4.6 以降のモデルのみ）",
+                    self.model,
+                )
+
+        if json_targets:
+            output_config["format"] = {
+                "type": "json_schema",
+                "schema": {
+                    "type": "object",
+                    "properties": {t: {"type": "string"} for t in json_targets},
+                    "required": list(json_targets),
+                    "additionalProperties": False,
+                },
+            }
+
+        params: dict = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            # システムプロンプトは数百トークンでキャッシュ下限（512〜4096、モデルによる）
+            # に届かないため cache_control は付けていない。
+            "system": system,
+            "messages": [{"role": "user", "content": user}],
+        }
+        if output_config:
+            params["output_config"] = output_config
+
+        if modern:
+            # 4.6 以降は思考が使える。Opus 5 は既定で ON なので明示的に切る。
+            params["thinking"] = {"type": "disabled"}
+        else:
+            # 旧世代は thinking を省略すれば思考しない。
+            # サンプリングパラメータもこちらでは有効なので、訳のブレを抑えておく。
+            params["temperature"] = 0
+
+        try:
+            if self._use_fallback():
+                # ゲームチャットは暴言を含むことがあり、安全性判定で拒否される場合がある。
+                # そのときは Anthropic 推奨の別モデルへ自動で回してもらう。
+                params["betas"] = ["server-side-fallback-2026-07-01"]
+                params["fallbacks"] = "default"
+                resp = client.beta.messages.create(**params)
+            else:
+                resp = client.messages.create(**params)
+        except Exception as exc:  # noqa: BLE001  SDK 固有の例外を包み直す
+            raise TranslationError(f"Claude API 呼び出しに失敗: {exc}") from exc
+
+        if getattr(resp, "stop_reason", None) == "refusal":
+            detail = ""
+            details = getattr(resp, "stop_details", None)
+            if details is not None:
+                detail = f" ({getattr(details, 'category', '') or ''})"
+            raise TranslationError(f"翻訳を拒否されました{detail}")
+
+        return "".join(
+            block.text for block in resp.content if getattr(block, "type", "") == "text"
+        )
+
+
+class OpenAIProvider(LLMProvider):
+    """OpenAI (Chat Completions)。`pip install openai` が必要。
+
+    `base_url` を指定すれば OpenAI 互換のエンドポイント（ローカルLLM等）にも向けられる。
+    """
+
+    name = "openai"
+    default_model = "gpt-4o-mini"
+    sdk_package = "openai"
+    key_env = "OPENAI_API_KEY"
+    key_url = "https://platform.openai.com/api-keys"
+
+    def _get_client(self):
+        if self._client is not None:
+            return self._client
+        try:
+            import openai
+        except ImportError as exc:
+            raise TranslationError(_missing_sdk_message("openai")) from exc
+        self._require_key()
+
+        kwargs: dict = {"timeout": self.timeout, "max_retries": 1}
+        key = (self.opts.get("api_key") or "").strip()
+        if key:
+            kwargs["api_key"] = key
+        if self.opts.get("base_url"):
+            kwargs["base_url"] = self.opts["base_url"]
+        # キーがどこにも無いと SDK 側が独自の例外を投げる。包み直して案内にする。
+        try:
+            self._client = openai.OpenAI(**kwargs)
+        except Exception as exc:  # noqa: BLE001
+            raise TranslationError(
+                f".env に {self.key_env} を設定してください（{self.key_url}）"
+            ) from exc
+        return self._client
+
+    def _complete(self, system: str, user: str, json_targets: list[str] | None) -> str:
+        client = self._get_client()
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        params: dict = {"model": self.model, "messages": messages}
+        if json_targets:
+            params["response_format"] = {"type": "json_object"}
+
+        # モデルによって受け付けないパラメータがあるので、弾かれたら外して1回だけ再試行する
+        optional = {"max_tokens": self.max_tokens, "temperature": 0}
+        try:
+            resp = client.chat.completions.create(**params, **optional)
+        except Exception as exc:  # noqa: BLE001
+            msg = str(exc)
+            retried = False
+            if "max_tokens" in msg and "max_completion_tokens" in msg:
+                optional.pop("max_tokens", None)
+                optional["max_completion_tokens"] = self.max_tokens
+                retried = True
+            if "temperature" in msg:
+                optional.pop("temperature", None)
+                retried = True
+            if not retried:
+                raise TranslationError(f"OpenAI API 呼び出しに失敗: {exc}") from exc
+            try:
+                resp = client.chat.completions.create(**params, **optional)
+            except Exception as exc2:  # noqa: BLE001
+                raise TranslationError(f"OpenAI API 呼び出しに失敗: {exc2}") from exc2
+
+        choice = resp.choices[0]
+        if getattr(choice, "finish_reason", None) == "content_filter":
+            raise TranslationError("翻訳を拒否されました (content_filter)")
+        return choice.message.content or ""
+
+
+PROVIDERS: dict[str, type[Provider]] = {
+    "deepl": DeepLProvider,
+    "claude": ClaudeProvider,
+    "openai": OpenAIProvider,
+}
+
+
+def build_provider(name: str, opts: dict, timeout: float) -> Provider:
+    cls = PROVIDERS.get(name)
+    if cls is None:
+        raise ValueError(
+            f"未知の provider '{name}' です。使えるのは: {', '.join(sorted(PROVIDERS))}"
+        )
+    return cls(opts, timeout)
+
+
+# ---------------------------------------------------------------------------
+# 翻訳器（用語集・キャッシュ・レート制限をまとめたもの）
+# ---------------------------------------------------------------------------
+
+
+class Translator:
+    def __init__(self, provider: Provider, cache: Cache, glossary: Glossary,
+                 min_interval: float = 0.0):
+        self.provider = provider
+        self.cache = cache
+        # 訳文はプロバイダ（とモデル）ごとに違うのでキャッシュもそれで分ける
+        self.scope = provider.cache_scope()
+        self.glossary = glossary
+        self.min_interval = min_interval
+        self._rate_lock = threading.Lock()
+        self._last_call = 0.0
+        self._fail_streak = 0
+        self._cooldown_until = 0.0
+
+    def _throttle(self) -> None:
+        if self.min_interval <= 0:
+            return
+        with self._rate_lock:
+            wait = self._last_call + self.min_interval - time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
+            self._last_call = time.monotonic()
+
+    def _check_cooldown(self) -> None:
+        if time.monotonic() < self._cooldown_until:
+            raise TranslationError("プロバイダが一時的に停止中です（連続失敗によるクールダウン）")
+
+    def _note_failure(self) -> None:
+        self._fail_streak += 1
+        if self._fail_streak >= 5:
+            self._cooldown_until = time.monotonic() + 30.0
+            log.warning("翻訳が5回連続で失敗したため30秒待機します")
+
+    def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
+        src_key = source or "auto"
+        cached = self.cache.get(self.scope, text, src_key, target)
+        if cached is not None:
+            return cached, source or detect_language(text)
+
+        self._check_cooldown()
+        self._throttle()
+        try:
+            out, detected = self.provider.translate(text, source, target)
+        except TranslationError:
+            self._note_failure()
+            raise
+        self._fail_streak = 0
+        out = out.strip()
+        self.cache.put(self.scope, text, src_key, target, out)
+        return out, (detected or source or detect_language(text)).lower()
+
+    def translate_multi(self, text: str, source: str | None,
+                        targets: list[str]) -> dict[str, str]:
+        """複数言語へまとめて翻訳する。キャッシュ済みの言語は問い合わせない。"""
+        src_key = source or "auto"
+        out: dict[str, str] = {}
+        pending: list[str] = []
+        for target in targets:
+            cached = self.cache.get(self.scope, text, src_key, target)
+            if cached is not None:
+                out[target] = cached
+            else:
+                pending.append(target)
+        if not pending:
+            return out
+
+        self._check_cooldown()
+        self._throttle()
+        try:
+            fresh = self.provider.translate_multi(text, source, pending)
+        except TranslationError:
+            self._note_failure()
+            raise
+        self._fail_streak = 0
+        for target, value in fresh.items():
+            value = (value or "").strip()
+            if value:
+                self.cache.put(self.scope, text, src_key, target, value)
+                out[target] = value
+        return out

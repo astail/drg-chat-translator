@@ -1,0 +1,17 @@
+# APIキーを含む設定
+.env
+
+# 翻訳キャッシュ（他プレイヤーの発言が残る）
+cache.json
+bridge/cache.json
+bridge/cache.json.tmp
+cache.json.tmp
+
+# PyInstaller のビルド成果物
+build/
+dist/
+*.exe
+
+__pycache__/
+*.pyc
+*.log

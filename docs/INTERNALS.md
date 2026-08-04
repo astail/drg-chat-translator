@@ -1,0 +1,160 @@
+# 内部仕様メモ
+
+DRGTranslate が依存している Deep Rock Galactic 側の API と、その調べ方。
+
+## 調査の出典
+
+一次情報は **ゲーム本体の実行ファイル**です。UE はリフレクション用の名前を
+name pool に残すので、そこから直接拾えます。
+
+```bash
+strings -n 5 FSD-Win64-Shipping.exe | grep -iE "chat|message"
+```
+
+引数の型・並びは、この抽出結果とコミュニティの公開ダンプ
+（[FSD-Template](https://github.com/DRG-Modding/FSD-Template) /
+[Header-Dumps](https://github.com/DRG-Modding/Header-Dumps)）を突き合わせて確認しました。
+これらのリポジトリはライセンスが設定されていないため、**ファイルの取り込みはせず、
+裏取りの参照先として挙げるにとどめています。**
+
+以下に記載しているのは、本MODが呼び出す・フックする対象を説明するために必要な
+API のシグネチャだけです。ゲームのコードやアセットは含みません。
+
+## チャット関連の定義
+
+### 構造体
+
+```cpp
+// Source/FSD/Public/FSDChatMessage.h
+USTRUCT(BlueprintType)
+struct FFSDChatMessage {
+    EChatMessageType MsgType;    // ES_Chat = 0, ES_Game = 1
+    FString          Sender;
+    EChatSenderType  SenderType; // NormalUser / DeluxUser / Developer / Streamer / Modder
+    FString          Msg;
+    FUniqueNetIdRepl SenderNetID;
+};
+```
+
+`FFSDLocalizedChatMessage` はゲーム側の定型メッセージ用（`FText Msg` と `TArray<FText> Arguments`）。
+プレイヤーの発言は通らないので、この MOD では扱っていません。
+
+### 受信
+
+```cpp
+// Source/FSD/Public/FSDGameState.h
+UFUNCTION(BlueprintCallable, NetMulticast, Reliable)
+void ClientNewMessage(const FFSDChatMessage& Msg);
+```
+
+全プレイヤーの発言がここを通ってクライアントへ届くので、受信の hook 地点として最適です。
+UE4SS の `RegisterHook` は `/Script/` 始まりのパスなら **pre コールバック**が使えます。
+
+```lua
+RegisterHook("/Script/FSD.FSDGameState:ClientNewMessage", function(Context, MsgParam)
+    local msg = MsgParam:get()
+    local text = msg.Msg:ToString()
+end)
+```
+
+### 送信
+
+```cpp
+// Source/FSD/Public/FSDPlayerController.h
+UFUNCTION(BlueprintCallable, Reliable, Server)
+void Server_NewMessage(const FString& Sender, const FString& Text, EChatSenderType SenderType);
+```
+
+クライアントから呼ぶサーバRPC。**hook して `Text` を差し替える**ことも、
+**自分で呼んで発言する**こともできます。MOD は両方やっています。
+
+> ホストとして遊んでいる場合、他プレイヤーの `Server_NewMessage` もサーバ側で実行されるため
+> 同じ hook を通ります。`IsLocalController()` で自分の分だけに絞る必要があります。
+
+### ローカル表示
+
+翻訳文は **自分にだけ** 見えなければいけません。
+
+| 方法 | クライアント | ホスト |
+|---|---|---|
+| `AFSDGameState::PostGameMessage(FString)` | ローカルのみ ✅ | **全員に配信されてしまう** ❌ |
+| `UHUD_Chat_C::"Add Chat Message"(FFSDChatMessage)` | ローカルのみ ✅ | ローカルのみ ✅ |
+
+`PostGameMessage` は内部で `ClientNewMessage`（NetMulticast）を呼んでいると見られます。
+UE では **クライアントから NetMulticast を呼ぶとローカルでしか実行されない**ため、
+クライアント側では安全に使えます。一方ホスト（権限あり）が呼ぶと全員に飛びます。
+
+そのため MOD は `HasAuthority()` を見て、
+- クライアント → `PostGameMessage`
+- ホスト → チャットウィジェットを直接呼ぶ
+
+と切り替えています。判定できなかった場合はホスト扱い（＝安全側）にしています。
+
+### チャットUI
+
+```cpp
+// /Game/UI/Chat/HUD_Chat.HUD_Chat_C
+class UHUD_Chat_C : public UUserWidget {
+    UEditableTextBox* NewChatEdit;      // 入力欄。MOD では使わない
+    UEditableTextBox* OutsiteChatbox;
+    UEditableTextBox* InputChatBox;
+    bool IsChatOpen;
+
+    void SendChatMessage(const FText& InText, TEnumAsByte<ETextCommit::Type> CommitMethod);
+    void NewMesssage(const FFSDChatMessage& Message);   // 原文ママ（s が3つ）
+    void Add Chat Message(FFSDChatMessage Msg);          // 関数名に空白が入っている
+};
+```
+
+スペースリグ側の `WND_SpaceRig_Chat` は `HUD_Chat_C` を内包しているだけなので、
+`HUD_Chat_C` を押さえれば両方カバーできます。
+
+MOD が使うのは `Add Chat Message`（ローカル表示）だけです。入力欄
+（`NewChatEdit` ほか）には触れません。送信は `Server_NewMessage` の hook で本文を拾い、
+翻訳が届いたら2通目として送るため、入力中の状態を知る必要がないからです。
+
+## UE4SS の Lua API で押さえておくこと
+
+| | |
+|---|---|
+| `RegisterHook(path, pre, post)` | `/Script/` 始まりのみ pre が使える。Blueprint (`/Game/...`) は post のみ |
+| コールバック引数 | すべて `RemoteUnrealParam`。`:get()` で取得、`:set()` で書き換え |
+| フックは中断できない | 「呼ばせない」ことはできないので、引数を空にするなどで代替する |
+| `LoopAsync` はゲームスレッド外 | UObject に触るときは `ExecuteInGameThread` で包む |
+| ソケットが無い | 外部プロセスとの通信は `io` によるファイル経由 |
+
+## IPC プロトコル
+
+`%APPDATA%\DRGTranslate\` に置かれる追記専用のテキストファイル。
+各ファイルの書き手は片側だけなので競合しません。
+
+```
+to_bridge.txt   mod -> bridge
+to_game.txt     bridge -> mod
+bridge.alive    bridge の生存確認（1秒ごとに更新）
+```
+
+1行1メッセージ、TAB 区切り。各フィールドは `\` `\t` `\r` `\n` をエスケープ済み。
+
+### mod → bridge
+
+| | |
+|---|---|
+| `HELLO <version>` | 接続開始 |
+| `NAME <playername>` | 自分のプレイヤー名 |
+| `REQ <id> in <sender> <text>` | 受信文を日本語へ |
+| `REQ <id> out <sender> <text>` | 自分の発言を翻訳（結果を2通目として送る） |
+| `DISPLAY ok\|fail` | ゲーム内表示ができているか |
+
+### bridge → mod
+
+| | |
+|---|---|
+| `HELLO <version>` | |
+| `RES <id> <kind> <srclang> <text>` | 結果。`text` が空なら「何もしない」 |
+| `ERR <id> <message>` | 失敗 |
+| `SAY <text>` | この文字列をチャットに送信せよ（オーバーレイの入力欄から） |
+| `NOTE <text>` | ローカル表示のみ |
+
+セッション開始時に mod 側が両ファイルを空にします。bridge はファイルが縮んだら
+読み取りオフセットを 0 に戻すので、どちらを先に起動しても復帰します。
