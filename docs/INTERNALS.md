@@ -65,8 +65,18 @@ UFUNCTION(BlueprintCallable, Reliable, Server)
 void Server_NewMessage(const FString& Sender, const FString& Text, EChatSenderType SenderType);
 ```
 
-クライアントから呼ぶサーバRPC。**hook して `Text` を差し替える**ことも、
-**自分で呼んで発言する**こともできます。MOD は両方やっています。
+クライアントから呼ぶサーバRPC。MOD はこれを **自分で呼んで発言する** のに使い、
+hook のほうは「自分が今送った」という合図を取るためだけに使います。
+
+> ⚠ **この hook の中で `Sender` / `Text`（FString 引数）を読んではいけません。**
+> 実際のチャット欄から送信すると、この関数は Blueprint 側から呼ばれます。
+> そのとき引数を `:get()` で読むとプロセスごと落ちます（`pcall` では止まりません）。
+> Lua から同じ関数を呼んだ場合は UE4SS が自前で引数バッファを用意するので
+> 読めてしまい、その差が原因の特定を難しくしました。
+>
+> `Context`（呼び出し元の PlayerController）は安全に読めます。そのため MOD は
+> `Context:get()` と `IsLocalController()` だけを使い、本文は後述の
+> `ClientNewMessage` 側で受け取ります。
 
 > ホストとして遊んでいる場合、他プレイヤーの `Server_NewMessage` もサーバ側で実行されるため
 > 同じ hook を通ります。`IsLocalController()` で自分の分だけに絞る必要があります。
@@ -110,8 +120,14 @@ class UHUD_Chat_C : public UUserWidget {
 `HUD_Chat_C` を押さえれば両方カバーできます。
 
 MOD が使うのは `Add Chat Message`（ローカル表示）だけです。入力欄
-（`NewChatEdit` ほか）には触れません。送信は `Server_NewMessage` の hook で本文を拾い、
-翻訳が届いたら2通目として送るため、入力中の状態を知る必要がないからです。
+（`NewChatEdit` ほか）には触れません。翻訳が届いたら2通目として送る方式なので、
+入力中の状態を知る必要がないからです。
+
+自分の発言の本文も `ClientNewMessage` 側で受け取ります。送信した発言は自分にも
+配信されて戻ってくるので、`Server_NewMessage` の hook で立てた合図と突き合わせて
+「これは自分の発言だ」と判定し、そこで初めて自分のプレイヤー名も分かります。
+名前を `PlayerState` から辿りに行かないのは、その経路で過去に2種類のクラッシュを
+出したためです（hook の中で辿る／ループから毎秒辿る、のどちらも落ちました）。
 
 ## UE4SS の Lua API で押さえておくこと
 

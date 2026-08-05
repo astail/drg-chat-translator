@@ -15,3 +15,6 @@ dist/
 __pycache__/
 *.pyc
 *.log
+
+# エディタ支援ツールが作る設定
+.serena/

@@ -16,7 +16,11 @@ local Cfg = require("config")
 local U   = require("util")
 local IPC = require("ipc")
 
-local MOD_VERSION = "0.2.7"
+local MOD_VERSION = "0.3.0"
+
+-- 自分の Server_NewMessage の直後に来た発言を「自分のもの」とみなす猶予(ms)。
+-- ホストなら同期実行なので即座、クライアントでもサーバ往復ぶんで足りる。
+local LOCAL_SEND_WINDOW_MS = 5000
 
 local UEHelpers = nil
 pcall(function() UEHelpers = require("UEHelpers") end)
@@ -31,6 +35,7 @@ local State = {
     sending        = false,    -- 自分で Server_NewMessage を呼んでいる最中
     own_sent       = {},       -- [送信文] = 期限。受信側で自分の発言を弾くのに使う
     last_alive_at  = 0,
+    local_sent_at  = 0,       -- 自分が最後に Server_NewMessage を通した時刻
     display_ok     = nil,      -- ゲーム内表示が成功しているか
     warned_display = false,
 }
@@ -310,31 +315,54 @@ end
 -- ---------------------------------------------------------------------
 
 local function on_incoming(Context, MsgParam)
-    if not State.enabled or not Cfg.incoming.enabled then return end
+    if not State.enabled then return end
     if not IPC.connected then return end
 
     local ok, err = pcall(function()
-        U.dbg("in: フック開始")
-        local msg = MsgParam:get()
-        U.dbg("in: 構造体を取得")
+        local msg    = MsgParam:get()
         local text   = U.trim(U.tostr(msg.Msg))
-        U.dbg("in: Msg=%s", text)
         local sender = U.tostr(msg.Sender)
-        U.dbg("in: Sender=%s", sender)
         local mtype  = tonumber(msg.MsgType) or 0   -- 0 = ES_Chat, 1 = ES_Game
-        U.dbg("in: MsgType=%d", mtype)
 
         if text == "" then return end
         if mtype ~= 0 and not Cfg.incoming.translate_game_messages then return end
 
-        -- 自分の発言・自分が送った翻訳文はスキップ
-        if Cfg.incoming.skip_own then
-            local me = get_player_name()   -- キャッシュのみ。UObject には触らない
-            if me ~= "" and sender == me then return end
-        end
+        -- 自分が送った訳文が返ってきた分は無視する
         local expires_at = State.own_sent[text]
         if expires_at and expires_at > State.now then return end
 
+        -- この発言が自分のものか判定する。
+        -- 名前が分かっていればそれで照合し、まだなら「直前に自分の
+        -- Server_NewMessage が走ったか」で判定して、そのとき名前を覚える。
+        local me = get_player_name()
+        local mine
+        if me ~= "" then
+            mine = (sender == me)
+        else
+            mine = State.local_sent_at > 0
+                and (State.now - State.local_sent_at) <= LOCAL_SEND_WINDOW_MS
+            if mine and sender ~= "" then
+                State.player_name = sender
+                IPC.send("NAME", sender)
+                U.dbg("自分の名前: %s", sender)
+            end
+        end
+        if mine then State.local_sent_at = 0 end
+
+        if mine then
+            -- 自分の発言。日本語なら訳文を2通目として送る
+            if not Cfg.outgoing.enabled then return end
+            if not should_translate_outgoing(text) then return end
+            U.dbg("送信を検出: %s", text)
+            IPC.request("out", sender, text, function(_, outtext)
+                if outtext == "" then return end
+                U.in_game_thread(function() send_chat(sender, outtext, 0) end)
+            end)
+            return
+        end
+
+        -- 他人の発言。訳文を自分にだけ出す
+        if not Cfg.incoming.enabled then return end
         U.dbg("受信: [%s] %s", sender, text)
         IPC.request("in", sender, text, function(_, outtext)
             if outtext == "" then return end
@@ -349,36 +377,27 @@ end
 -- フック: 送信
 -- ---------------------------------------------------------------------
 
-local function on_outgoing(Context, SenderP, TextP, SenderTypeP)
-    if State.sending then return end            -- 自分で呼んだ分は無視
+--- ⚠ このフックでは FString 引数(Sender/Text)に絶対に触らないこと。
+---
+--- 実際のチャット欄から送信すると Server_NewMessage は Blueprint 側から
+--- 呼ばれる。そのとき引数を :get() で読むとプロセスごと落ちる
+--- (pcall では止められない)。Lua から同じ関数を呼んだ場合は UE4SS が
+--- 自前で引数バッファを用意するため読めてしまい、これが原因の特定を
+--- 長引かせた。
+---
+--- Context だけは安全に読めるので、ここでは「自分が今チャットを送った」
+--- という合図を立てるだけにして、本文は ClientNewMessage 側で受け取る。
+--- ホストの場合は他プレイヤーの送信もここを通るため、
+--- IsLocalController で自分の分だけに絞る。
+local function on_outgoing(Context)
+    if State.sending then return end
     if not State.enabled or not Cfg.outgoing.enabled then return end
 
     local ok, err = pcall(function()
-        U.dbg("out: フック開始")
         local pc = Context:get()
-        U.dbg("out: PlayerController を取得")
-        -- ホストの場合、他プレイヤーの Server_NewMessage もここを通る
         if not is_local_controller(pc) then return end
         State.pc = pc
-
-        local sender = U.tostr(SenderP)
-        local text   = U.tostr(TextP)
-        U.dbg("out: Sender=%s Text=%s", sender, text)
-        if sender ~= "" and State.player_name ~= sender then
-            State.player_name = sender
-            IPC.send("NAME", sender)
-        end
-
-        if not IPC.connected then return end
-        if not should_translate_outgoing(text) then return end
-
-        -- 原文はそのまま流れる。翻訳が届いたら2通目として送る
-        local sender_type = tonumber(SenderTypeP and SenderTypeP:get()) or 0
-        U.dbg("送信を検出: %s", text)
-        IPC.request("out", sender, text, function(_, outtext)
-            if outtext == "" then return end
-            U.in_game_thread(function() send_chat(sender, outtext, sender_type) end)
-        end)
+        State.local_sent_at = State.now
     end)
 
     if not ok then U.dbg("on_outgoing error: %s", tostring(err)) end
@@ -412,6 +431,31 @@ end)
 
 IPC.on("HELLO", function(fields)
     U.log("bridge version = %s", fields[2] or "?")
+end)
+
+--- 診断用。Server_NewMessage を「自分で呼んだ」印を付けずに叩くので、
+--- 実際にチャットを打ったときとまったく同じ経路(on_outgoing)を通る。
+--- SAY だと State.sending が立つため送信フックを素通りしてしまい、
+--- そこの不具合を実機で再現できない。config.lua の debug が真のときだけ動く。
+IPC.on("SIMSAY", function(fields)
+    if not Cfg.debug then return end
+    local text = fields[2] or ""
+    if text == "" then return end
+    -- 3つ目のフィールドで送信者名を差し替えられる（省略時は実際の自分の名前）
+    local sender = fields[3]
+    if sender == nil or sender == "" then sender = get_player_name() end
+    U.in_game_thread(function()
+        local pc = get_pc()
+        if not pc then
+            U.log("SIMSAY: PlayerController が見つかりません")
+            return
+        end
+        U.log("SIMSAY: sender=%q text=%q", sender, text)
+        local ok, err = pcall(function()
+            pc:Server_NewMessage(sender, text, 0)
+        end)
+        if not ok then U.log("SIMSAY 失敗: %s", tostring(err)) end
+    end)
 end)
 
 -- ---------------------------------------------------------------------

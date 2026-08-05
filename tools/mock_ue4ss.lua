@@ -137,6 +137,10 @@ function M.receive(sender, text, msg_type)
 end
 
 --- 自分がチャットを送信する（戻り値: 実際に送信された本文）
+---
+--- 実機では Server_NewMessage のあと、その発言が ClientNewMessage として
+--- 全員（自分を含む）に配信される。MOD は本文をそちら側で受け取るので、
+--- ここでも同じ順序で両方のフックを呼ぶ。
 function M.send(sender, text, sender_type)
     local h = M.hooks["/Script/FSD.FSDPlayerController:Server_NewMessage"]
     assert(h and h.pre, "Server_NewMessage の hook が登録されていない")
@@ -144,6 +148,9 @@ function M.send(sender, text, sender_type)
     local p_text = Param(FString(text))
     local p_type = Param(sender_type or 0)
     h.pre(Param(M.pc), p_sender, p_text, p_type)
+
+    M.receive(sender, text, 0)
+
     local v = p_text:get()
     return type(v) == "string" and v or v:ToString()
 end
