@@ -25,6 +25,12 @@ jobs:
   build:
     runs-on: windows-latest
 
+    env:
+      # Windows の Python は既定の標準出力が cp1252 なので、
+      # 日本語のログを出した瞬間に UnicodeEncodeError で落ちる
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
+
     steps:
       - uses: actions/checkout@v4
 
