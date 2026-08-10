@@ -16,7 +16,7 @@ local Cfg = require("config")
 local U   = require("util")
 local IPC = require("ipc")
 
-local MOD_VERSION = "0.4.1"
+local MOD_VERSION = "0.4.2"
 
 -- 自分の Server_NewMessage の直後に来た発言を「自分のもの」とみなす猶予(ms)。
 -- ホストなら同期実行なので即座、クライアントでもサーバ往復ぶんで足りる。
@@ -153,6 +153,23 @@ local function is_host()
     return ok and r == true
 end
 
+--- ロビーの人数。読めなければ -1。
+--- 自分ひとりなら、ホストでも PostGameMessage を使ってよい
+--- （全員に配信されるが、その「全員」が自分だけなので実質ローカル表示）。
+local function player_count()
+    local gs = get_gamestate()
+    if not is_valid(gs) then return -1 end
+    local ok, arr = pcall(function() return gs.PlayerArray end)
+    if not ok or arr == nil then return -1 end
+    -- UE4SS のバージョンで TArray の数え方が違うので両方試す
+    local ok2, n = pcall(function() return #arr end)
+    if not ok2 or type(n) ~= "number" then
+        ok2, n = pcall(function() return arr:GetArrayNum() end)
+    end
+    if ok2 and type(n) == "number" then return n end
+    return -1
+end
+
 --- 自分の名前。キャッシュを読むだけで UObject には触らない。
 ---
 --- 名前は送信フック(on_outgoing)の引数から受け取る。PlayerState を辿って
@@ -184,9 +201,10 @@ end
 --- チャットウィジェットを直接叩く（表示はローカル限定になる）
 ---
 --- ⚠ この関数は Lua のテーブルを FFSDChatMessage 構造体として渡している。
---- UE4SS は構造体引数を Lua テーブルから組み立てられないことがあり、
---- 失敗するとゲームごと落ちる（pcall では防げない）。
---- そのため strategy = "widget" を明示したときだけ使う。
+--- 実機(UE4SS 3.x / DRG 1.40)で試したところ、候補の3つの関数名すべてで
+--- 失敗した（落ちはせず pcall で捕まる）。つまり今のところ使えない。
+--- 構造体引数の組み立ては環境によっては落ちる可能性も残るため、
+--- strategy = "widget" を明示したときだけ使う。
 local function display_via_widget(text)
     local hud = get_hud_chat()
     if not hud then return false end
@@ -234,15 +252,26 @@ local function display_line(text)
     end
 
     -- auto : クライアントなら PostGameMessage（引数が FString だけなので安全）。
-    --        ホストは PostGameMessage が全員に配信されてしまい、
-    --        widget 直叩きは構造体引数で落ちる危険があるので、
-    --        既定ではゲーム内に出さず bridge のオーバーレイに任せる。
+    --        ホストは PostGameMessage が全員に配信されてしまうが、
+    --        ロビーに自分しかいなければ配信先も自分だけなので使ってよい。
+    --        他の隊員がいるときは、ゲーム内には出さずオーバーレイに任せる
+    --        （widget 直叩きは実機で動かないことを確認済み）。
     local gs = get_gamestate()
     local host = true
     if gs then host = is_authority(gs) end
     U.dbg("display auto: gamestate=%s host=%s", tostring(gs ~= nil), tostring(host))
 
     if gs and not host then
+        if display_via_gamestate(text) then
+            report_display(true)
+            return true
+        end
+    end
+
+    -- ホストでも、ロビーに自分しかいなければ PostGameMessage を使ってよい。
+    -- 全員に配信されるが、その「全員」が自分だけなので実質ローカル表示になる。
+    -- ソロで遊ぶときに何も出ないのが一番不便なので、ここで拾う。
+    if host and gs and player_count() == 1 then
         if display_via_gamestate(text) then
             report_display(true)
             return true
@@ -259,8 +288,10 @@ local function display_line(text)
     report_display(false)
     if host and not State.warned_display then
         State.warned_display = true
-        U.log("ホストなのでゲーム内チャットには出しません（他の隊員に見えてしまうため）。"
-              .. ".env の DRGT_OVERLAY_ENABLED=true で小窓に出せます")
+        U.log("ホストで他の隊員がいるので、ゲーム内チャットには出しません"
+              .. "（出すと全員に見えてしまうため）。訳を自分でも見たいときは "
+              .. ".env の DRGT_OVERLAY_ENABLED=true で小窓に出せます。"
+              .. "中継が有効なら日本語の行はチャットに流れます")
     end
     return false
 end
@@ -454,7 +485,10 @@ local function on_incoming(Context, MsgParam)
         -- 自分がホストのときは、全員に配る用の訳も一緒に作ってもらう
         -- （同じ1回の API 呼び出しで返ってくる）。
         if not Cfg.incoming.enabled then return end
-        local relay = Cfg.host_relay.enabled and is_host()
+        -- ロビーに自分しかいないなら中継しない。読む相手がいないのに
+        -- 4言語ぶん訳すのは無駄だし、チャットも埋まる。
+        -- 人数が読めない(-1)ときは今までどおり中継する。
+        local relay = Cfg.host_relay.enabled and is_host() and player_count() ~= 1
         if relay and not State.warned_relay then
             State.warned_relay = true
             U.log("ホストとして中継します（他人の発言の訳を全員のチャットに流します）。"
@@ -530,6 +564,20 @@ end)
 
 IPC.on("HELLO", function(fields)
     U.log("bridge version = %s", fields[2] or "?")
+end)
+
+--- 診断用。いまの状態をログに出す。config.lua の debug が真のときだけ動く。
+--- 「訳が出ない」「中継されない」の切り分けはここを見るのが早い。
+IPC.on("DIAG", function()
+    if not Cfg.debug then return end
+    U.in_game_thread(function()
+        local gs = get_gamestate()
+        local pc = get_pc()
+        U.log("DIAG: gamestate=%s pc=%s host=%s players=%s name=%q enabled=%s queue=%d",
+              tostring(is_valid(gs)), tostring(pc ~= nil), tostring(is_host()),
+              tostring(player_count()), get_player_name(),
+              tostring(State.enabled), #State.relay_queue)
+    end)
 end)
 
 --- 診断用。Server_NewMessage を「自分で呼んだ」印を付けずに叩くので、

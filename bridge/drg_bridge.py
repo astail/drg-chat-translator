@@ -44,7 +44,7 @@ from translate import (  # noqa: E402
     same_phrase,
 )
 
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 log = logging.getLogger("drgtl")
 
 # 応答が遅い代わりにスラングや誤字に強いプロバイダ
