@@ -220,6 +220,34 @@ pump(10)
 check(#mock.displayed == before, "自分の名前の発言は翻訳しない")
 
 -- ------------------------------------------------------------------
+-- F9（翻訳のON/OFF）
+-- ------------------------------------------------------------------
+print("-- F9 切り替え --")
+
+check(mock.keybinds["F9"] ~= nil, "F9 が登録されている")
+mock.keybinds["F9"]()          -- OFF
+before, sent_before = #mock.displayed, #mock.sent
+mock.receive("Karl", "anyone got nitra")
+pump(30)
+check(#mock.displayed == before, "OFF のあとは受信を翻訳しない")
+check(#mock.sent == sent_before, "OFF のあとは中継もしない", #mock.sent - sent_before)
+
+sent_before = #mock.sent
+mock.send("Kiyo", "テスト、聞こえますか")
+pump(20)
+check(#mock.sent == sent_before, "OFF のあとは自分の発言も翻訳しない")
+
+mock.keybinds["F9"]()          -- ON に戻す
+before, sent_before = #mock.displayed, #mock.sent
+mock.receive("Karl", "nitra right here")
+pump(40, 0.05)
+if role == "client" then
+    check(#mock.displayed > before, "ON に戻すと翻訳が再開する", last_display())
+else
+    check(#mock.sent > sent_before, "ON に戻すと中継が再開する", #mock.sent - sent_before)
+end
+
+-- ------------------------------------------------------------------
 print()
 if failures == 0 then
     print("ALL PASS")

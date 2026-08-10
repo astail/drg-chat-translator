@@ -44,7 +44,7 @@ from translate import (  # noqa: E402
     same_phrase,
 )
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 log = logging.getLogger("drgtl")
 
 # 応答が遅い代わりにスラングや誤字に強いプロバイダ
@@ -729,6 +729,12 @@ class Bridge:
             self.ingame_display_ok = ok
             log.info("ゲーム内表示: %s", "OK" if ok else "失敗（オーバーレイに切替）")
 
+        elif kind == "TOGGLE":
+            # F9 の押下。ホストだとゲーム内に出せないので、ここが唯一の反応になる
+            state = fields[1] if len(fields) > 1 else "?"
+            log.info("翻訳 %s（ゲーム内で F9 が押されました）", state)
+            self.overlay_queue.put(("in", f"[DRGTranslate] 翻訳 {state}"))
+
         elif kind == "PING":
             self.ipc.write("NOTE", "[DRGTranslate] bridge は動作中です")
 
@@ -788,10 +794,19 @@ class Bridge:
 
 
 def setup_logging(level: str) -> None:
+    """ログの出力先とレベルを設定する。2回目以降の呼び出しも効かせること。
+
+    初回起動はウィザードのあいだ warning にして、終わったら設定の
+    log_level（既定 info）に戻す、という2段構えになっている。
+    basicConfig は既にハンドラがあると黙って何もしないので、force を
+    付けないと warning のまま常駐してしまい、「黒い窓に何も流れない」
+    ことになる（初回だけ症状が出て、2回目からは直るので気づきにくい）。
+    """
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)-7s %(message)s",
         datefmt="%H:%M:%S",
+        force=True,
     )
 
 

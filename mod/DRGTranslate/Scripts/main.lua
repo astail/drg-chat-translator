@@ -16,7 +16,7 @@ local Cfg = require("config")
 local U   = require("util")
 local IPC = require("ipc")
 
-local MOD_VERSION = "0.4.0"
+local MOD_VERSION = "0.4.1"
 
 -- 自分の Server_NewMessage の直後に来た発言を「自分のもの」とみなす猶予(ms)。
 -- ホストなら同期実行なので即座、クライアントでもサーバ往復ぶんで足りる。
@@ -349,7 +349,7 @@ end
 --- まとめて送るとチャットが一瞬で流れてしまい、
 --- 1フレームで Server_NewMessage を連打することにもなる。
 local function queue_relay(lines)
-    if not Cfg.host_relay.enabled then return end
+    if not Cfg.host_relay.enabled or not State.enabled then return end
     local max_queue = Cfg.host_relay.max_queue or 12
     for _, line in ipairs(lines) do
         if line ~= "" then
@@ -364,6 +364,12 @@ end
 
 local function pump_relay()
     if #State.relay_queue == 0 then return end
+    -- F9 で切ったら、順番待ちの分は捨てる。ここを見ないと OFF にしたあとも
+    -- 数秒かけて中継が流れ続け、全員のチャットに出てしまう
+    if not State.enabled then
+        State.relay_queue = {}
+        return
+    end
     local interval = Cfg.host_relay.interval_ms or 700
     if (State.now - State.last_relay_at) < interval then return end
     State.last_relay_at = State.now
@@ -579,6 +585,9 @@ local function init()
             State.enabled = not State.enabled
             local s = State.enabled and "ON" or "OFF"
             U.log("翻訳 %s", s)
+            -- ホストのときはゲーム内に何も出せない（出すと全員に見える）。
+            -- 押しても無反応に見えるので、bridge の窓とオーバーレイに出す
+            IPC.send("TOGGLE", s)
             -- キーバインドのコールバックはゲームスレッド外で走るため、
             -- UObject に触る表示処理は必ず包んでから呼ぶ
             U.in_game_thread(function()
