@@ -60,11 +60,17 @@ function M.make_world(opts)
         M.sent[#M.sent + 1] = { sender = sender, text = text, type = sender_type }
     end
 
-    local gs = make_obj({ __name = "FSDGameState_0" })
+    -- ロビーの人数。TArray の代わりに Lua の配列を持たせる（#arr で数えられる）
+    local players = {}
+    for i = 1, (opts.players or 1) do players[i] = make_obj({ __name = "PlayerState_" .. i }) end
+
+    local gs = make_obj({ __name = "FSDGameState_0", PlayerArray = players })
     function gs:HasAuthority() return opts.is_host == true end
     function gs:PostGameMessage(text)
-        if opts.is_host then
-            error("ホストが PostGameMessage を呼んだ（全員に配信されてしまう）")
+        -- ホストが呼ぶと全員に配信される。ただしロビーに自分しかいなければ
+        -- 配信先も自分だけなので問題ない。他の隊員がいるのに呼んだら異常とする。
+        if opts.is_host and #players > 1 then
+            error("他の隊員がいるのにホストが PostGameMessage を呼んだ（全員に見えてしまう）")
         end
         M.displayed[#M.displayed + 1] = { via = "gamestate", text = text }
     end

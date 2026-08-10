@@ -19,7 +19,10 @@ package.path = table.concat({
 
 local mock = require("mock_ue4ss")
 mock.install()
-mock.make_world({ player_name = "Kiyo", is_host = (role == "host") })
+-- 中継は「ホスト かつ 他に人がいる」ときだけ働く。既定は4人ロビー想定。
+-- 人数は環境変数で変えられる（ソロの確認用）
+local players = tonumber(os.getenv("MOCK_PLAYERS") or "") or 4
+mock.make_world({ player_name = "Kiyo", is_host = (role == "host"), players = players })
 
 -- config を差し替えてから main.lua を読み込む
 local Cfg = require("config")
@@ -94,14 +97,18 @@ if role == "client" then
 
     check(mock.displayed[#mock.displayed].via == "gamestate",
           "クライアントでは PostGameMessage を使う")
-else
-    -- ホストは PostGameMessage が全員に配信されてしまい、ウィジェット直叩きは
-    -- 構造体引数でゲームごと落ちる危険がある。既定ではゲーム内に出さず、
-    -- bridge のオーバーレイに任せる。
+elseif players >= 2 then
+    -- 他の隊員がいるホストでは、PostGameMessage が全員に配信されてしまうので
+    -- ゲーム内には出さない。ウィジェット直叩きは実機で動かないので試さない。
     check(#mock.displayed == before,
-          "ホストではゲーム内に出さない（全員に見えるのを防ぐ）", last_display())
+          "他の隊員がいるホストではゲーム内に出さない", last_display())
     check(mock.displayed_widget_attempts == 0,
           "ホストでもウィジェット直叩きは試さない", mock.displayed_widget_attempts)
+else
+    -- ソロなら配信先が自分だけなので PostGameMessage を使ってよい
+    check(#mock.displayed > before, "ソロのホストではゲーム内に出す", last_display())
+    check(mock.displayed[#mock.displayed].via == "gamestate",
+          "そのとき使うのは PostGameMessage")
 end
 
 -- ------------------------------------------------------------------
@@ -120,7 +127,9 @@ for i = relay_before + 1, #mock.sent do
     senders[#senders + 1] = mock.sent[i].sender
 end
 
-if role == "host" then
+if role == "host" and players == 1 then
+    check(#relayed == 0, "ソロ（自分しかいない）なら中継しない", table.concat(relayed, " | "))
+elseif role == "host" then
     check(#relayed == 3, "ホストは発言者以外の3言語ぶんを中継する", #relayed)
     check(#relayed > 0 and relayed[1]:find("^%[JP%]") ~= nil,
           "1行目は日本語（1言語1行で送る）", relayed[1])
@@ -241,7 +250,8 @@ mock.keybinds["F9"]()          -- ON に戻す
 before, sent_before = #mock.displayed, #mock.sent
 mock.receive("Karl", "nitra right here")
 pump(40, 0.05)
-if role == "client" then
+if role == "client" or players == 1 then
+    -- クライアントとソロのホストは、自分に見える表示で確認する
     check(#mock.displayed > before, "ON に戻すと翻訳が再開する", last_display())
 else
     check(#mock.sent > sent_before, "ON に戻すと中継が再開する", #mock.sent - sent_before)
