@@ -114,11 +114,12 @@ end
 
 --- 翻訳リクエスト
 --- kind: "in" (受信文を日本語へ) / "out" (自分の発言を外国語へ)
-function M.request(kind, sender, text, on_result, on_error)
+--- host: 真なら bridge が中継用の訳も一緒に返す（自分がホストのときだけ）
+function M.request(kind, sender, text, on_result, on_error, host)
     local id = next_id
     next_id = next_id + 1
     pending[id] = { on_result = on_result, on_error = on_error, kind = kind, text = text }
-    M.send("REQ", tostring(id), kind, sender or "", text or "")
+    M.send("REQ", tostring(id), kind, sender or "", text or "", host and "1" or "0")
     return id
 end
 
@@ -134,7 +135,12 @@ local function dispatch(fields)
         if p then
             pending[id] = nil
             if p.on_result then
-                p.on_result(fields[4] or "", fields[5] or "", p)
+                -- 6番目以降は中継用の行（1言語1行）。無ければ空のテーブル
+                local extra = {}
+                for i = 6, #fields do
+                    if fields[i] ~= "" then extra[#extra + 1] = fields[i] end
+                end
+                p.on_result(fields[4] or "", fields[5] or "", extra, p)
             end
         end
         return

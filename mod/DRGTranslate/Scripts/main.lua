@@ -16,7 +16,7 @@ local Cfg = require("config")
 local U   = require("util")
 local IPC = require("ipc")
 
-local MOD_VERSION = "0.3.0"
+local MOD_VERSION = "0.4.0"
 
 -- 自分の Server_NewMessage の直後に来た発言を「自分のもの」とみなす猶予(ms)。
 -- ホストなら同期実行なので即座、クライアントでもサーバ往復ぶんで足りる。
@@ -38,9 +38,15 @@ local State = {
     local_sent_at  = 0,       -- 自分が最後に Server_NewMessage を通した時刻
     display_ok     = nil,      -- ゲーム内表示が成功しているか
     warned_display = false,
+    relay_queue    = {},       -- ホストとして全員に流す順番待ちの行
+    last_relay_at  = 0,
+    warned_relay   = false,
 }
 
 U.set_debug(Cfg.debug)
+
+-- 古い config.lua のまま MOD だけ更新された場合でも動くようにしておく
+Cfg.host_relay = Cfg.host_relay or { enabled = true }
 
 -- ---------------------------------------------------------------------
 -- UObject 取得ヘルパー
@@ -135,6 +141,16 @@ local function is_authority(actor)
     local ok, r = pcall(function() return actor:HasAuthority() end)
     if ok and type(r) == "boolean" then return r end
     return true
+end
+
+--- 自分がホストか。上の is_authority と違い、判定できなければ false を返す。
+--- どちらも「確信が持てないなら他人に見せない」方向へ倒すための既定値で、
+--- 中継はホストだと確認できたときだけ行う。
+local function is_host()
+    local gs = get_gamestate()
+    if not is_valid(gs) then return false end
+    local ok, r = pcall(function() return gs:HasAuthority() end)
+    return ok and r == true
 end
 
 --- 自分の名前。キャッシュを読むだけで UObject には触らない。
@@ -295,6 +311,67 @@ local function send_chat(sender, text, sender_type)
 end
 
 -- ---------------------------------------------------------------------
+-- 中継（ホストのときだけ、他人の発言の訳を全員に配る）
+-- ---------------------------------------------------------------------
+
+--- 1行を全員に流す。ゲームスレッドから呼ぶこと。
+local function broadcast_relay(text)
+    if text == nil or text == "" then return false end
+
+    if Cfg.host_relay.method == "gamemsg" then
+        -- ホストの PostGameMessage は全員に配信される（クライアントだと自分だけ）。
+        -- 自分の受信フックにも戻ってくるので、控えを取ってから流す。
+        remember_own(text)
+        return display_via_gamestate(text)
+    end
+
+    -- 行頭の "[JP] Karl: " から元の発言者を拾う
+    local original = text:match("^%[[%w%-]+%]%s*([^:]+):")
+    local sender = get_player_name()
+    -- 自分の名前は一度発言するまで分からない。その間は元の発言者名で送る
+    if original and (Cfg.host_relay.sender == "original" or sender == "") then
+        sender = original
+        -- 送信者名が元の発言者になるので、本文側の名前は落とす。
+        -- そのままだと "Karl: [JP] Karl: ..." と二重になる
+        text = text:gsub("^(%[[%w%-]+%])%s*[^:]+:%s*", "%1 ")
+    end
+    return send_chat(sender, text, 0)
+end
+
+--- 中継された行（"[JP] Karl: ..."）か。
+--- ホストが流した訳文を、受け取った側がもう一度翻訳しないようにする。
+--- 自分が流したぶんは own_sent で弾けるが、他人がホストの場合はこれで判定する。
+local function is_relay_line(text)
+    return text:match("^%[%u%u%u?%]%s") ~= nil
+end
+
+--- 中継行を順番待ちに入れる。1行ずつ間隔を空けて送るため、ここでは送らない。
+--- まとめて送るとチャットが一瞬で流れてしまい、
+--- 1フレームで Server_NewMessage を連打することにもなる。
+local function queue_relay(lines)
+    if not Cfg.host_relay.enabled then return end
+    local max_queue = Cfg.host_relay.max_queue or 12
+    for _, line in ipairs(lines) do
+        if line ~= "" then
+            State.relay_queue[#State.relay_queue + 1] = line
+        end
+    end
+    -- 溢れた分は古いものから捨てる。遅れて出る訳文は価値が薄い
+    while #State.relay_queue > max_queue do
+        table.remove(State.relay_queue, 1)
+    end
+end
+
+local function pump_relay()
+    if #State.relay_queue == 0 then return end
+    local interval = Cfg.host_relay.interval_ms or 700
+    if (State.now - State.last_relay_at) < interval then return end
+    State.last_relay_at = State.now
+    local line = table.remove(State.relay_queue, 1)
+    U.in_game_thread(function() broadcast_relay(line) end)
+end
+
+-- ---------------------------------------------------------------------
 -- 自分の発言を翻訳するか判定
 -- ---------------------------------------------------------------------
 
@@ -331,6 +408,12 @@ local function on_incoming(Context, MsgParam)
         local expires_at = State.own_sent[text]
         if expires_at and expires_at > State.now then return end
 
+        -- ホストが流した中継行は翻訳しない（訳文をさらに訳すことになるため）
+        if is_relay_line(text) then
+            U.dbg("中継行なので翻訳しません: %s", text)
+            return
+        end
+
         -- この発言が自分のものか判定する。
         -- 名前が分かっていればそれで照合し、まだなら「直前に自分の
         -- Server_NewMessage が走ったか」で判定して、そのとき名前を覚える。
@@ -361,13 +444,23 @@ local function on_incoming(Context, MsgParam)
             return
         end
 
-        -- 他人の発言。訳文を自分にだけ出す
+        -- 他人の発言。訳文を自分にだけ出す。
+        -- 自分がホストのときは、全員に配る用の訳も一緒に作ってもらう
+        -- （同じ1回の API 呼び出しで返ってくる）。
         if not Cfg.incoming.enabled then return end
-        U.dbg("受信: [%s] %s", sender, text)
-        IPC.request("in", sender, text, function(_, outtext)
-            if outtext == "" then return end
-            U.in_game_thread(function() display_line(outtext) end)
-        end)
+        local relay = Cfg.host_relay.enabled and is_host()
+        if relay and not State.warned_relay then
+            State.warned_relay = true
+            U.log("ホストとして中継します（他人の発言の訳を全員のチャットに流します）。"
+                  .. "止めるときは .env の DRGT_RELAY_ENABLED=false")
+        end
+        U.dbg("受信: [%s] %s (中継=%s)", sender, text, tostring(relay))
+        IPC.request("in", sender, text, function(_, outtext, relay_lines)
+            U.in_game_thread(function()
+                if outtext ~= "" then display_line(outtext) end
+            end)
+            if relay_lines and #relay_lines > 0 then queue_relay(relay_lines) end
+        end, nil, relay)
     end)
 
     if not ok then U.dbg("on_incoming error: %s", tostring(err)) end
@@ -501,6 +594,7 @@ local function init()
 
         IPC.poll()
         IPC.flush()
+        pump_relay()
 
         if (State.now - State.last_alive_at) >= 1000 then
             State.last_alive_at = State.now

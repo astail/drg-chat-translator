@@ -1,0 +1,93 @@
+# タグを打つとリリースされる。
+#
+#     git tag v0.5.0
+#     git push origin v0.5.0
+#
+# Windows ランナーで exe をビルドし、設定ファイルと一緒に zip にして
+# GitHub Releases へ添付する。ダウンロードした人は zip を展開して
+# exe を実行し、APIキーを入れるだけで使える状態になる。
+#
+# 手動実行(workflow_dispatch)もできる。その場合はリリースを作らず、
+# zip を Actions の成果物として残すだけなので、公開前の確認に使える。
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write # リリースの作成に必要
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 依存を入れる
+        run: python -m pip install --upgrade pip pyinstaller anthropic openai
+
+      - name: タグとソースのバージョンが一致するか確認
+        # v0.5.0 のタグなのに中身が 0.4.1、という取り違えを防ぐ。
+        # タグ名は環境変数経由で渡す（run に直接埋め込まない）
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash # ヒアドキュメントを使うので pwsh ではなく bash
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os, re, sys, pathlib
+          tag = os.environ["TAG_NAME"].lstrip("v")
+          src = pathlib.Path("bridge/drg_bridge.py").read_text(encoding="utf-8")
+          m = re.search(r'^VERSION\s*=\s*"([^"]+)"', src, re.M)
+          ver = m.group(1) if m else "?"
+          if tag != ver:
+              sys.exit(f"タグ {tag} と bridge の VERSION {ver} が一致しません")
+          print(f"バージョン一致: {ver}")
+          PY
+
+      - name: テスト（APIキー不要）
+        run: python bridge/drg_bridge.py --selftest --fake
+
+      - name: exe をビルド
+        run: python -m PyInstaller DRGTranslate.spec --noconfirm
+
+      - name: 配布用 zip を作る
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        shell: pwsh
+        run: |
+          $name = if ($env:GITHUB_REF -like 'refs/tags/*') { $env:TAG_NAME } else { 'dev' }
+          $dir  = "DRGTranslate-$name-win64"
+          New-Item -ItemType Directory -Path $dir | Out-Null
+          Copy-Item dist\DRGTranslate.exe $dir\
+          Copy-Item .env.example           $dir\
+          Copy-Item README.md              $dir\
+          Copy-Item LICENSE                $dir\
+          # 手引き（はじめに.txt）。日本語のファイル名を直接書くと
+          # ランナー側の文字コードで壊れることがあるのでワイルドカードで拾う
+          Copy-Item docs\*.txt             $dir\
+          Compress-Archive -Path $dir -DestinationPath "$dir.zip"
+          "ZIP_NAME=$dir.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: 成果物として残す（手動実行の確認用）
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_NAME }}
+          path: ${{ env.ZIP_NAME }}
+
+      - name: リリースを作って zip を添付
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: gh release create "$env:TAG_NAME" "$env:ZIP_NAME" --generate-notes --title "$env:TAG_NAME"

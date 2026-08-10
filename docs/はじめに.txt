@@ -1,0 +1,52 @@
+DRGTranslate - Deep Rock Galactic チャット自動翻訳
+==================================================
+
+■ 使い方（3ステップ）
+
+  1. DRGTranslate.exe をダブルクリック
+  2. 画面の案内どおりに進む
+       ・ゲームの場所を自動で探します
+       ・UE4SS が入っていなければ導入するか聞かれます（Y）
+       ・MOD をゲームへコピーします
+       ・翻訳サービスを選び、APIキーを貼り付けます
+  3. 黒い窓が出たまま Deep Rock Galactic を起動
+
+  2回目以降は exe を起動するだけです（設定は聞かれません）。
+
+■ 用意するもの
+
+  翻訳サービスのAPIキー（どれか1つ）
+
+    DeepL   https://www.deepl.com/pro-api        月50万文字まで無料
+    Claude  https://console.anthropic.com/       スラングに強い（従量課金）
+    OpenAI  https://platform.openai.com/api-keys 同上
+
+  Python のインストールは不要です（exe に同梱されています）。
+
+■ できること
+
+  受信  英語・韓国語・中国語などのチャットを日本語にして表示
+  送信  日本語で打つと 英語・韓国語・中国語 に翻訳して送信
+  中継  自分がホストのときは、他の隊員の発言の訳を全員のチャットに流す
+
+  F9 キーで翻訳の ON/OFF を切り替えられます。
+
+■ 設定を変える
+
+  exe と同じ場所に .env が作られます。メモ帳で開いて編集できます。
+  同梱の .env.example に全項目の説明が書いてあります。
+
+  よく変える項目:
+    DRGT_OUTGOING_TARGETS=en,ko,zh   送信時の翻訳先
+    DRGT_RELAY_ENABLED=false         ホストでも中継しない
+    DRGT_OVERLAY_ENABLED=true        ゲーム内に出ないときの小窓
+
+■ 注意
+
+  ・ゲームの言語を「日本語」にしてください（□□□ 対策）
+  ・署名していない exe なので、ウイルス対策ソフトが警告を出すことがあります
+  ・チャット本文が翻訳サービスに送信されます
+
+詳細は README.md、または https://github.com/astail/drg-translation
+
+MIT License / Ghost Ship Games とは無関係の非公式ファンプロジェクトです。

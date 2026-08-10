@@ -91,6 +91,14 @@ def _normalize(text: str) -> str:
     return _NORM_RE.sub("", text.strip().lower())
 
 
+def same_phrase(a: str, b: str) -> bool:
+    """記号・空白・大文字小文字の違いを無視して同じ文言か。
+
+    "Rock and Stone!" と "rock and stone" を同じものとして扱いたい場面で使う。
+    """
+    return _normalize(a) == _normalize(b)
+
+
 class Glossary:
     """定型句をAPIに投げずに直接置き換えるための対応表。
 
@@ -225,14 +233,26 @@ def _http(url: str, *, data: bytes | None = None, headers: dict | None = None,
 
 
 LANG_NAMES = {
-    "ja": "Japanese", "en": "English", "ko": "Korean", "zh": "Chinese",
+    "ja": "Japanese", "en": "English", "ko": "Korean",
+    # 中国語は字体を書き分ける。ただ "Chinese" とだけ言うと簡体字と繁体字が
+    # 混ざって返ってくることがある。zh = 簡体字（中国大陸）を既定とする
+    "zh": "Simplified Chinese (as used in mainland China)",
+    "zh-tw": "Traditional Chinese (as used in Taiwan)",
     "ru": "Russian", "de": "German", "fr": "French", "es": "Spanish",
     "pt": "Portuguese", "it": "Italian", "pl": "Polish", "tr": "Turkish",
 }
 
+# 「元言語」として書くときは字体を限定しない。受信側の字体判定はしていないので、
+# 繁体字の発言を「簡体字から訳せ」と指示してしまわないようにする
+SOURCE_LANG_NAMES = {"zh": "Chinese", "zh-tw": "Chinese"}
+
 
 def lang_name(code: str) -> str:
     return LANG_NAMES.get(code, code)
+
+
+def source_lang_name(code: str) -> str:
+    return SOURCE_LANG_NAMES.get(code) or lang_name(code)
 
 
 class Provider:
@@ -293,8 +313,10 @@ class DeepLProvider(Provider):
 
     name = "deepl"
 
-    _LANG = {"en": "EN-US", "ko": "KO", "ja": "JA", "zh": "ZH", "de": "DE",
-             "fr": "FR", "es": "ES", "ru": "RU", "pt": "PT-BR", "it": "IT"}
+    # DeepL の "ZH" は簡体字。繁体字は "ZH-HANT" を明示する必要がある。
+    # source_lang には字体付きのコードを送れないので、下で "-" 以降を落としている
+    _LANG = {"en": "EN-US", "ko": "KO", "ja": "JA", "zh": "ZH", "zh-tw": "ZH-HANT",
+             "de": "DE", "fr": "FR", "es": "ES", "ru": "RU", "pt": "PT-BR", "it": "IT"}
 
     def setup_problem(self) -> str | None:
         if (self.opts.get("api_key") or os.environ.get("DEEPL_AUTH_KEY") or "").strip():
@@ -372,6 +394,12 @@ Missions: mining expedition=採掘遠征, egg hunt=卵狩り, elimination=殲滅
 Other: haz / hazard=ハザード, overclock=オーバークロック, perk=パーク,
   promotion=昇進, swarm=スウォーム, machine event=マシンイベント,
   Hoxxes=ホクシス, Karl=カール
+
+When translating into Chinese, write Simplified Chinese as used in mainland China —
+never Traditional characters — unless the target language explicitly says Traditional.
+Use the terms from the game's official Simplified Chinese localization for minerals,
+enemies, classes and missions, and leave short English chat abbreviations
+(gg, afk, brb, ez, nice) as they are.
 
 Keep these as-is rather than translating them: Rock and Stone (the players'
 rallying cry), leaf lover (an insult for a non-dwarf — リーフラバー).
@@ -459,10 +487,10 @@ class LLMProvider(Provider):
         if cached:
             return cached
 
-        src = lang_name(source) if source else "whatever language it is written in"
+        src = source_lang_name(source) if source else "whatever language it is written in"
         parts = [GAME_CONTEXT, ""]
         if as_json:
-            fields = ", ".join(f'"{t}" ({lang_name(t)})' for t in targets)
+            fields = ", ".join(f'"{t}" = {lang_name(t)}' for t in targets)
             parts.append(
                 f"Translate the user's message from {src} into each of these "
                 f"languages and return a JSON object with exactly these keys: {fields}. "

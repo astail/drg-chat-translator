@@ -41,9 +41,10 @@ from translate import (  # noqa: E402
     build_provider,
     detect_language,
     is_translatable,
+    same_phrase,
 )
 
-VERSION = "0.4.1"
+VERSION = "0.5.0"
 log = logging.getLogger("drgtl")
 
 # 応答が遅い代わりにスラングや誤字に強いプロバイダ
@@ -104,10 +105,23 @@ DEFAULTS: dict = {
     "outgoing": {
         "enabled": True,
         "source": "ja",
-        "targets": ["en", "ko"],
+        # zh は簡体字（中国大陸）。DRG の中国語話者はこちらが大多数
+        "targets": ["en", "ko", "zh"],
         "separator": " / ",
         "include_source": False,
         "max_chars": 200,
+    },
+    # 中継（自分がホストのときだけ、他人の発言の訳を全員に配る）
+    #
+    # 発言者の言語は除いて訳す。英語の発言なら ja/ko/zh、
+    # 韓国語の発言なら ja/en/zh、どれでもない言語なら4つすべて。
+    # 1言語=1行で送る（1行にまとめるとチャットの文字数制限に引っかかる）。
+    "relay": {
+        "enabled": True,
+        "targets": ["ja", "en", "ko", "zh"],
+        "format": "[{lang}] {sender}: {text}",
+        "max_chars": 200,
+        "max_lines": 4,
     },
     # exe のときは exe の隣、ソース実行のときは bridge/ の下
     "cache": {
@@ -140,6 +154,10 @@ DEFAULTS: dict = {
     },
     "log_level": "info",
 }
+
+
+# 中継行に付ける言語の目印。チャットで見慣れた書き方に寄せる（ja→JP, ko→KR）
+LANG_TAGS = {"ja": "JP", "ko": "KR"}
 
 
 def load_dotenv(path: str) -> int:
@@ -252,10 +270,17 @@ def build_config() -> dict:
         "outgoing": {
             "enabled": _bool("DRGT_OUTGOING_ENABLED", True),
             "source": _str("DRGT_OUTGOING_SOURCE", "ja"),
-            "targets": _list("DRGT_OUTGOING_TARGETS", ["en", "ko"]),
+            "targets": _list("DRGT_OUTGOING_TARGETS", d["outgoing"]["targets"]),
             "separator": os.environ.get("DRGT_OUTGOING_SEPARATOR") or " / ",
             "include_source": _bool("DRGT_OUTGOING_INCLUDE_SOURCE", False),
             "max_chars": _int("DRGT_OUTGOING_MAX_CHARS", 200),
+        },
+        "relay": {
+            "enabled": _bool("DRGT_RELAY_ENABLED", d["relay"]["enabled"]),
+            "targets": _list("DRGT_RELAY_TARGETS", d["relay"]["targets"]),
+            "format": _str("DRGT_RELAY_FORMAT", d["relay"]["format"]),
+            "max_chars": _int("DRGT_RELAY_MAX_CHARS", d["relay"]["max_chars"]),
+            "max_lines": _int("DRGT_RELAY_MAX_LINES", d["relay"]["max_lines"]),
         },
         "cache": {
             "enabled": _bool("DRGT_CACHE_ENABLED", True),
@@ -526,46 +551,102 @@ class Bridge:
 
     # -- 翻訳処理 ---------------------------------------------------------
 
-    def translate_incoming(self, text: str) -> tuple[str, str]:
-        """受信文を日本語にする。(検出言語, 訳文) を返す。訳文が空なら表示しない。
+    def relay_targets(self, source_lang: str) -> list[str]:
+        """中継先の言語。発言者の言語は除く（訳す意味がないため）。"""
+        rel = self.cfg["relay"]
+        if not rel["enabled"]:
+            return []
+        targets = [t for t in rel["targets"] if t != source_lang]
+        return targets[: max(0, int(rel["max_lines"]))]
+
+    def translate_incoming(self, text: str, relay: bool = False
+                           ) -> tuple[str, str, dict[str, str]]:
+        """受信文を訳す。(検出言語, 日本語訳, 中継用の訳) を返す。
 
         用語集の判定を含む本番と同じ経路。--test からも呼ぶので、
         利用者が試したときに実際に出るものと同じ結果になる。
+
+        relay=True（自分がホストのとき）は、全員に配る用の訳も一緒に作る。
+        日本語訳と中継用をまとめて1回の API 呼び出しで取るので、
+        中継を入れても呼び出し回数は増えない。
         """
         inc = self.cfg["incoming"]
         if not inc["enabled"]:
-            return "", ""
+            return "", "", {}
         if len(text) > int(inc["max_chars"]) or not is_translatable(text):
-            return "", ""
+            return "", "", {}
 
         lang = detect_language(text)
         if lang in set(inc["skip_languages"]):
-            return lang, ""
+            return lang, "", {}
+
+        target = inc["target"]
+        targets = self.relay_targets(lang) if relay else []
+        if relay and len(text) > int(self.cfg["relay"]["max_chars"]):
+            targets = []
 
         hit = self.glossary.lookup_incoming(text)
+
+        # 用語集の訳が原文と同じ＝どの言語でもそのまま使う掛け声。
+        # 中継しても同じ文字列が並ぶだけなので、API を呼ぶ前に打ち切る
+        # （"Rock and Stone!" は連呼されるので、ここを通すと呼び出しが嵩む）
+        if hit is not None and same_phrase(hit, text):
+            targets = []
+
+        if not targets:
+            # 中継しないときは今までどおり1言語だけ。
+            # プロバイダ自身の言語判定（DeepL の detected_source_language）も使える。
+            if hit is not None:
+                return lang, hit, {}
+            # 訳文が原文と同じでも表示する。"Rock and Stone!" のような
+            # ゲーム固有の掛け声は、そのまま出るのが正しい訳のため。
+            translated, detected = self.translator.translate(text, None, target)
+            return detected, translated, {}
+
+        pending = list(targets)
+        if hit is None and target not in pending:
+            pending.append(target)
+        results = self.translator.translate_multi(text, None, pending)
         if hit is not None:
-            return lang, hit
+            results.setdefault(target, hit)
+        # 原文と変わらない訳は中継しない。掛け声のたぐいは訳しても同じ文字列に
+        # なることがあり、流すとチャットが荒れるだけになる
+        relayed = {t: results[t] for t in targets
+                   if results.get(t) and not same_phrase(results[t], text)}
+        return lang, results.get(target, ""), relayed
 
-        # 訳文が原文と同じでも表示する。"Rock and Stone!" のような
-        # ゲーム固有の掛け声は、そのまま出るのが正しい訳のため。
-        translated, detected = self.translator.translate(text, None, inc["target"])
-        return detected, translated
+    def relay_lines(self, sender: str, text: str, relayed: dict[str, str]) -> list[str]:
+        """中継用の訳を1言語1行に整える。
 
-    def _do_incoming(self, req_id: str, sender: str, text: str) -> None:
+        1行にまとめるとチャットの文字数制限に引っかかるので分けている。
+        """
+        fmt = self.cfg["relay"]["format"]
+        return [
+            fmt.format(lang=LANG_TAGS.get(code, code.upper()),
+                       sender=sender, text=value, original=text)
+            for code, value in relayed.items()
+        ]
+
+    def _do_incoming(self, req_id: str, sender: str, text: str,
+                     host: bool = False) -> None:
         inc = self.cfg["incoming"]
         try:
-            detected, translated = self.translate_incoming(text)
-            if not translated:
+            detected, translated, relayed = self.translate_incoming(text, relay=host)
+            if not translated and not relayed:
                 self.ipc.write("RES", req_id, "in", detected, "")
                 return
 
             lang = detected or detect_language(text)
             line = inc["format"].format(
                 sender=sender, text=translated, lang=lang.upper(), original=text
-            )
-            self.ipc.write("RES", req_id, "in", detected, line)
-            self.overlay_queue.put(("in", line))
+            ) if translated else ""
+            relay_lines = self.relay_lines(sender, text, relayed)
+            self.ipc.write("RES", req_id, "in", detected, line, *relay_lines)
+            if line:
+                self.overlay_queue.put(("in", line))
             log.info("受信 [%s] %s -> %s", sender, text, translated)
+            if relay_lines:
+                log.info("中継(ホスト) %s", " | ".join(relay_lines))
         except TranslationError as exc:
             log.warning("受信翻訳に失敗: %s", exc)
             self.ipc.write("ERR", req_id, str(exc))
@@ -626,8 +707,10 @@ class Bridge:
 
         if kind == "REQ" and len(fields) >= 5:
             req_id, req_kind, sender, text = fields[1], fields[2], fields[3], fields[4]
+            # 6番目は「自分がホストか」。ホストかどうかを知っているのは mod 側だけ
+            host = len(fields) > 5 and fields[5] == "1"
             if req_kind == "in":
-                self.pool.submit(self._do_incoming, req_id, sender, text)
+                self.pool.submit(self._do_incoming, req_id, sender, text, host)
             elif req_kind == "out":
                 self.pool.submit(self._do_outgoing, req_id, text)
             else:
@@ -719,12 +802,15 @@ def run_test(bridge: Bridge, text: str) -> int:
         if detect_language(text) == "ja":
             print(f"送信用翻訳: {bridge.translate_outgoing(text)}")
         else:
-            # 本番の受信経路と同じもの（用語集の判定を含む）を通す
-            detected, translated = bridge.translate_incoming(text)
+            # 本番の受信経路と同じもの（用語集の判定を含む）を通す。
+            # ホストのときに全員へ配る中継文もここで確認できる
+            detected, translated, relayed = bridge.translate_incoming(text, relay=True)
             if translated:
                 print(f"受信用翻訳: {translated}  (元言語: {detected or '不明'})")
             else:
                 print(f"受信用翻訳: (翻訳しません。元言語: {detected or '判定不能'})")
+            for line in bridge.relay_lines("Karl", text, relayed):
+                print(f"中継(ホスト): {line}")
     except TranslationError as exc:
         print(f"失敗: {exc}")
         return 1
@@ -746,12 +832,14 @@ def run_selftest(bridge: Bridge) -> int:
         f.write(encode_line("REQ", "3", "in", "민수", "안녕하세요"))
         f.write(encode_line("REQ", "4", "in", "Someone", "こんにちは"))
         f.write(encode_line("REQ", "5", "out", "Me", "回復お願いします"))
+        # 6番目のフィールド "1" = 自分がホスト。訳文に加えて中継用の行も返るはず
+        f.write(encode_line("REQ", "6", "in", "Karl", "swarm from the left", "1"))
         f.write(encode_line("DISPLAY", "ok"))
 
     deadline = time.time() + 25
     seen: dict[str, list[str]] = {}
     offset = 0
-    while time.time() < deadline and len(seen) < 6:
+    while time.time() < deadline and len(seen) < 7:
         time.sleep(0.2)
         try:
             with open(bridge.ipc.p_out, "rb") as f:
@@ -770,13 +858,18 @@ def run_selftest(bridge: Bridge) -> int:
     bridge.stop()
     ok = True
     print("\n--- selftest 結果 ---")
-    for key in ("HELLO", "1", "2", "3", "4", "5"):
+    for key in ("HELLO", "1", "2", "3", "4", "5", "6"):
         fields = seen.get(key)
         if fields is None:
             print(f"  {key}: 応答なし")
             ok = False
             continue
         print(f"  {key}: {fields}")
+    # 6 はホストとしての受信。日本語訳(5番目)に加えて中継行が付いていること
+    relay = seen.get("6") or []
+    if len(relay) < 6:
+        print("  !! 中継行が返っていません")
+        ok = False
     print("--- " + ("PASS" if ok else "FAIL") + " ---")
     return 0 if ok else 1
 

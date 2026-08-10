@@ -104,6 +104,60 @@ else
           "ホストでもウィジェット直叩きは試さない", mock.displayed_widget_attempts)
 end
 
+-- ------------------------------------------------------------------
+-- 中継（ホストのときだけ、他人の発言の訳を全員に配る）
+-- ------------------------------------------------------------------
+print("-- 中継 --")
+
+pump(40, 0.05)   -- 上の受信で溜まった中継行を出し切ってから数える
+
+local relay_before = #mock.sent
+mock.receive("Karl", "swarm from the left")
+pump(40, 0.05)   -- 1行ずつ間隔を空けて送るので長めに回す
+local relayed, senders = {}, {}
+for i = relay_before + 1, #mock.sent do
+    relayed[#relayed + 1] = mock.sent[i].text
+    senders[#senders + 1] = mock.sent[i].sender
+end
+
+if role == "host" then
+    check(#relayed == 3, "ホストは発言者以外の3言語ぶんを中継する", #relayed)
+    check(#relayed > 0 and relayed[1]:find("^%[JP%]") ~= nil,
+          "1行目は日本語（1言語1行で送る）", relayed[1])
+    local tags = table.concat(relayed, " ")
+    check(tags:find("[KR]", 1, true) ~= nil and tags:find("[ZH]", 1, true) ~= nil,
+          "韓国語・中国語の行も流れる", tags)
+    check(tags:find("[EN]", 1, true) == nil, "発言者の言語(EN)は中継しない", tags)
+    -- まだ一度も発言していないので自分の名前が分からない。
+    -- そのときは元の発言者名で送り、本文側の名前は落とす（二重表示の防止）
+    check(senders[1] == "Karl", "自分の名前が未判明なら元の発言者名で送る", senders[1])
+    check(relayed[1]:find("Karl", 1, true) == nil,
+          "本文に発言者名が二重に入らない", relayed[1])
+
+    -- 一度発言して名前が分かったあとは、自分の名前で中継する
+    mock.send("Kiyo", "了解です")
+    pump(20)
+    local after = #mock.sent
+    mock.receive("Karl", "nitra over here")
+    pump(40, 0.05)
+    check(#mock.sent > after and mock.sent[after + 1].sender == "Kiyo",
+          "名前が判明したあとは自分の名前で中継する",
+          #mock.sent > after and mock.sent[after + 1].sender or "送信なし")
+    check(#mock.sent > after and mock.sent[after + 1].text:find("Karl", 1, true) ~= nil,
+          "そのときは本文に元の発言者名が入る",
+          #mock.sent > after and mock.sent[after + 1].text or "送信なし")
+else
+    check(#relayed == 0, "クライアントは中継しない", table.concat(relayed, " | "))
+end
+
+-- 中継行を受け取ってもさらに翻訳しない（ホスト・クライアント共通）
+relay_before = #mock.sent
+before = #mock.displayed
+mock.receive("Karl", "[JP] Someone: 気をつけろ")
+pump(20)
+check(#mock.displayed == before and #mock.sent == relay_before,
+      "中継された行は翻訳も再中継もしない")
+
 before = #mock.displayed
 mock.receive("Someone", "こんにちは")
 pump(10)
@@ -151,7 +205,7 @@ mock.send("Kiyo", "弾がない")
 pump(12)
 check(#mock.sent > sent_before, "用語集の定型句も2通目として送られる")
 if #mock.sent > sent_before then
-    check(mock.sent[#mock.sent].text == "I'm out of ammo / 탄약이 없어요",
+    check(mock.sent[#mock.sent].text == "I'm out of ammo / 탄약이 없어요 / 我没弹药了",
           "送信側の用語集がヒットする", mock.sent[#mock.sent].text)
 end
 
