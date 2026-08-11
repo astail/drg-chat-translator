@@ -44,7 +44,7 @@ from translate import (  # noqa: E402
     same_phrase,
 )
 
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 log = logging.getLogger("drgtl")
 
 # 応答が遅い代わりにスラングや誤字に強いプロバイダ
@@ -569,6 +569,10 @@ class Bridge:
         relay=True（自分がホストのとき）は、全員に配る用の訳も一緒に作る。
         日本語訳と中継用をまとめて1回の API 呼び出しで取るので、
         中継を入れても呼び出し回数は増えない。
+
+        skip_languages（既定は日本語）に当たる発言でも、中継用の訳は作る。
+        自分は読めるが他の言語の人は読めない、という発言のためで、
+        このとき日本語訳は空で返る。
         """
         inc = self.cfg["incoming"]
         if not inc["enabled"]:
@@ -577,8 +581,10 @@ class Bridge:
             return "", "", {}
 
         lang = detect_language(text)
-        if lang in set(inc["skip_languages"]):
-            return lang, "", {}
+        # skip_languages は「自分のチャットに訳を出さない言語」。
+        # ここで打ち切ると中継まで一緒に止まり、日本語で話す人の発言だけが
+        # 他の言語の人に届かなくなる。自分向けの訳を作らないだけにする。
+        skip_self = lang in set(inc["skip_languages"])
 
         target = inc["target"]
         targets = self.relay_targets(lang) if relay else []
@@ -596,6 +602,9 @@ class Bridge:
         if not targets:
             # 中継しないときは今までどおり1言語だけ。
             # プロバイダ自身の言語判定（DeepL の detected_source_language）も使える。
+            if skip_self:
+                # 自分にも出さず中継もしないなら、API を呼ぶ理由がない
+                return lang, "", {}
             if hit is not None:
                 return lang, hit, {}
             # 訳文が原文と同じでも表示する。"Rock and Stone!" のような
@@ -603,17 +612,19 @@ class Bridge:
             translated, detected = self.translator.translate(text, None, target)
             return detected, translated, {}
 
+        # 自分向けに出さない言語なら、その訳は頼まない（ja の発言を ja に
+        # 訳させるだけで、費用も応答時間も無駄になる）
         pending = list(targets)
-        if hit is None and target not in pending:
+        if not skip_self and hit is None and target not in pending:
             pending.append(target)
         results = self.translator.translate_multi(text, None, pending)
-        if hit is not None:
+        if not skip_self and hit is not None:
             results.setdefault(target, hit)
         # 原文と変わらない訳は中継しない。掛け声のたぐいは訳しても同じ文字列に
         # なることがあり、流すとチャットが荒れるだけになる
         relayed = {t: results[t] for t in targets
                    if results.get(t) and not same_phrase(results[t], text)}
-        return lang, results.get(target, ""), relayed
+        return lang, "" if skip_self else results.get(target, ""), relayed
 
     def relay_lines(self, sender: str, text: str, relayed: dict[str, str]) -> list[str]:
         """中継用の訳を1言語1行に整える。
@@ -644,7 +655,8 @@ class Bridge:
             self.ipc.write("RES", req_id, "in", detected, line, *relay_lines)
             if line:
                 self.overlay_queue.put(("in", line))
-            log.info("受信 [%s] %s -> %s", sender, text, translated)
+            if translated:
+                log.info("受信 [%s] %s -> %s", sender, text, translated)
             if relay_lines:
                 log.info("中継(ホスト) %s", " | ".join(relay_lines))
         except TranslationError as exc:
@@ -816,6 +828,11 @@ def run_test(bridge: Bridge, text: str) -> int:
     try:
         if detect_language(text) == "ja":
             print(f"送信用翻訳: {bridge.translate_outgoing(text)}")
+            # 日本語で話す人がロビーにいるとき、ホストとして何を流すか。
+            # 自分向けの訳は出ない（skip_languages）ので中継行だけを見る
+            _, _, relayed = bridge.translate_incoming(text, relay=True)
+            for line in bridge.relay_lines("Karl", text, relayed):
+                print(f"中継(ホスト): {line}")
         else:
             # 本番の受信経路と同じもの（用語集の判定を含む）を通す。
             # ホストのときに全員へ配る中継文もここで確認できる
@@ -849,12 +866,15 @@ def run_selftest(bridge: Bridge) -> int:
         f.write(encode_line("REQ", "5", "out", "Me", "回復お願いします"))
         # 6番目のフィールド "1" = 自分がホスト。訳文に加えて中継用の行も返るはず
         f.write(encode_line("REQ", "6", "in", "Karl", "swarm from the left", "1"))
+        # ホストが受けた日本語の発言。自分向けの訳は出ないが、
+        # 他の言語の人のために中継用の行は返るはず
+        f.write(encode_line("REQ", "7", "in", "Someone", "左から来てる、下がって", "1"))
         f.write(encode_line("DISPLAY", "ok"))
 
     deadline = time.time() + 25
     seen: dict[str, list[str]] = {}
     offset = 0
-    while time.time() < deadline and len(seen) < 7:
+    while time.time() < deadline and len(seen) < 8:
         time.sleep(0.2)
         try:
             with open(bridge.ipc.p_out, "rb") as f:
@@ -873,7 +893,7 @@ def run_selftest(bridge: Bridge) -> int:
     bridge.stop()
     ok = True
     print("\n--- selftest 結果 ---")
-    for key in ("HELLO", "1", "2", "3", "4", "5", "6"):
+    for key in ("HELLO", "1", "2", "3", "4", "5", "6", "7"):
         fields = seen.get(key)
         if fields is None:
             print(f"  {key}: 応答なし")
@@ -884,6 +904,14 @@ def run_selftest(bridge: Bridge) -> int:
     relay = seen.get("6") or []
     if len(relay) < 6:
         print("  !! 中継行が返っていません")
+        ok = False
+    # 7 は日本語の発言。日本語訳は空のまま、中継行だけが付いていること
+    ja_relay = seen.get("7") or []
+    if len(ja_relay) < 6:
+        print("  !! 日本語の発言の中継行が返っていません")
+        ok = False
+    elif ja_relay[4] != "":
+        print("  !! 日本語の発言に日本語訳が付いています")
         ok = False
     print("--- " + ("PASS" if ok else "FAIL") + " ---")
     return 0 if ok else 1
