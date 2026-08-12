@@ -44,7 +44,7 @@ from translate import (  # noqa: E402
     same_phrase,
 )
 
-VERSION = "0.5.3"
+VERSION = "0.5.4"
 log = logging.getLogger("drgtl")
 
 # 応答が遅い代わりにスラングや誤字に強いプロバイダ
@@ -115,13 +115,25 @@ DEFAULTS: dict = {
     #
     # 発言者の言語は除いて訳す。英語の発言なら ja/ko/zh、
     # 韓国語の発言なら ja/en/zh、どれでもない言語なら4つすべて。
-    # 1言語=1行で送る（1行にまとめるとチャットの文字数制限に引っかかる）。
+    # 自分の発言を訳すとき(outgoing)と同じで、全言語を1行にまとめて送る。
+    #
+    #   Karl: 気をつけろ、大群が来るぞ / 조심해 / 小心
+    #
+    # 言語の目印は付けない。訳文は文字の見た目で区別がつくうえ、
+    # チャット欄は狭いので、記号を並べるより訳文そのものに使いたい。
+    # 行頭の「元の発言者名 + :」は残す（誰の発言の訳かが分からなくなるため）。
+    # {lang} も使えるので、目印が要るなら .env の書式で戻せる。
     "relay": {
         "enabled": True,
         "targets": ["ja", "en", "ko", "zh"],
-        "format": "[{lang}] {sender}: {text}",
+        # format = 行の先頭の言語、item_format = 2言語目以降
+        "format": "{sender}: {text}",
+        "item_format": "{text}",
+        "separator": " / ",
         "max_chars": 200,
-        "max_lines": 4,
+        "max_langs": 4,
+        # 0 なら何文字でも1行のまま。ゲーム側で切られる場合だけ指定する
+        "max_line_chars": 0,
     },
     # exe のときは exe の隣、ソース実行のときは bridge/ の下
     "cache": {
@@ -279,8 +291,14 @@ def build_config() -> dict:
             "enabled": _bool("DRGT_RELAY_ENABLED", d["relay"]["enabled"]),
             "targets": _list("DRGT_RELAY_TARGETS", d["relay"]["targets"]),
             "format": _str("DRGT_RELAY_FORMAT", d["relay"]["format"]),
+            "item_format": _str("DRGT_RELAY_ITEM_FORMAT", d["relay"]["item_format"]),
+            "separator": os.environ.get("DRGT_RELAY_SEPARATOR") or d["relay"]["separator"],
             "max_chars": _int("DRGT_RELAY_MAX_CHARS", d["relay"]["max_chars"]),
-            "max_lines": _int("DRGT_RELAY_MAX_LINES", d["relay"]["max_lines"]),
+            # 1言語1行だった頃の DRGT_RELAY_MAX_LINES も言語数として受け付ける
+            "max_langs": _int("DRGT_RELAY_MAX_LANGS",
+                              _int("DRGT_RELAY_MAX_LINES", d["relay"]["max_langs"])),
+            "max_line_chars": _int("DRGT_RELAY_MAX_LINE_CHARS",
+                                   d["relay"]["max_line_chars"]),
         },
         "cache": {
             "enabled": _bool("DRGT_CACHE_ENABLED", True),
@@ -557,7 +575,7 @@ class Bridge:
         if not rel["enabled"]:
             return []
         targets = [t for t in rel["targets"] if t != source_lang]
-        return targets[: max(0, int(rel["max_lines"]))]
+        return targets[: max(0, int(rel["max_langs"]))]
 
     def translate_incoming(self, text: str, relay: bool = False
                            ) -> tuple[str, str, dict[str, str]]:
@@ -627,16 +645,45 @@ class Bridge:
         return lang, "" if skip_self else results.get(target, ""), relayed
 
     def relay_lines(self, sender: str, text: str, relayed: dict[str, str]) -> list[str]:
-        """中継用の訳を1言語1行に整える。
+        """中継用の訳を1行にまとめる。
 
-        1行にまとめるとチャットの文字数制限に引っかかるので分けている。
+        自分の発言を訳すとき(translate_outgoing)と同じように、全言語を
+        separator でつないで1行にする。1言語1行で流していた頃は、
+        1つの発言でチャットが3〜4行埋まり、読む側が追いきれなかった。
+
+        発言者の名前は先頭にだけ付ける（言語ごとに付けると同じ名前が
+        何度も並ぶ）。mod 側は「他人が流した、行頭が別人の名前で始まる発言」
+        を中継行とみなして、訳文をもう一度訳すのを防いでいる。
+
+        max_line_chars を超えるときだけ行を分ける。既定は 0（分けない）。
         """
-        fmt = self.cfg["relay"]["format"]
-        return [
-            fmt.format(lang=LANG_TAGS.get(code, code.upper()),
-                       sender=sender, text=value, original=text)
-            for code, value in relayed.items()
+        rel = self.cfg["relay"]
+        pieces = [
+            (rel["format"] if i == 0 else rel["item_format"]).format(
+                lang=LANG_TAGS.get(code, code.upper()),
+                sender=sender, text=value, original=text)
+            for i, (code, value) in enumerate(relayed.items())
         ]
+        if not pieces:
+            return []
+
+        sep = rel["separator"]
+        limit = max(0, int(rel["max_line_chars"]))
+        if limit <= 0:
+            return [sep.join(pieces)]
+
+        # 1つで limit を超える訳は、それだけで1行にする（分けようがない）
+        lines: list[str] = []
+        current = pieces[0]
+        for piece in pieces[1:]:
+            joined = current + sep + piece
+            if len(joined) > limit:
+                lines.append(current)
+                current = piece
+            else:
+                current = joined
+        lines.append(current)
+        return lines
 
     def _do_incoming(self, req_id: str, sender: str, text: str,
                      host: bool = False) -> None:

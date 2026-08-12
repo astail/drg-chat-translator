@@ -130,13 +130,17 @@ end
 if role == "host" and players == 1 then
     check(#relayed == 0, "ソロ（自分しかいない）なら中継しない", table.concat(relayed, " | "))
 elseif role == "host" then
-    check(#relayed == 3, "ホストは発言者以外の3言語ぶんを中継する", #relayed)
-    check(#relayed > 0 and relayed[1]:find("^%[JP%]") ~= nil,
-          "1行目は日本語（1言語1行で送る）", relayed[1])
+    check(#relayed == 1, "ホストは発言者以外の3言語ぶんを1行で中継する", #relayed)
+    -- 訳文の目印は --fake の翻訳器が付けるもの。どの言語を頼んだかを確認できる
     local tags = table.concat(relayed, " ")
-    check(tags:find("[KR]", 1, true) ~= nil and tags:find("[ZH]", 1, true) ~= nil,
-          "韓国語・中国語の行も流れる", tags)
-    check(tags:find("[EN]", 1, true) == nil, "発言者の言語(EN)は中継しない", tags)
+    check(tags:find("[ja]", 1, true) ~= nil and tags:find("[ko]", 1, true) ~= nil
+          and tags:find("[zh]", 1, true) ~= nil,
+          "1行に日本語・韓国語・中国語がすべて入る", tags)
+    check(tags:find("[en]", 1, true) == nil, "発言者の言語(EN)は中継しない", tags)
+    check(#relayed > 0 and relayed[1]:find(" / ", 1, true) ~= nil,
+          "訳どうしは / でつなぐ", relayed[1])
+    check(tags:find("[JP]", 1, true) == nil and tags:find("[KR]", 1, true) == nil,
+          "言語の目印([JP] など)は付けない", tags)
     -- まだ一度も発言していないので自分の名前が分からない。
     -- そのときは元の発言者名で送り、本文側の名前は落とす（二重表示の防止）
     check(senders[1] == "Karl", "自分の名前が未判明なら元の発言者名で送る", senders[1])
@@ -159,13 +163,28 @@ else
     check(#relayed == 0, "クライアントは中継しない", table.concat(relayed, " | "))
 end
 
--- 中継行を受け取ってもさらに翻訳しない（ホスト・クライアント共通）
+-- 中継行を受け取ってもさらに翻訳しない（ホスト・クライアント共通）。
+-- 別のホスト(Hosty)が、少し前に喋った Karl の発言の訳を流してきた形
 relay_before = #mock.sent
 before = #mock.displayed
-mock.receive("Karl", "[JP] Someone: 気をつけろ")
+mock.receive("Hosty", "Karl: 気をつけろ / 조심해 / 小心")
 pump(20)
 check(#mock.displayed == before and #mock.sent == relay_before,
       "中継された行は翻訳も再中継もしない")
+
+-- コロンで始まるだけの普通の発言（"warning: ..."）を中継行と間違えない。
+-- 行頭の名前が「最近チャットで見かけた人」でなければ中継行ではない
+relay_before = #mock.sent
+before = #mock.displayed
+mock.receive("Karl", "warning: swarm incoming")
+pump(40, 0.05)
+if role == "host" and players >= 2 then
+    check(#mock.sent > relay_before,
+          "コロンを含む発言も中継する（中継行と誤判定しない）")
+else
+    check(#mock.displayed > before,
+          "コロンを含む発言も翻訳する（中継行と誤判定しない）", last_display())
+end
 
 before = #mock.displayed
 mock.receive("Someone", "こんにちは")

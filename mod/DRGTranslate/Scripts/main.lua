@@ -16,11 +16,16 @@ local Cfg = require("config")
 local U   = require("util")
 local IPC = require("ipc")
 
-local MOD_VERSION = "0.4.2"
+local MOD_VERSION = "0.4.3"
 
 -- 自分の Server_NewMessage の直後に来た発言を「自分のもの」とみなす猶予(ms)。
 -- ホストなら同期実行なので即座、クライアントでもサーバ往復ぶんで足りる。
 local LOCAL_SEND_WINDOW_MS = 5000
+
+-- 「最近チャットで見かけた人」として名前を覚えておく時間(ms)。
+-- 中継行かどうかの判定に使う。中継は元の発言の直後に流れるので短くて足りるが、
+-- 翻訳の往復ぶんの余裕を見て長めにしている。
+local SEEN_SENDER_TTL_MS = 120000
 
 local UEHelpers = nil
 pcall(function() UEHelpers = require("UEHelpers") end)
@@ -34,6 +39,7 @@ local State = {
     player_name    = nil,
     sending        = false,    -- 自分で Server_NewMessage を呼んでいる最中
     own_sent       = {},       -- [送信文] = 期限。受信側で自分の発言を弾くのに使う
+    seen_senders   = {},       -- [発言者名] = 期限。中継行の判定に使う
     last_alive_at  = 0,
     local_sent_at  = 0,       -- 自分が最後に Server_NewMessage を通した時刻
     display_ok     = nil,      -- ゲーム内表示が成功しているか
@@ -345,6 +351,15 @@ end
 -- 中継（ホストのときだけ、他人の発言の訳を全員に配る）
 -- ---------------------------------------------------------------------
 
+--- 行頭の "Karl: " から名前を取り出す。無ければ nil。
+local function quoted_sender(text)
+    local name = text:match("^([^:]+):%s")
+    if name == nil then return nil end
+    name = U.trim(name)
+    if name == "" or U.utf8_len(name) > 32 then return nil end
+    return name
+end
+
 --- 1行を全員に流す。ゲームスレッドから呼ぶこと。
 local function broadcast_relay(text)
     if text == nil or text == "" then return false end
@@ -356,24 +371,36 @@ local function broadcast_relay(text)
         return display_via_gamestate(text)
     end
 
-    -- 行頭の "[JP] Karl: " から元の発言者を拾う
-    local original = text:match("^%[[%w%-]+%]%s*([^:]+):")
+    -- 行頭の "Karl: " から元の発言者を拾う
+    local original = quoted_sender(text)
     local sender = get_player_name()
     -- 自分の名前は一度発言するまで分からない。その間は元の発言者名で送る
     if original and (Cfg.host_relay.sender == "original" or sender == "") then
         sender = original
         -- 送信者名が元の発言者になるので、本文側の名前は落とす。
-        -- そのままだと "Karl: [JP] Karl: ..." と二重になる
-        text = text:gsub("^(%[[%w%-]+%])%s*[^:]+:%s*", "%1 ")
+        -- そのままだと "Karl: Karl: ..." と二重になる
+        text = text:gsub("^[^:]+:%s*", "", 1)
     end
     return send_chat(sender, text, 0)
 end
 
---- 中継された行（"[JP] Karl: ..."）か。
+--- 他人（別のホスト）が流した中継行か。
 --- ホストが流した訳文を、受け取った側がもう一度翻訳しないようにする。
---- 自分が流したぶんは own_sent で弾けるが、他人がホストの場合はこれで判定する。
-local function is_relay_line(text)
-    return text:match("^%[%u%u%u?%]%s") ~= nil
+--- 自分が流したぶんは own_sent で弾けるので、ここで見るのは他人のぶんだけ。
+---
+--- 中継行は「ホストの名前で送られてくるが、本文は別人の名前で始まる」
+--- （"Kiyo: Karl: 気をつけろ …"）。この食い違いを目印にしている。
+--- 訳文そのものに目印を入れると全員のチャットに記号が並ぶので入れていない。
+---
+--- 名前の部分は「少し前にチャットで見かけた人」に限る。中継されるのは
+--- 全員が受け取った発言の訳なので、元の発言者は必ず直前に喋っている。
+--- これを見ないと "warning: swarm incoming" のような、たまたまコロンで
+--- 始まる普通の発言まで中継行と誤判定して翻訳しなくなる。
+local function is_relay_line(sender, text)
+    local original = quoted_sender(text)
+    if original == nil or original == sender then return false end
+    local expires_at = State.seen_senders[original]
+    return expires_at ~= nil and expires_at > State.now
 end
 
 --- 中継行を順番待ちに入れる。1行ずつ間隔を空けて送るため、ここでは送らない。
@@ -445,10 +472,14 @@ local function on_incoming(Context, MsgParam)
         local expires_at = State.own_sent[text]
         if expires_at and expires_at > State.now then return end
 
-        -- ホストが流した中継行は翻訳しない（訳文をさらに訳すことになるため）
-        if is_relay_line(text) then
+        -- ホストが流した中継行は翻訳しない（訳文をさらに訳すことになるため）。
+        -- 判定に使うので、この発言より前に誰が喋ったかを覚えておく
+        if is_relay_line(sender, text) then
             U.dbg("中継行なので翻訳しません: %s", text)
             return
+        end
+        if sender ~= "" then
+            State.seen_senders[sender] = State.now + SEEN_SENDER_TTL_MS
         end
 
         -- この発言が自分のものか判定する。
@@ -536,10 +567,13 @@ local function on_outgoing(Context)
     if not ok then U.dbg("on_outgoing error: %s", tostring(err)) end
 end
 
---- 期限切れの「自分が送った文」を捨てる
+--- 期限切れの「自分が送った文」と「最近見かけた発言者」を捨てる
 local function gc_own_sent()
     for text, expires_at in pairs(State.own_sent) do
         if State.now > expires_at then State.own_sent[text] = nil end
+    end
+    for name, expires_at in pairs(State.seen_senders) do
+        if State.now > expires_at then State.seen_senders[name] = nil end
     end
 end
 
