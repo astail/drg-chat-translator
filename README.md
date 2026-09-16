@@ -15,43 +15,17 @@ You: 回復お願いします
 You: Please heal me / 회복 부탁드립니다 / 请帮我治疗一下
 ```
 
+ゲームに入れる MOD（UE4SS という MOD 用の外部ツールの上で動きます）と、
+翻訳サービスを呼び出す常駐プログラム（`DRGTranslate.exe`）の2つで動きます。
+
 > Ghost Ship Games とは無関係の非公式なファンプロジェクトです。MIT License。
 > 詳細は[ライセンス](#ライセンス)を参照してください。
 
----
-
-## 仕組み
-
-翻訳APIを呼ぶ必要があるため、公式の Mod SDK（Blueprint のみで HTTP 通信ができない）ではなく
-**UE4SS の Lua MOD + ローカル常駐プロセス** という構成にしています。
-
-```
-  Deep Rock Galactic
-  ├─ UE4SS ── DRGTranslate (Lua)
-  │            ├─ AFSDGameState::ClientNewMessage      を hook  … 受信を横取り
-  │            └─ AFSDPlayerController::Server_NewMessage を hook … 送信を横取り
-  │                    ↕  %APPDATA%\DRGTranslate\*.txt （ファイルIPC）
-  └─ bridge (Python) ── 言語判定 → 用語集 → 翻訳API → キャッシュ
-```
-
-UE4SS の Lua にはソケットが無いため、追記専用のテキストファイル2本で双方向通信しています。
-
-### 送信のしかた
-
-翻訳はネットワーク越しなので、Enter を押した瞬間には結果が間に合いません。
-そこで **打った日本語をそのまま送り、翻訳が届いたら2通目として送る**形にしています。
-
-```
-You: 回復お願いします
-You: Please heal me / 회복 부탁드립니다 / 请帮我治疗一下
-```
-
-原文が残るので、味方に日本人がいればそのまま読めます。誤訳があったときも
-元が何だったか分かります。
+ソースから動かす方法・exe のビルド・内部の仕組みは [開発者向けガイド](docs/DEVELOPMENT.md) にまとめています。
 
 ---
 
-## かんたんな導入（exe）
+## 導入
 
 [**Releases**](https://github.com/astail/drg-translation/releases) から
 `DRGTranslate-vX.Y.Z-win64.zip` をダウンロードして展開してください。
@@ -91,8 +65,7 @@ README.md / LICENSE
     OK  翻訳できました
 ```
 
-**用意するものは翻訳サービスのAPIキーだけ**です。設定が終わるとそのまま
-翻訳プロセスが常駐するので、窓を開いたままゲームを起動してください。
+設定が終わるとそのまま翻訳プロセスが常駐するので、窓を開いたままゲームを起動してください。
 
 2回目以降はセットアップを飛ばして、すぐ常駐状態になります。
 やり直したいときは `DRGTranslate.exe --setup` を実行してください。
@@ -102,128 +75,17 @@ README.md / LICENSE
 > この exe は署名していないため、Windows Defender や一部のセキュリティソフトが
 > 警告を出すことがあります。PyInstaller で作った未署名の exe に共通して起きる
 > 誤検知で、中身はこのリポジトリのソースそのものです。
-> 気になる場合は下の「ソースから使う」の手順を使ってください。
+> 気になる場合は exe を使わずソースから動かすこともできます
+> （[開発者向けガイド](docs/DEVELOPMENT.md#ソースから使う)）。
 
 `.env`（設定とAPIキー）と `cache.json` は **exe と同じフォルダ**に作られます。
 書き込める場所に置いてください（`Program Files` の中などは避けてください）。
 
 ---
 
-## ソースから使う場合に必要なもの
-
-exe を使わず、リポジトリのまま動かす場合です。
-
-| | |
-|---|---|
-| Deep Rock Galactic | Steam 版（Windows） |
-| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS/releases) | v3.0.1 以降。インストーラで自動導入できます |
-| Python | 3.10 以降を推奨（`openai` が 3.10+ を要求。`deepl` / `claude` なら 3.9 でも可） |
-| 翻訳APIのキー | **必須**。DeepL / Claude / OpenAI のいずれか |
-
-`claude` または `openai` を使う場合のみ、追加で SDK が必要です。
-`deepl` なら標準ライブラリだけで動くので pip install は不要です。
-
-```
-py -3 -m pip install anthropic     # provider を claude にする場合
-py -3 -m pip install openai        # provider を openai にする場合
-```
-
-> **`pip install ...` ではなく `py -3 -m pip install ...` を使ってください。**
-> Windows に Python が複数入っていると、`pip` が `run_bridge.bat` の使う
-> Python とは別の場所にインストールしてしまい、「入れたのに見つからない」
-> という状態になります。`run_bridge.bat` は `py -3` を優先して使うので、
-> 同じ `py -3` から入れておけば確実です。
->
-> 入ったか確認するには次を実行します（何も表示されなければ成功）。
->
-> ```
-> py -3 -c "import openai; print(openai.__version__)"
-> ```
->
-> どちらも純Pythonのパッケージで、依存も含めて Windows 用のビルド済み
-> ファイルが配布されています。コンパイラ（Visual Studio Build Tools）は不要です。
-
----
-
-## インストール
-
-PowerShell をこのフォルダで開いて実行してください。
-
-```powershell
-# UE4SS も一緒に入れる場合
-powershell -ExecutionPolicy Bypass -File .\install.ps1 -InstallUE4SS
-
-# UE4SS を既に入れている場合
-powershell -ExecutionPolicy Bypass -File .\install.ps1
-
-# ゲームの場所を自動検出できないとき
-powershell -ExecutionPolicy Bypass -File .\install.ps1 -GamePath "G:\SteamLibrary\steamapps\common\Deep Rock Galactic"
-```
-
-インストーラは次のことをします。
-
-1. Steam のライブラリから Deep Rock Galactic を探す
-2. UE4SS の有無を確認（`-InstallUE4SS` なら GitHub から取得して `FSD\Binaries\Win64` へ展開）
-3. `mod\DRGTranslate` を UE4SS の `Mods` 配下へコピーし、`mods.txt` に登録
-4. `.env` を用意し、通信用フォルダ `%APPDATA%\DRGTranslate` を作成
-
-アンインストールは `-Uninstall` を付けて実行してください。
-
-### リリースの作り方（メンテナ向け）
-
-タグを打つと GitHub Actions が Windows ランナーで exe をビルドし、
-配布用 zip を作って Releases に添付します。
-
-```bash
-git tag v0.5.0        # bridge/drg_bridge.py の VERSION と揃えること
-git push origin v0.5.0
-```
-
-タグ名とソースの `VERSION` が食い違っているとビルドを止めます。
-`--selftest --fake` も CI で走るので、壊れたものは出ていきません。
-公開前に中身を確認したいときは、Actions から `release` を手動実行すると
-リリースを作らずに zip だけが成果物として残ります。
-
-### ⚠ インストーラは APIキーまでは設定しません
-
-`.env` は作られますが**中身は空**です。続けて次の2つを行ってください。
-
-**(1) SDK を入れる**（`claude` / `openai` を使う場合のみ）
-
-```
-py -3 -m pip install openai
-```
-
-**(2) `.env` を開いてキーを設定する**（プロジェクトのフォルダ直下）
-
-使うサービスの2行だけ、行頭の `#` を外して書きます。
-
-```ini
-DRGT_PROVIDER=openai
-OPENAI_API_KEY=sk-...
-```
-
-### 動作確認
-
-ゲームを起動せずに試せます。
-
-```
-py -3 bridge\drg_bridge.py --test "watch out, swarm incoming"
-```
-
-```
-入力      : watch out, swarm incoming
-言語判定  : en
-受信用翻訳: 気をつけろ、大群がやってくる  (元言語: en)
-```
-
-このように訳が出れば準備完了です。
-
----
-
 ## 使い方
 
-1. **`run_bridge.bat` を実行**（黒い窓が出ます。閉じないでください）
+1. **`DRGTranslate.exe` を起動**（黒い窓が出ます。閉じないでください）
 2. **Deep Rock Galactic を起動**
 3. 普段どおりチャットするだけです
 
@@ -250,6 +112,21 @@ provider=openai / 受信→ja / 送信→en,ko,zh
 
 > **ゲームの言語を「日本語」にしておいてください。**
 > 日本語フォントが読み込まれていないと、翻訳文が豆腐（□□□）になります。
+
+### 自分の発言の送られ方
+
+翻訳はネットワーク越しなので、Enter を押した瞬間には結果が間に合いません。
+そこで **打った日本語をそのまま送り、翻訳が届いたら2通目として送る**形にしています。
+
+```
+You: 回復お願いします
+You: Please heal me / 회복 부탁드립니다 / 请帮我治疗一下
+```
+
+原文が残るので、味方に日本人がいればそのまま読めます。誤訳があったときも
+元が何だったか分かります。
+
+### 受信した訳が出る場所
 
 **受信した訳がゲーム内のどこに出るか**は立場で変わります。ゲーム側に
 「自分にだけ見せる」手段が乏しいためです。
@@ -304,26 +181,14 @@ You: Karl: 気をつけろ、大群が来るぞ / 조심해, 무리가 온다 / 
 > チャットの流量は確実に増えます。少人数の身内部屋なら快適ですが、
 > 野良で会話が多いときは `DRGT_RELAY_TARGETS=en` のように絞るのがおすすめです。
 
-### そのほかのコマンド
-
-```
-py -3 bridge\drg_bridge.py --test "回復お願いします"      # 送信方向を試す
-py -3 bridge\drg_bridge.py --selftest --fake             # APIキー無しで疎通確認
-py -3 bridge\drg_bridge.py --provider claude --test "bulk inc, res me"   # 一時的に上書き
-```
-
 ---
 
 ## 設定
 
 ### `.env` — 翻訳まわり
 
-プロジェクトルートの `.env.example` を **`.env`** にコピーして使います。
-`run_bridge.bat` を実行すれば自動でコピーされます。
-
-```
-copy .env.example .env
-```
+exe と同じフォルダにある **`.env`** をメモ帳で開いて編集します
+（初回のセットアップで作られます）。書き換えたら `DRGTranslate.exe` を起動し直してください。
 
 **すべての項目が既定値つきでコメントアウトされています。**
 変えたい行の先頭の `#` を外すだけです。
@@ -355,24 +220,20 @@ OPENAI_API_KEY=sk-...
 | `DRGT_OVERLAY_ENABLED` | ゲーム内表示が使えないときの保険となる小窓 |
 | `DRGT_OVERLAY_HIDE_AFTER` | 小窓を引っ込めるまでの秒数。既定 `12`、`0` で出しっぱなし |
 
-APIキー以外に `DRGT_` が付いているのは、`LOG_LEVEL` や `MAX_WORKERS` のような
-一般的な名前が他のツールの環境変数と衝突するのを避けるためです。
-
-`.env` は `.gitignore` 済みなので、APIキーがリポジトリに入ることはありません。
 OS 側に同名の環境変数がある場合は、そちらが `.env` より優先されます。
 
-### 翻訳プロバイダの選択
+### 翻訳サービスの選択
 
 3つから選びます。どれも APIキーが必要です。
 
-| provider | pip install | 特徴 |
-|---|---|---|
-| `deepl`（既定） | 不要 | 機械翻訳としては最も自然。**月50万文字まで無料** |
-| `claude` | `anthropic` | **スラング・略語・誤字に強い**。`gg` `bulk inc` `res me` を文脈で訳せる |
-| `openai` | `openai` | 同上。OpenAI互換エンドポイント（ローカルLLM等）にも向けられる |
+| provider | 特徴 |
+|---|---|
+| `deepl`（既定） | 機械翻訳としては最も自然。**月50万文字まで無料** |
+| `claude` | **スラング・略語・誤字に強い**。`gg` `bulk inc` `res me` を文脈で訳せる |
+| `openai` | 同上。OpenAI互換エンドポイント（ローカルLLM等）にも向けられる |
 
 普通の会話が中心なら `deepl` で十分です。`Rock and Stone` のような定型句は
-用語集で処理されるので、どのプロバイダでも同じ訳になります。
+用語集で処理されるので、どのサービスでも同じ訳になります。
 略語やタイプミスの多い野良マルチで精度を上げたいなら `claude` / `openai` を。
 
 **DeepL**（既定。無料枠が大きい）
@@ -401,10 +262,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 1回の翻訳はシステムプロンプト込みで入力約330トークン・出力約30トークンなので、
 Haiku 4.5 なら**おおよそ1000回の翻訳で $0.5 程度**です（あくまで目安）。
 
-モデルによって使えるパラメータが違う（`effort` は 4.6 以降のみ、`temperature` は
-それ以前のみ）ため、指定したモデルに合わせて自動で送り分けます。
-`DRGT_CLAUDE_EFFORT` と `DRGT_CLAUDE_REFUSAL_FALLBACK` の `auto` は
-そのままにしておいて問題ありません。
+モデルに合わせて送る内容は自動で調整するので、`DRGT_CLAUDE_EFFORT` と
+`DRGT_CLAUDE_REFUSAL_FALLBACK` の `auto` はそのままにしておいて問題ありません。
 
 **OpenAI**
 
@@ -440,10 +299,13 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 - チャット本文が Anthropic / OpenAI に送信されます。外部に出したくない場合は
   上記のとおり `openai` + `DRGT_OPENAI_BASE_URL` でローカルLLMに向けてください。
 
-### `bridge\glossary.json` — 用語集
+### `glossary.json` — 用語集
 
 `Rock and Stone!` のような定型句を、APIを経由せず即座に置き換えます。
-DRG の頻出フレーズを最初から登録済みです。自由に追記してください。
+DRG の頻出フレーズを最初から登録済みです（exe に同梱されています）。
+
+自分で追記したいときは、[bridge/glossary.json](bridge/glossary.json) をダウンロードして
+**exe と同じフォルダ**に置き、編集してください。同梱のものの代わりにそちらが使われます。
 
 日本語の用語は [DRG 日本語 Wiki](https://wikiwiki.jp/rockandstone/) に合わせています
 （ナイトラ / ビスモル / エノアパール など）。`Bulk Detonator` は正式には
@@ -460,7 +322,10 @@ DRG の頻出フレーズを最初から登録済みです。自由に追記し�
 キーは空白・記号・大文字小文字を無視して照合されるので、`rock and stone` と
 `Rock and Stone!!` は同じ扱いになります。
 
-### `mod\DRGTranslate\Scripts\config.lua` — ゲーム内の挙動
+### `config.lua` — ゲーム内の挙動
+
+ゲームフォルダの `FSD\Binaries\Win64\Mods\DRGTranslate\Scripts\config.lua` にあります
+（UE4SS の版によっては `Win64\ue4ss\Mods\...`）。
 
 | 項目 | 説明 |
 |---|---|
@@ -475,120 +340,20 @@ DRG の頻出フレーズを最初から登録済みです。自由に追記し�
 | `debug` | UE4SS コンソールに詳細ログを出す |
 
 `config.lua` を書き換えたら **ゲームを再起動**してください。
+`DRGTranslate.exe --setup` をやり直すと MOD が入れ直され、編集していた
+`config.lua` は `Mods\DRGTranslate.bak` に退避されます。
 
 ---
 
 ## 動作確認の状況
 
-正直に書いておきます。
+- 実機（ソロのホスト）で、日本語の送信・受信の訳・中継・F9 の切り替え・
+  日本語/韓国語/中国語の表示までは確認しています。
+- 実際の翻訳を確認したのは Claude だけです。**DeepL / OpenAI は未確認**です。
+- **複数人のロビーで、中継が他の隊員に届くところはまだ確認していません。**
+- 小窓（`DRGT_OVERLAY_ENABLED=true`）の実機での見え方も未確認です。
 
-**検証済み**
-
-- **実際のAPIキーを使った翻訳の往復**（Claude / `claude-haiku-4-5`）
-  - 英語→日本語: `watch out, swarm incoming from the left` → 左から群れが来るぞ、気をつけろ
-  - 韓国語→日本語: `탄약이 부족해요, 나이트라 찾아주세요` → 弾薬が足りない、ニトラを探してくれ
-  - 日本語→英語+韓国語: `回復お願いします` → `heal plz / 힐 부탁합니다`（呼び出しは1回）
-  - ゲーム内スラング: `bulk inc, res me` → バルク来た、俺を助けてくれ
-  - 用語集の直接置換: `rock and stone!` → ロックアンドストーン！（APIを経由しない）
-  - キャッシュのヒット（2回目はAPIを呼ばない）
-  - 日本語→英語+韓国語+中国語: `そっちにナイトラあった？残り足りないかも` →
-    `Any nitra over there? We might not have enough left. / 그쪽에 나이트라 있었어? ... /
-    那边有硝石吗？剩下的可能不够。`（呼び出しは1回）
-  - **ホストの中継**（発言者の言語を除いた訳が1回の呼び出しで返る）
-    英語 `watch out, bulk inc from the left` → JP/KR/ZH の3行、
-    韓国語 `리더 어디 갔어? 나 혼자 남았어` → JP/EN/ZH の3行、
-    ロシア語 `берегись, рой слева` → JP/EN/KR/ZH の4行
-  - 掛け声（`rock and stone forever` など）は中継せず、APIも呼ばないこと
-- bridge のファイルIPC 一式（`--selftest --fake` が PASS）
-- LLMプロバイダ（`claude` / `openai`）のロジックをスタブで検証：
-  多言語を1回の呼び出しにまとめる、` ```json ` フェンス付き応答の解析、
-  引用符の除去、キャッシュ済み言語のスキップ、不足分だけの再問い合わせ、
-  壊れた応答と翻訳拒否のエラー化 — 8項目すべて PASS
-- Claude のモデル世代ごとのパラメータ送り分け（Haiku 4.5 等には `effort`/`thinking` を
-  送らず `temperature` を使う／Opus 5 等にはその逆）を、送信内容を捕捉して検証
-- Lua の構文チェックと文字列処理のユニットテスト（UTF-8判定、エスケープ往復）
-- **UE4SS を模したスタブによる MOD ロジックの通し確認**（`tools/mock_test.lua`）
-  受信フックからの翻訳表示、送信フックからの2通目送信、日本語以外・`/` コマンド・
-  短すぎる発言のスキップ、用語集のヒット、自分の発言のループ防止、
-  クライアント/ホストでの表示先の切り替え、**ホストのときだけ中継が働くこと**
-  （発言者の言語を除いた3言語が1行にまとまって送られる／言語の目印は付けない／
-  クライアントでは送られない／中継行をさらに翻訳しない／`warning:` のような
-  コロンつきの普通の発言を中継行と誤判定しない／中継行の送信者名）
-  — クライアント30項目・ホスト35項目すべて PASS
-
-```bash
-# 実行方法（Lua 5.4 が必要。APIキーは不要）
-python3 bridge/drg_bridge.py --fake --dir /tmp/drgtl &
-lua5.4 tools/mock_test.lua /tmp/drgtl client
-lua5.4 tools/mock_test.lua /tmp/drgtl host
-```
-
-`--fake` は翻訳APIを呼ばずに目印を付けて返すテスト専用モードです。
-`provider` として設定から選ぶことはできません。
-
-- **セットアップウィザードの通し確認**（`bridge/setup_wizard.py`）
-  ゲームフォルダの手入力、UE4SS の検出、MOD のコピー、`mods.txt` の登録
-  （既存行の有効化・他MODの保持・重複しないこと）、プロバイダ選択、
-  `.env` への書き込み、疎通確認の成功／失敗の両方 — すべて実行して確認
-- **exe（PyInstaller）のパス解決**を frozen 状態を再現して確認：
-  `.env` とキャッシュが exe の隣に作られること、同梱した用語集・MOD本体・
-  `.env.example` が読めること、exe の隣に置いた `glossary.json` が
-  同梱版より優先されること
-
-- **exe を実際にビルドして Windows 上で実行**（Python 3.11.9 / PyInstaller 6.21.0、19MB）
-  - `--selftest` が PASS（同梱した用語集が読めていることも確認）
-  - **`anthropic` / `openai` が同梱され、実際に各社APIへ到達**（偽キーで 401 が返る＝
-    SDK が exe 内で動作している）
-  - セットアップウィザードの完走。**Steam レジストリからのゲーム自動検出も実機で成功**
-  - 同梱した MOD 本体がゲームフォルダへ展開され、`mods.txt` に登録されること
-    （他MODの行が保持され、重複しないことも確認）
-  - `.env` とキャッシュが exe の隣に作られること
-  - APIキー未設定・SDK未導入それぞれで、クラッシュせず案内が出ること
-
-- **実機（Deep Rock Galactic 本体）での通し確認**
-  UE4SS 3.x + MOD v0.4.0 / provider=claude / ソロ（スペースリグ）
-  - MOD が起動し、両方の hook が実際に登録される（`ClientNewMessage` /
-    `Server_NewMessage`）。bridge との接続も確立
-  - **チャット欄に日本語を打って送信** → `みんなよろしく、テスト中です` の直後に
-    `hey everyone, just testing / 여러분 안녕하세요, 테스트 중입니다 / 大家好，测试中`
-    が2通目として送られる。**以前クラッシュしていた経路（Blueprint からの
-    `Server_NewMessage`）を通ってクラッシュしない**ことを確認
-  - **ホストの中継**が実際にチャット欄へ出る。`Karl: im down, need a res over here`
-    に対して `[JP] Karl: ダウンしてる、ここでレズ頼む` / `[KR] ...` / `[ZH] ...`
-    の3行が 700ms 間隔で並ぶ（このとき確認したのは1言語1行・言語の目印つきの
-    書式。0.5.4 で目印を外し、同じ内容を1行にまとめる形に変えたので、
-    その書式は実機では未確認）
-  - **日本語・韓国語・簡体字中国語のすべてがゲーム内フォントで描画される**
-    （ゲーム言語=日本語の状態。豆腐にならない）
-  - 一連の操作を通してゲームは落ちず、動作し続けた
-  - **F9 を実際に押して ON/OFF が切り替わり、`[DRGTranslate] 翻訳 OFF` が
-    画面に出る**こと（ソロのホスト）
-  - **ソロのホストで受信の訳がチャット欄に出る**こと
-    （`Doretta: swarm incoming, get to the pod` →
-    `[訳] Doretta: スウォーム来るぞ、ポッドに向かえ`）
-  - ロビーの人数が読めること（`GameState.PlayerArray`）。これでソロかどうかを
-    判定し、ソロなら中継を省いて表示に切り替えている
-  - **チャットウィジェット直叩きは動かないこと。** `Add Chat Message` /
-    `NewMesssage` / `NewMessage` の3つとも失敗した。ただし `pcall` で
-    捕まっており、**ゲームは落ちなかった**
-
-**未検証**
-
-- **`deepl` / `openai` の実際の翻訳結果**。認証エラー（401/403）まで到達することは
-  確認済みですが、有効なキーでの往復は `claude` でのみ確認しています
-- **中継を「他の隊員」が受け取るところ。** 実機で確認したのはソロ（自分がホスト）
-  までで、複数人のロビーでは試していません。中継は自分の翻訳送信とまったく同じ
-  `Server_NewMessage` を通り、そちらは実機で動いているので届くはずです
-- `host_relay.sender = "original"`（元の発言者の名前で流す）。サーバ側で名前が
-  上書きされる可能性があるため既定にしていません
-- インストーラの実行。MOD の導入はファイルコピーで行ったため、`install.ps1` を
-  実機のゲームフォルダに対して流してはいません
-- オーバーレイ（`DRGT_OVERLAY_ENABLED=true`）の実機での見え方
-
-hook 名・構造体の定義は
-[DRG-Modding/FSD-Template](https://github.com/DRG-Modding/FSD-Template) のヘッダーダンプと
-ゲーム本体バイナリの文字列から確認した実物ですが、実際の挙動は必ず一度確かめてください。
-うまく動かないときは `config.lua` の `debug = true` にして UE4SS コンソールのログを見てください。
+詳しくは [docs/TESTING.md](docs/TESTING.md) を参照してください。
 
 ---
 
@@ -605,13 +370,12 @@ hook 名・構造体の定義は
      `BPModLoaderMod` など）が `: 0` になっているか。翻訳には不要で、
      エンジン内部を書き換えるためクラッシュ源になりやすいものです。
 
-  どちらも v0.2.1 以降のインストーラが自動でやります。古い版で入れた場合は
+  どちらも v0.2.1 以降のセットアップが自動でやります。古い版で入れた場合は
   `DRGTranslate.exe --setup` をもう一度実行すると直ります。
   それでも落ちる場合は `mods.txt` の `DRGTranslate : 1` を `: 0` にして起動し、
   MOD 本体が原因かどうかを切り分けてください。
 
-  なお v0.2.2 には、起動直後に落ちる不具合がありました（自分の名前を取りに
-  レベルロード中の UObject を毎秒たどっていたため）。v0.2.3 で解消しています。
+  なお v0.2.2 には、起動直後に落ちる不具合がありました。v0.2.3 で解消しています。
 
 **MODが読み込まれない**
 : `FSD\Binaries\Win64` に `dwmapi.dll` と `UE4SS.dll` があるか確認してください。
@@ -621,11 +385,12 @@ hook 名・構造体の定義は
   `UE4SS-settings.ini` の `GuiConsoleEnabled` を `1` にしてください。
 
 **「bridge との接続が切れました」と出る**
-: `run_bridge.bat` が動いていません。ゲームより先に起動してください。
+: `DRGTranslate.exe` が動いていません。ゲームより先に起動してください。
 
 **翻訳が表示されない**
 : `FSD\Binaries\Win64\UE4SS.log` に `hook 登録: ...` が2行出ているか確認してください。
   出ていない場合、ゲームのアップデートで関数名が変わった可能性があります。
+  もっと詳しく見たいときは `config.lua` の `debug = true` にしてください。
   表示だけができない場合は `.env` の `DRGT_OVERLAY_ENABLED=true` にすると
   小窓に出せます（ゲームの表示設定を「ウィンドウ(フルスクリーン)」にしてください）。
 
@@ -635,14 +400,13 @@ hook 名・構造体の定義は
 **自分の発言だけ翻訳を止めたい**
 : `config.lua` の `outgoing.enabled` を `false` にしてください。受信の翻訳だけが残ります。
 
-**ホストで遊ぶと翻訳がチャット欄に出ない**
-: 仕様です。ホストが `PostGameMessage` を呼ぶと訳文が全員に配信されてしまい、
-  チャットウィジェットを直接叩く方法は構造体引数を渡すためゲームごと落ちる
-  危険があります。そのためホストではゲーム内に出さず、bridge の小窓に出します。
+**他の隊員がいる部屋でホストをすると、受信の訳がチャット欄に出ない**
+: 仕様です。ゲーム側に「自分にだけ見せる」手段がなく、チャット欄に出すと
+  訳文が全員に見えてしまうためです（[受信した訳が出る場所](#受信した訳が出る場所)）。
+  中継が有効なら日本語の行がチャットに流れるので、それで読めます。
+  中継を切っている場合は `.env` の `DRGT_OVERLAY_ENABLED=true` にすると小窓に出せます。
   小窓は翻訳が届いたときだけ出て、12秒で引っ込みます（`DRGT_OVERLAY_HIDE_AFTER`）。
-  `.env` の `DRGT_OVERLAY_ENABLED=true` にしてください（ゲームの表示設定は
-  「ウィンドウ(フルスクリーン)」にしないと前面に出ません）。
-  クライアントとして参加しているときは、これまで通りチャット欄に出ます。
+  ゲームの表示設定は「ウィンドウ(フルスクリーン)」にしないと前面に出ません。
 
 ---
 
@@ -653,54 +417,19 @@ hook 名・構造体の定義は
 - **翻訳のため、他プレイヤーの発言を含むチャット本文が外部サービス（DeepL / Anthropic /
   OpenAI）へ送信されます。** 発言者本人の同意は得られません。外部に出したくない場合は
   `openai` + `DRGT_OPENAI_BASE_URL` でローカルLLMに向けてください。
-- チャット本文は `bridge\cache.json` にも保存されます。不要なら `.env` の
+- チャット本文は `cache.json`（exe と同じフォルダ）にも保存されます。不要なら `.env` の
   `DRGT_CACHE_ENABLED=false` にしてください。
 - `claude` / `openai` は従量課金です。実際に発言したときだけ API を呼びます。
 
-## exe をビルドする
-
-`build.bat` をダブルクリックすると `dist\DRGTranslate.exe` ができます。
-必要なもの（PyInstaller・各SDK）は自動で入ります。
-
-```
-build.bat
-```
-
-配布するのは `dist\DRGTranslate.exe` の1ファイルだけです。
-Python 本体・翻訳SDK・MOD本体・用語集をすべて内包しています。
-
-ビルド設定は `DRGTranslate.spec` にあります。誤検知を減らすため
-UPX 圧縮は無効にし、未使用の重いライブラリは除外してあります。
-
 ---
 
-## ファイル構成
+## 開発者向け
 
-```
-.env.example                 設定のひな形（.env にコピーして使う）
-DRGTranslate.spec            exe のビルド定義（PyInstaller）
-build.bat                    exe をビルドする
-LICENSE                      MIT
-install.ps1                  インストーラ（ソースから使う場合）
-run_bridge.bat               翻訳プロセスの起動（ソースから使う場合）
-mod/DRGTranslate/            UE4SS の Mods へコピーされる本体
-  Scripts/main.lua             フック・表示・送信
-  Scripts/ipc.lua              bridge とのファイルIPC
-  Scripts/util.lua             文字列処理・スケジューラ
-  Scripts/config.lua           ゲーム内の設定
-bridge/
-  drg_bridge.py              常駐プロセス本体（exe のエントリでもある）
-  setup_wizard.py            初回セットアップの対話ウィザード
-  translate.py               翻訳API・言語判定・キャッシュ・用語集
-  overlay.py                 保険用の小窓（tkinter）
-  glossary.json              DRG 定型句の対訳表
-tools/                       実機なしで動かすテスト用スタブ
-docs/INTERNALS.md            解析した DRG 側 API のメモ
-```
-
-## 内部仕様
-
-解析した DRG 側の API については [docs/INTERNALS.md](docs/INTERNALS.md) を参照してください。
+| | |
+|---|---|
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 仕組み、ソースから使う方法、exe のビルド、リリース、ファイル構成 |
+| [docs/TESTING.md](docs/TESTING.md) | テストの実行方法と、動作確認の状況の詳細 |
+| [docs/INTERNALS.md](docs/INTERNALS.md) | 解析した DRG 側 API のメモ |
 
 ---
 
@@ -722,7 +451,7 @@ docs/INTERNALS.md            解析した DRG 側 API のメモ
 
 | | ライセンス | 扱い |
 |---|---|---|
-| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | MIT | **同梱していません**。`install.ps1 -InstallUE4SS` が公式リリースから取得します |
+| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | MIT | **同梱していません**。セットアップ時に公式リリースから取得します |
 | [DRG-Modding/FSD-Template](https://github.com/DRG-Modding/FSD-Template)<br>[DRG-Modding/Header-Dumps](https://github.com/DRG-Modding/Header-Dumps) | 未設定 | コードは取り込んでいません。下記参照 |
 | DeepL / Anthropic / OpenAI | 各社の利用規約 | APIキーは利用者が用意します。各社の規約は利用者の責任で遵守してください |
 
