@@ -14,12 +14,6 @@ if "%PY%"=="" (
     exit /b 1
 )
 
-rem 0.5.5 までの設定ファイル名(.env)から引き継ぐ
-if not exist settings.ini if exist .env (
-    ren .env settings.ini
-    echo 設定ファイルの名前を .env から settings.ini に変えました。
-)
-
 if not exist settings.ini (
     echo settings.ini がないので settings.example.ini からコピーします。
     copy /y settings.example.ini settings.ini > nul

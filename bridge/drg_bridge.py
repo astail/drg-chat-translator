@@ -71,11 +71,8 @@ else:
 
 ROOT = APP_DIR   # 後方互換
 
-# 設定ファイルの名前。ダブルクリックでメモ帳が開くように .ini にしている
-# （0.5.5 までの .env は Windows で開くアプリが決まっておらず、ダブルクリックで開けない）
 SETTINGS_FILE = "settings.ini"
 SETTINGS_EXAMPLE_FILE = "settings.example.ini"
-LEGACY_SETTINGS_FILE = ".env"
 
 
 def bundled(*parts: str) -> str:
@@ -341,29 +338,8 @@ def build_config() -> dict:
     }
 
 
-def default_settings_path(app_dir: str = APP_DIR) -> str:
-    """設定ファイルのパス。
-
-    旧名の .env しか無ければ settings.ini に名前を変えて引き継ぐ。0.5.5 までの
-    利用者が exe を差し替えただけで、セットアップをやり直さずに済むようにするため。
-    名前を変えられなければ .env のまま使う。
-    """
-    path = os.path.join(app_dir, SETTINGS_FILE)
-    legacy = os.path.join(app_dir, LEGACY_SETTINGS_FILE)
-    if os.path.exists(path) or not os.path.exists(legacy):
-        return path
-    try:
-        os.replace(legacy, path)
-    except OSError as exc:
-        print(f"設定ファイルの名前を {SETTINGS_FILE} に変えられませんでした（{exc}）。"
-              f"{LEGACY_SETTINGS_FILE} のまま使います。")
-        return legacy
-    print(f"設定ファイルの名前を {LEGACY_SETTINGS_FILE} から {SETTINGS_FILE} に変えました: {path}")
-    return path
-
-
 def load_config(env_path: str | None) -> dict:
-    path = env_path or default_settings_path()
+    path = env_path or os.path.join(APP_DIR, SETTINGS_FILE)
     n = load_dotenv(path)
     if n:
         log.info("設定を読み込みました: %s (%d 項目)", path, n)
@@ -1021,22 +997,11 @@ def run_selftest(bridge: Bridge) -> int:
 
 
 def needs_setup(env_path: str) -> bool:
-    """初回起動かどうか。設定ファイルが無い、または中身が空同然なら未セットアップ。
+    """初回起動かどうか。設定ファイルが無ければ未セットアップ。
 
     設定ファイルを消せば、次の起動でセットアップからやり直せる。
     """
-    if not os.path.exists(env_path):
-        return True
-    try:
-        with open(env_path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    if line.split("=", 1)[1].strip():
-                        return False
-    except OSError:
-        return True
-    return True
+    return not os.path.exists(env_path)
 
 
 def run_setup(env_path: str, args) -> bool:
@@ -1079,7 +1044,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="未設定でもウィザードを出さずに起動する")
     args = ap.parse_args(argv)
 
-    env_path = args.config or default_settings_path()
+    env_path = args.config or os.path.join(APP_DIR, SETTINGS_FILE)
 
     # 初回起動、または --setup 明示のときはウィザードを通す。
     # --test / --selftest / --fake は検証用なので邪魔しない。
