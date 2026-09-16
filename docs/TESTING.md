@@ -66,10 +66,9 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
   ゲームフォルダの手入力、UE4SS の検出、MOD のコピー、`mods.txt` の登録
   （既存行の有効化・他MODの保持・重複しないこと）、プロバイダ選択、
   設定ファイルへの書き込み、疎通確認の成功／失敗の両方 — すべて実行して確認
-  （この項目と下の exe の確認は、設定ファイル名が `.env` だったころのもの。今は `settings.ini`）
 - **exe（PyInstaller）のパス解決**を frozen 状態を再現して確認：
-  `.env` とキャッシュが exe の隣に作られること、同梱した用語集・MOD本体・
-  `.env.example` が読めること、exe の隣に置いた `glossary.json` が
+  設定ファイルとキャッシュが exe の隣に作られること、同梱した用語集・MOD本体・
+  設定ファイルの雛形が読めること、exe の隣に置いた `glossary.json` が
   同梱版より優先されること
 
 - **exe を実際にビルドして Windows 上で実行**（Python 3.11.9 / PyInstaller 6.21.0、19MB）
@@ -79,7 +78,7 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
   - セットアップウィザードの完走。**Steam レジストリからのゲーム自動検出も実機で成功**
   - 同梱した MOD 本体がゲームフォルダへ展開され、`mods.txt` に登録されること
     （他MODの行が保持され、重複しないことも確認）
-  - `.env` とキャッシュが exe の隣に作られること
+  - 設定ファイルとキャッシュが exe の隣に作られること
   - APIキー未設定・SDK未導入それぞれで、クラッシュせず案内が出ること
 
 - **実機（Deep Rock Galactic 本体）での通し確認**

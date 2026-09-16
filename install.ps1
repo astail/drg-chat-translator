@@ -246,11 +246,7 @@ Ok "通信フォルダ: $IpcDir"
 
 $cfg = Join-Path $Root "settings.ini"
 $example = Join-Path $Root "settings.example.ini"
-$legacy = Join-Path $Root ".env"   # 0.5.5 までの名前
-if (-not (Test-Path $cfg) -and (Test-Path $legacy)) {
-    Rename-Item $legacy "settings.ini"
-    Ok "設定ファイルの名前を .env から settings.ini に変えました"
-} elseif (-not (Test-Path $cfg)) {
+if (-not (Test-Path $cfg)) {
     Copy-Item $example $cfg
     Ok "settings.ini を作成しました"
 } else {

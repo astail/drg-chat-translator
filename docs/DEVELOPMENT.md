@@ -121,9 +121,6 @@ copy settings.example.ini settings.ini
 
 `settings.ini` の各項目は README の[設定](../README.md#設定)と `settings.example.ini` を参照してください。
 
-0.5.5 までは設定ファイルの名前が `.env` でした。`settings.ini` が無くて `.env` だけがあるときは、
-bridge（と `run_bridge.bat` / `install.ps1`）が `settings.ini` に名前を変えて引き継ぎます。
-
 ### 動作確認
 
 ゲームを起動せずに試せます。
@@ -168,10 +165,8 @@ py -3 bridge\drg_bridge.py --config other.ini            # 別の設定ファイ
 
 ### 設定まわりの補足
 
-- 設定ファイルは、ダブルクリックでメモ帳が開くように `.ini` にしています（`.env` は
-  Windows で開くアプリが決まっておらず、ダブルクリックしても開けないため）。書式は `.env` と同じ
-  `KEY=value` で、`#` から始まる行はコメントです。
-- `settings.ini` と旧名の `.env` は `.gitignore` 済みなので、APIキーがリポジトリに入ることはありません。
+- `settings.ini` の書式は `KEY=value` で、`#` から始まる行はコメントです。
+- `settings.ini` は `.gitignore` 済みなので、APIキーがリポジトリに入ることはありません。
 - APIキー以外に `DRGT_` が付いているのは、`LOG_LEVEL` や `MAX_WORKERS` のような
   一般的な名前が他のツールの環境変数と衝突するのを避けるためです。
 - Claude はモデルによって使えるパラメータが違う（`effort` は 4.6 以降のみ、

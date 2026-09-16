@@ -1,4 +1,4 @@
-# APIキーを含む設定（.env は 0.5.5 までの名前）
+# APIキーを含む設定
 settings.ini
 .env
 
