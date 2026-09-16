@@ -45,6 +45,8 @@ from translate import (  # noqa: E402
     same_phrase,
 )
 
+# アプリ全体で1つの番号。mod/DRGTranslate/Scripts/main.lua の MOD_VERSION と
+# リリースのタグもこれにそろえる（食い違っているとリリースの CI が止まる）
 VERSION = "0.5.5"
 log = logging.getLogger("drgtl")
 

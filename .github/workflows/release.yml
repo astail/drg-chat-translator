@@ -43,21 +43,30 @@ jobs:
 
       - name: タグとソースのバージョンが一致するか確認
         # v0.5.0 のタグなのに中身が 0.4.1、という取り違えを防ぐ。
+        # バージョンはアプリ全体で1つなので、bridge と MOD の番号もそろっているか見る
+        # （手動実行でも確認する。タグとの照合はタグのときだけ）。
         # タグ名は環境変数経由で渡す（run に直接埋め込まない）
-        if: startsWith(github.ref, 'refs/tags/')
         shell: bash # ヒアドキュメントを使うので pwsh ではなく bash
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           python - <<'PY'
           import os, re, sys, pathlib
-          tag = os.environ["TAG_NAME"].lstrip("v")
-          src = pathlib.Path("bridge/drg_bridge.py").read_text(encoding="utf-8")
-          m = re.search(r'^VERSION\s*=\s*"([^"]+)"', src, re.M)
-          ver = m.group(1) if m else "?"
-          if tag != ver:
-              sys.exit(f"タグ {tag} と bridge の VERSION {ver} が一致しません")
-          print(f"バージョン一致: {ver}")
+
+          def read(path, pattern):
+              src = pathlib.Path(path).read_text(encoding="utf-8")
+              m = re.search(pattern, src, re.M)
+              return m.group(1) if m else "?"
+
+          bridge = read("bridge/drg_bridge.py", r'^VERSION\s*=\s*"([^"]+)"')
+          mod = read("mod/DRGTranslate/Scripts/main.lua", r'^local MOD_VERSION\s*=\s*"([^"]+)"')
+          if bridge != mod:
+              sys.exit(f"bridge の VERSION {bridge} と MOD の MOD_VERSION {mod} が一致しません")
+          if os.environ["GITHUB_REF"].startswith("refs/tags/"):
+              tag = os.environ["TAG_NAME"].lstrip("v")
+              if tag != bridge:
+                  sys.exit(f"タグ {tag} とソースのバージョン {bridge} が一致しません")
+          print(f"バージョン一致: {bridge}")
           PY
 
       - name: テスト（APIキー不要）
