@@ -29,11 +29,11 @@ MOD_NAME = "DRGTranslate"
 
 PROVIDERS = [
     ("deepl", "DeepL", "DEEPL_AUTH_KEY", "https://www.deepl.com/pro-api",
-     "機械翻訳。月50万文字まで無料"),
+     "機械翻訳。無料のお試し枠あり"),
     ("openai", "OpenAI", "OPENAI_API_KEY", "https://platform.openai.com/api-keys",
      "スラングや誤字に強い。従量課金"),
-    ("claude", "Claude", "ANTHROPIC_API_KEY", "https://console.anthropic.com/",
-     "同上。既定は最安の Haiku"),
+    ("claude", "Claude", "ANTHROPIC_API_KEY", "https://platform.claude.com/settings/keys",
+     "スラングや誤字に強い。従量課金。既定は最安の Haiku"),
 ]
 
 
@@ -352,7 +352,7 @@ def choose_provider() -> tuple[str, str, str, str]:
 
 
 def write_env(env_path: str, provider: str, env_name: str, api_key: str) -> None:
-    """既存の .env を壊さずに2項目だけ書き換える。"""
+    """既存の設定ファイルを壊さずに2項目だけ書き換える。"""
     lines: list[str] = []
     if os.path.exists(env_path):
         with open(env_path, encoding="utf-8") as f:
@@ -466,5 +466,8 @@ def run(*, env_path: str, example_path: str, mod_source: str, build_bridge,
     print()
     print("  ・ゲームの言語設定を「日本語」にしてください（訳文が □□□ になります）")
     print("  ・ゲーム中は F9 で翻訳の ON/OFF を切り替えられます")
+    print(f"  ・設定は {os.path.basename(env_path)} をメモ帳で開いて変えられます")
+    print(f"  ・セットアップからやり直したいときは、{os.path.basename(env_path)} を削除してから")
+    print("    もう一度起動してください")
     print()
     return True

@@ -18,7 +18,7 @@ local IPC = require("ipc")
 
 -- bridge/drg_bridge.py の VERSION と同じ番号にする（アプリ全体で1つの番号）。
 -- MOD を変えていないリリースでも上げる。食い違っているとリリースの CI が止まる
-local MOD_VERSION = "0.5.5"
+local MOD_VERSION = "0.5.6"
 
 -- 自分の Server_NewMessage の直後に来た発言を「自分のもの」とみなす猶予(ms)。
 -- ホストなら同期実行なので即座、クライアントでもサーバ往復ぶんで足りる。
@@ -298,7 +298,7 @@ local function display_line(text)
         State.warned_display = true
         U.log("ホストで他の隊員がいるので、ゲーム内チャットには出しません"
               .. "（出すと全員に見えてしまうため）。訳を自分でも見たいときは "
-              .. ".env の DRGT_OVERLAY_ENABLED=true で小窓に出せます。"
+              .. "settings.ini の DRGT_OVERLAY_ENABLED=true で小窓に出せます。"
               .. "中継が有効なら日本語の行はチャットに流れます")
     end
     return false
@@ -448,7 +448,7 @@ local function should_translate_outgoing(text)
     for _, p in ipairs(Cfg.outgoing.ignore_prefixes or {}) do
         if p ~= "" and U.starts_with(text, p) then return false end
     end
-    -- 何語の発言を訳すかは bridge が .env の DRGT_OUTGOING_SOURCE で決める。
+    -- 何語の発言を訳すかは bridge が settings.ini の DRGT_OUTGOING_SOURCE で決める。
     -- 以前はここで日本語かどうかを見ていたため、英語などで打った発言は
     -- 設定を変えても訳せなかった。訳さない発言には空の訳が返ってくる
     return true
@@ -526,7 +526,7 @@ local function on_incoming(Context, MsgParam)
         if relay and not State.warned_relay then
             State.warned_relay = true
             U.log("ホストとして中継します（他人の発言の訳を全員のチャットに流します）。"
-                  .. "止めるときは .env の DRGT_RELAY_ENABLED=false")
+                  .. "止めるときは settings.ini の DRGT_RELAY_ENABLED=false")
         end
         U.dbg("受信: [%s] %s (中継=%s)", sender, text, tostring(relay))
         IPC.request("in", sender, text, function(_, outtext, relay_lines)

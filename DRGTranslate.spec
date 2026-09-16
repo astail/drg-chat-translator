@@ -18,7 +18,7 @@ block_cipher = None
 # 出力先を '.' にすると sys._MEIPASS 直下に展開される。
 datas = [
     ("bridge/glossary.json", "."),      # 用語集（exe の隣に置けば差し替え可）
-    (".env.example", "."),              # 初回に .env の雛形としてコピーする
+    ("settings.example.ini", "."),      # 初回に settings.ini の雛形としてコピーする
     ("mod/DRGTranslate", "mod/DRGTranslate"),   # ゲームへコピーする MOD 本体
 ]
 
