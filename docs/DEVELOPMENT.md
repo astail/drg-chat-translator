@@ -195,12 +195,18 @@ UPX 圧縮は無効にし、未使用の重いライブラリは除外してあ�
 タグを打つと GitHub Actions が Windows ランナーで exe をビルドし、
 配布用 zip を作って Releases に添付します。
 
+バージョンはアプリ全体で1つです。bridge と MOD で番号を分けず、リリースのたびに
+次の2か所を同じ番号にしてからタグを打ちます（MOD を変えていないリリースでも MOD の番号を上げます）。
+
+- `bridge/drg_bridge.py` の `VERSION`
+- `mod/DRGTranslate/Scripts/main.lua` の `MOD_VERSION`
+
 ```bash
-git tag v0.5.0        # bridge/drg_bridge.py の VERSION と揃えること
-git push origin v0.5.0
+git tag v0.5.5        # 上の2か所と揃えること
+git push origin v0.5.5
 ```
 
-タグ名とソースの `VERSION` が食い違っているとビルドを止めます。
+2か所の番号とタグ名のどれかが食い違っているとビルドを止めます。
 `--selftest --fake` も CI で走るので、壊れたものは出ていきません。
 公開前に中身を確認したいときは、Actions から `release` を手動実行すると
 リリースを作らずに zip だけが成果物として残ります。

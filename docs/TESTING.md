@@ -115,6 +115,7 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
 
 - **実機で翻訳元・訳す先を英語にした設定**（2026-09-16 / DRG 1.40 / UE4SS 3.x /
   bridge 0.5.5 + MOD 0.4.4 / provider=claude / ソロのホスト、スペースリグ）。
+  MOD の 0.4.4 は番号を bridge にそろえる前の表記で、中身は 0.5.5 と同じ。
   発言は debug の `SIMSAY` で流し、チャット欄の表示も画面で確認した
   - `DRGT_OUTGOING_SOURCE=en` / `DRGT_OUTGOING_TARGETS=en,ja,ko` /
     `DRGT_INCOMING_TARGET=en` / `DRGT_INCOMING_SKIP_LANGUAGES=en` のとき
