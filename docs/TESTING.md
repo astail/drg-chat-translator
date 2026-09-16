@@ -65,7 +65,8 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
 - **セットアップウィザードの通し確認**（`bridge/setup_wizard.py`）
   ゲームフォルダの手入力、UE4SS の検出、MOD のコピー、`mods.txt` の登録
   （既存行の有効化・他MODの保持・重複しないこと）、プロバイダ選択、
-  `.env` への書き込み、疎通確認の成功／失敗の両方 — すべて実行して確認
+  設定ファイルへの書き込み、疎通確認の成功／失敗の両方 — すべて実行して確認
+  （この項目と下の exe の確認は、設定ファイル名が `.env` だったころのもの。今は `settings.ini`）
 - **exe（PyInstaller）のパス解決**を frozen 状態を再現して確認：
   `.env` とキャッシュが exe の隣に作られること、同梱した用語集・MOD本体・
   `.env.example` が読めること、exe の隣に置いた `glossary.json` が

@@ -17,9 +17,13 @@ DRGTranslate - Deep Rock Galactic チャット自動翻訳
 
   翻訳サービスのAPIキー（どれか1つ）
 
-    DeepL   https://www.deepl.com/pro-api        月50万文字まで無料
-    Claude  https://console.anthropic.com/       スラングに強い（従量課金）
-    OpenAI  https://platform.openai.com/api-keys 同上
+    DeepL   https://www.deepl.com/pro-api              無料のお試し枠あり
+    Claude  https://platform.claude.com/settings/keys  スラングに強い（従量課金）
+    OpenAI  https://platform.openai.com/api-keys       スラングに強い（従量課金）
+
+  Claude と OpenAI はクレジットカードの登録が必要です。
+  ChatGPT Plus や Claude Pro などの月額プランとは別の契約です。
+  料金の目安は README.md の「始める前に」を見てください。
 
   Python のインストールは不要です（exe に同梱されています）。
 
@@ -29,18 +33,23 @@ DRGTranslate - Deep Rock Galactic チャット自動翻訳
   送信  日本語で打つと 英語・韓国語・中国語 に翻訳して送信
   中継  自分がホストのときは、同僚ドワーフの発言の訳を全員のチャットに流す
 
-  訳す言語は .env で変えられます（英語で打った発言を訳す、なども可）。
+  訳す言語は settings.ini で変えられます（英語で打った発言を訳す、なども可）。
   F9 キーで翻訳の ON/OFF を切り替えられます。
 
 ■ 設定を変える
 
-  exe と同じ場所に .env が作られます。メモ帳で開いて編集できます。
-  同梱の .env.example に全項目の説明が書いてあります。
+  exe と同じ場所に settings.ini が作られます。ダブルクリックするとメモ帳で
+  開けます（拡張子を表示していない PC では「settings」と表示されます）。
+  全項目の説明も settings.ini の中に書いてあります。
+  書き換えたら DRGTranslate.exe を起動し直してください。
 
   よく変える項目:
     DRGT_OUTGOING_TARGETS=en,ko,zh   送信時の翻訳先
     DRGT_RELAY_ENABLED=false         ホストでも中継しない
     DRGT_OVERLAY_ENABLED=true        ゲーム内に出ないときの小窓
+
+  セットアップを最初からやり直したいときは、settings.ini を削除してから
+  DRGTranslate.exe を起動してください（APIキーも入れ直しになります）。
 
 ■ 注意
 

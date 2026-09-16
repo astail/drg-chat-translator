@@ -89,13 +89,13 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -GamePath "G:\SteamLibrar
 1. Steam のライブラリから Deep Rock Galactic を探す
 2. UE4SS の有無を確認（`-InstallUE4SS` なら GitHub から取得して `FSD\Binaries\Win64` へ展開）
 3. `mod\DRGTranslate` を UE4SS の `Mods` 配下へコピーし、`mods.txt` に登録
-4. `.env` を用意し、通信用フォルダ `%APPDATA%\DRGTranslate` を作成
+4. `settings.ini` を用意し、通信用フォルダ `%APPDATA%\DRGTranslate` を作成
 
 アンインストールは `-Uninstall` を付けて実行してください。
 
 ### ⚠ インストーラは APIキーまでは設定しません
 
-`.env` は作られますが**中身は空**です。続けて次の2つを行ってください。
+`settings.ini` は作られますが**APIキーは空**です。続けて次の2つを行ってください。
 
 **(1) SDK を入れる**（`claude` / `openai` を使う場合のみ）
 
@@ -103,7 +103,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -GamePath "G:\SteamLibrar
 py -3 -m pip install openai
 ```
 
-**(2) `.env` を開いてキーを設定する**（リポジトリのフォルダ直下）
+**(2) `settings.ini` を開いてキーを設定する**（リポジトリのフォルダ直下）
 
 使うサービスの2行だけ、行頭の `#` を外して書きます。
 
@@ -112,14 +112,17 @@ DRGT_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 ```
 
-`.env` が無い場合は `.env.example` をコピーして作ります。`run_bridge.bat` を
-実行したときも、`.env` が無ければ自動でコピーされます。
+`settings.ini` が無い場合は `settings.example.ini` をコピーして作ります。`run_bridge.bat` を
+実行したときも、`settings.ini` が無ければ自動でコピーされます。
 
 ```
-copy .env.example .env
+copy settings.example.ini settings.ini
 ```
 
-`.env` の各項目は README の[設定](../README.md#設定)と `.env.example` を参照してください。
+`settings.ini` の各項目は README の[設定](../README.md#設定)と `settings.example.ini` を参照してください。
+
+0.5.5 までは設定ファイルの名前が `.env` でした。`settings.ini` が無くて `.env` だけがあるときは、
+bridge（と `run_bridge.bat` / `install.ps1`）が `settings.ini` に名前を変えて引き継ぎます。
 
 ### 動作確認
 
@@ -152,19 +155,23 @@ py -3 bridge\drg_bridge.py --test "回復お願いします"      # 送信方向
 py -3 bridge\drg_bridge.py --selftest --fake             # APIキー無しで疎通確認
 py -3 bridge\drg_bridge.py --provider claude --test "bulk inc, res me"   # 一時的に上書き
 py -3 bridge\drg_bridge.py --setup                       # exe と同じセットアップウィザード
+py -3 bridge\drg_bridge.py --config other.ini            # 別の設定ファイルで動かす
 ```
 
 ### ファイルの置き場所（exe との違い）
 
 | | ソース | exe |
 |---|---|---|
-| `.env` | リポジトリ直下 | exe と同じフォルダ |
+| `settings.ini` | リポジトリ直下 | exe と同じフォルダ |
 | キャッシュ | `bridge\cache.json` | exe と同じフォルダの `cache.json` |
 | 用語集 | `bridge\glossary.json` | exe と同じフォルダの `glossary.json`。無ければ exe に同梱したもの |
 
 ### 設定まわりの補足
 
-- `.env` は `.gitignore` 済みなので、APIキーがリポジトリに入ることはありません。
+- 設定ファイルは、ダブルクリックでメモ帳が開くように `.ini` にしています（`.env` は
+  Windows で開くアプリが決まっておらず、ダブルクリックしても開けないため）。書式は `.env` と同じ
+  `KEY=value` で、`#` から始まる行はコメントです。
+- `settings.ini` と旧名の `.env` は `.gitignore` 済みなので、APIキーがリポジトリに入ることはありません。
 - APIキー以外に `DRGT_` が付いているのは、`LOG_LEVEL` や `MAX_WORKERS` のような
   一般的な名前が他のツールの環境変数と衝突するのを避けるためです。
 - Claude はモデルによって使えるパラメータが違う（`effort` は 4.6 以降のみ、
@@ -211,7 +218,7 @@ git push origin v0.5.5
 公開前に中身を確認したいときは、Actions から `release` を手動実行すると
 リリースを作らずに zip だけが成果物として残ります。
 
-zip に入るのは `DRGTranslate.exe` / `.env.example` / `README.md` / `LICENSE` と
+zip に入るのは `DRGTranslate.exe` / `settings.example.ini` / `README.md` / `LICENSE` と
 `docs\*.txt`（`はじめに.txt`）です。`docs` の `.md` は入りません。
 
 ---
@@ -219,7 +226,7 @@ zip に入るのは `DRGTranslate.exe` / `.env.example` / `README.md` / `LICENSE
 ## ファイル構成
 
 ```
-.env.example                 設定のひな形（.env にコピーして使う）
+settings.example.ini         設定のひな形（初回に settings.ini としてコピーされる）
 DRGTranslate.spec            exe のビルド定義（PyInstaller）
 build.bat                    exe をビルドする
 LICENSE                      MIT

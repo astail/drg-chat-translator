@@ -29,7 +29,7 @@ if errorlevel 1 (
 
 echo.
 echo [2/3] 前回のビルド結果を消します
-rem dist\.env には APIキーが入っているのでフォルダごとは消さない
+rem dist\settings.ini には APIキーが入っているのでフォルダごとは消さない
 if exist build rmdir /s /q build
 if exist dist\DRGTranslate.exe del /q dist\DRGTranslate.exe
 
@@ -49,7 +49,7 @@ echo  完成: dist\DRGTranslate.exe
 echo ===============================================
 echo.
 echo  配布するときは dist\DRGTranslate.exe だけを渡してください。
-echo  .env とキャッシュは exe と同じフォルダに作られます。
+echo  settings.ini とキャッシュは exe と同じフォルダに作られます。
 echo.
 echo  注意: 署名していない exe はウイルス対策ソフトに
 echo        警告されることがあります。README を参照してください。

@@ -6,7 +6,7 @@
     - Deep Rock Galactic のインストール先を自動検出（Steam のライブラリを走査）
     - UE4SS の有無を確認（-InstallUE4SS を付けると GitHub から取得して展開）
     - mod フォルダを UE4SS の Mods 配下へコピーし、mods.txt に登録
-    - .env を用意し、通信フォルダを作成
+    - settings.ini を用意し、通信フォルダを作成
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -244,13 +244,17 @@ $IpcDir = Join-Path $env:APPDATA "DRGTranslate"
 New-Item -ItemType Directory -Path $IpcDir -Force | Out-Null
 Ok "通信フォルダ: $IpcDir"
 
-$cfg = Join-Path $Root ".env"
-$example = Join-Path $Root ".env.example"
-if (-not (Test-Path $cfg)) {
+$cfg = Join-Path $Root "settings.ini"
+$example = Join-Path $Root "settings.example.ini"
+$legacy = Join-Path $Root ".env"   # 0.5.5 までの名前
+if (-not (Test-Path $cfg) -and (Test-Path $legacy)) {
+    Rename-Item $legacy "settings.ini"
+    Ok "設定ファイルの名前を .env から settings.ini に変えました"
+} elseif (-not (Test-Path $cfg)) {
     Copy-Item $example $cfg
-    Ok ".env を作成しました"
+    Ok "settings.ini を作成しました"
 } else {
-    Info ".env は既にあるのでそのままにします"
+    Info "settings.ini は既にあるのでそのままにします"
 }
 
 $py = $null
@@ -266,7 +270,7 @@ if (-not $py) {
 Write-Host ""
 Write-Host "=== インストール完了 ===" -ForegroundColor Green
 Write-Host ""
-Write-Host " 1. .env を開いてAPIキーを設定する" -ForegroundColor White
+Write-Host " 1. settings.ini を開いてAPIキーを設定する" -ForegroundColor White
 Write-Host "      $cfg"
 Write-Host " 2. run_bridge.bat を実行して翻訳プロセスを起動する"
 Write-Host " 3. Deep Rock Galactic を起動する"

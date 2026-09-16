@@ -8,7 +8,8 @@
   to_game.txt   : bridge -> mod
   bridge.alive  : 生存確認
 
-翻訳プロバイダは deepl / claude / openai の3つ。プロジェクトルートの .env で選ぶ。
+翻訳プロバイダは deepl / claude / openai の3つ。exe（ソースならリポジトリ）と
+同じフォルダの settings.ini で選ぶ。
 
 使い方:
     python drg_bridge.py                    通常起動
@@ -47,7 +48,7 @@ from translate import (  # noqa: E402
 
 # アプリ全体で1つの番号。mod/DRGTranslate/Scripts/main.lua の MOD_VERSION と
 # リリースのタグもこれにそろえる（食い違っているとリリースの CI が止まる）
-VERSION = "0.5.5"
+VERSION = "0.5.6"
 log = logging.getLogger("drgtl")
 
 # 応答が遅い代わりにスラングや誤字に強いプロバイダ
@@ -60,7 +61,7 @@ FROZEN = getattr(sys, "frozen", False)
 
 if FROZEN:
     # onefile の exe は実行のたび一時フォルダへ展開される。
-    # .env やキャッシュはそこに置くと消えるので、exe と同じ場所を使う。
+    # settings.ini やキャッシュはそこに置くと消えるので、exe と同じ場所を使う。
     APP_DIR = os.path.dirname(os.path.abspath(sys.executable))
     # 同梱したリソース（用語集・MOD本体）の展開先
     BUNDLE_DIR = getattr(sys, "_MEIPASS", APP_DIR)
@@ -69,6 +70,12 @@ else:
     BUNDLE_DIR = APP_DIR
 
 ROOT = APP_DIR   # 後方互換
+
+# 設定ファイルの名前。ダブルクリックでメモ帳が開くように .ini にしている
+# （0.5.5 までの .env は Windows で開くアプリが決まっておらず、ダブルクリックで開けない）
+SETTINGS_FILE = "settings.ini"
+SETTINGS_EXAMPLE_FILE = "settings.example.ini"
+LEGACY_SETTINGS_FILE = ".env"
 
 
 def bundled(*parts: str) -> str:
@@ -125,7 +132,7 @@ DEFAULTS: dict = {
     # 言語の目印は付けない。訳文は文字の見た目で区別がつくうえ、
     # チャット欄は狭いので、記号を並べるより訳文そのものに使いたい。
     # 行頭の「元の発言者名 + :」は残す（誰の発言の訳かが分からなくなるため）。
-    # {lang} も使えるので、目印が要るなら .env の書式で戻せる。
+    # {lang} も使えるので、目印が要るなら settings.ini の書式で戻せる。
     "relay": {
         "enabled": True,
         "targets": ["ja", "en", "ko", "zh"],
@@ -176,7 +183,7 @@ LANG_TAGS = {"ja": "JP", "ko": "KR"}
 
 
 def load_dotenv(path: str) -> int:
-    """.env を読んで os.environ に入れる。読み込んだ件数を返す。
+    """設定ファイル（settings.ini）を読んで os.environ に入れる。読み込んだ件数を返す。
 
     既に環境変数として設定されている値は上書きしない（実環境の指定が優先）。
     python-dotenv は使わない — 依存を増やさないため。
@@ -246,7 +253,7 @@ def _list(key: str, default: list[str]) -> list[str]:
 
 
 def build_config() -> dict:
-    """環境変数（.env 読み込み済み）から設定を組み立てる。
+    """環境変数（settings.ini 読み込み済み）から設定を組み立てる。
 
     APIキーだけは各SDKが読む慣習的な名前をそのまま使い、
     それ以外は他ツールと衝突しないよう DRGT_ を付けている
@@ -334,13 +341,34 @@ def build_config() -> dict:
     }
 
 
+def default_settings_path(app_dir: str = APP_DIR) -> str:
+    """設定ファイルのパス。
+
+    旧名の .env しか無ければ settings.ini に名前を変えて引き継ぐ。0.5.5 までの
+    利用者が exe を差し替えただけで、セットアップをやり直さずに済むようにするため。
+    名前を変えられなければ .env のまま使う。
+    """
+    path = os.path.join(app_dir, SETTINGS_FILE)
+    legacy = os.path.join(app_dir, LEGACY_SETTINGS_FILE)
+    if os.path.exists(path) or not os.path.exists(legacy):
+        return path
+    try:
+        os.replace(legacy, path)
+    except OSError as exc:
+        print(f"設定ファイルの名前を {SETTINGS_FILE} に変えられませんでした（{exc}）。"
+              f"{LEGACY_SETTINGS_FILE} のまま使います。")
+        return legacy
+    print(f"設定ファイルの名前を {LEGACY_SETTINGS_FILE} から {SETTINGS_FILE} に変えました: {path}")
+    return path
+
+
 def load_config(env_path: str | None) -> dict:
-    path = env_path or os.path.join(APP_DIR, ".env")
+    path = env_path or default_settings_path()
     n = load_dotenv(path)
     if n:
         log.info("設定を読み込みました: %s (%d 項目)", path, n)
     elif not os.path.exists(path):
-        log.warning(".env がありません: %s", path)
+        log.warning("設定ファイルがありません: %s", path)
     return build_config()
 
 
@@ -993,7 +1021,10 @@ def run_selftest(bridge: Bridge) -> int:
 
 
 def needs_setup(env_path: str) -> bool:
-    """初回起動かどうか。.env が無い、または中身が空同然なら未セットアップ。"""
+    """初回起動かどうか。設定ファイルが無い、または中身が空同然なら未セットアップ。
+
+    設定ファイルを消せば、次の起動でセットアップからやり直せる。
+    """
     if not os.path.exists(env_path):
         return True
     try:
@@ -1012,7 +1043,7 @@ def run_setup(env_path: str, args) -> bool:
     import setup_wizard
 
     def build_bridge():
-        # ウィザードが書いた .env を読み直してから作る
+        # ウィザードが書いた settings.ini を読み直してから作る
         cfg = load_config(env_path)
         if args.provider:
             cfg["provider"] = args.provider
@@ -1020,7 +1051,7 @@ def run_setup(env_path: str, args) -> bool:
 
     return setup_wizard.run(
         env_path=env_path,
-        example_path=bundled(".env.example"),
+        example_path=bundled(SETTINGS_EXAMPLE_FILE),
         mod_source=bundled("mod", "DRGTranslate"),
         build_bridge=build_bridge,
     )
@@ -1035,7 +1066,7 @@ def main(argv: list[str] | None = None) -> int:
             pass
 
     ap = argparse.ArgumentParser(description="DRGTranslate bridge")
-    ap.add_argument("--config", metavar="ENV", help="設定ファイル (既定: .env)")
+    ap.add_argument("--config", metavar="FILE", help=f"設定ファイル (既定: {SETTINGS_FILE})")
     ap.add_argument("--dir", help="IPC フォルダ (既定: %%APPDATA%%\\DRGTranslate)")
     ap.add_argument("--test", metavar="TEXT", help="翻訳だけ試す（ゲーム不要）")
     ap.add_argument("--selftest", action="store_true", help="ファイルIPCの疎通確認")
@@ -1048,7 +1079,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="未設定でもウィザードを出さずに起動する")
     args = ap.parse_args(argv)
 
-    env_path = args.config or os.path.join(APP_DIR, ".env")
+    env_path = args.config or default_settings_path()
 
     # 初回起動、または --setup 明示のときはウィザードを通す。
     # --test / --selftest / --fake は検証用なので邪魔しない。

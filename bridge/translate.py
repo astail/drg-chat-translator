@@ -338,14 +338,14 @@ class DeepLProvider(Provider):
     def setup_problem(self) -> str | None:
         if (self.opts.get("api_key") or os.environ.get("DEEPL_AUTH_KEY") or "").strip():
             return None
-        return ".env に DEEPL_AUTH_KEY を設定してください（https://www.deepl.com/pro-api）"
+        return "settings.ini に DEEPL_AUTH_KEY を設定してください（https://www.deepl.com/pro-api）"
 
     def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
         key = (self.opts.get("api_key") or os.environ.get("DEEPL_AUTH_KEY") or "").strip()
         if not key:
             raise TranslationError(
                 "DeepL のAPIキーが設定されていません"
-                "（.env の DEEPL_AUTH_KEY）"
+                "（settings.ini の DEEPL_AUTH_KEY）"
             )
         url = self.opts.get("api_url") or (
             "https://api-free.deepl.com/v2/translate"
@@ -483,7 +483,7 @@ class LLMProvider(Provider):
         """
         if not self.api_key():
             raise TranslationError(
-                f".env に {self.key_env} を設定してください（{self.key_url}）"
+                f"settings.ini に {self.key_env} を設定してください（{self.key_url}）"
             )
 
     def setup_problem(self) -> str | None:
@@ -492,7 +492,7 @@ class LLMProvider(Provider):
         except ImportError:
             return _missing_sdk_message(self.sdk_package)
         if not self.api_key():
-            return f".env に {self.key_env} を設定してください（{self.key_url}）"
+            return f"settings.ini に {self.key_env} を設定してください（{self.key_url}）"
         return None
 
     # -- プロンプト -------------------------------------------------------
@@ -582,7 +582,7 @@ class ClaudeProvider(LLMProvider):
     default_model = "claude-haiku-4-5"
     sdk_package = "anthropic"
     key_env = "ANTHROPIC_API_KEY"
-    key_url = "https://console.anthropic.com/"
+    key_url = "https://platform.claude.com/settings/keys"
 
     def __init__(self, opts: dict, timeout: float = 6.0):
         super().__init__(opts, timeout)
@@ -607,7 +607,7 @@ class ClaudeProvider(LLMProvider):
             self._client = anthropic.Anthropic(**kwargs)
         except Exception as exc:  # noqa: BLE001
             raise TranslationError(
-                f".env に {self.key_env} を設定してください（{self.key_url}）"
+                f"settings.ini に {self.key_env} を設定してください（{self.key_url}）"
             ) from exc
         return self._client
 
@@ -735,7 +735,7 @@ class OpenAIProvider(LLMProvider):
             self._client = openai.OpenAI(**kwargs)
         except Exception as exc:  # noqa: BLE001
             raise TranslationError(
-                f".env に {self.key_env} を設定してください（{self.key_url}）"
+                f"settings.ini に {self.key_env} を設定してください（{self.key_url}）"
             ) from exc
         return self._client
 

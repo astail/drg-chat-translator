@@ -40,7 +40,7 @@ M.outgoing = {
 -- 英語の発言なら日本語・韓国語・中国語、というように発言者の言語を除いた
 -- 訳を作り、全言語を1行にまとめてチャットに流す。クライアントのときは何もしない。
 --
--- 何語に訳すか・行の書式は bridge 側（.env の DRGT_RELAY_*）で決める。
+-- 何語に訳すか・行の書式は bridge 側（settings.ini の DRGT_RELAY_*）で決める。
 M.host_relay = {
     enabled = true,
 

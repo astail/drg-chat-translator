@@ -84,7 +84,7 @@ jobs:
           $dir  = "DRGTranslate-$name-win64"
           New-Item -ItemType Directory -Path $dir | Out-Null
           Copy-Item dist\DRGTranslate.exe $dir\
-          Copy-Item .env.example           $dir\
+          Copy-Item settings.example.ini   $dir\
           Copy-Item README.md              $dir\
           Copy-Item LICENSE                $dir\
           # 手引き（はじめに.txt）。日本語のファイル名を直接書くと
