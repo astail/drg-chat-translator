@@ -215,7 +215,7 @@ end
 sent_before = #mock.sent
 mock.send("Kiyo", "hello everyone")
 pump(8)
-check(#mock.sent == sent_before, "日本語でない発言は翻訳しない")
+check(#mock.sent == sent_before, "翻訳元（既定は日本語）でない発言は翻訳しない")
 
 sent_before = #mock.sent
 mock.send("Kiyo", "/help これはコマンド")
