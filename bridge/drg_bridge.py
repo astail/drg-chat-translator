@@ -41,10 +41,11 @@ from translate import (  # noqa: E402
     build_provider,
     detect_language,
     is_translatable,
+    is_written_in,
     same_phrase,
 )
 
-VERSION = "0.5.4"
+VERSION = "0.5.5"
 log = logging.getLogger("drgtl")
 
 # 応答が遅い代わりにスラングや誤字に強いプロバイダ
@@ -616,6 +617,9 @@ class Bridge:
         # （"Rock and Stone!" は連呼されるので、ここを通すと呼び出しが嵩む）
         if hit is not None and same_phrase(hit, text):
             targets = []
+        elif hit is not None and target != "ja":
+            # 用語集の訳は日本語。訳す先を英語などに変えているときは使えない
+            hit = None
 
         if not targets:
             # 中継しないときは今までどおり1言語だけ。
@@ -714,10 +718,16 @@ class Bridge:
             self.ipc.write("ERR", req_id, str(exc))
 
     def translate_outgoing(self, text: str) -> str:
-        """日本語の発言を設定された言語すべてに訳して 1 行にまとめる。"""
+        """自分の発言を設定された言語すべてに訳して 1 行にまとめる。
+
+        翻訳元と同じ言語は訳しても原文のままなので除く。英語で打つ人が
+        翻訳元だけ en に変え、翻訳先を既定の en,ko,zh のままにしていても、
+        英語が2通目に重ねて出ないようにするため。
+        """
         out = self.cfg["outgoing"]
         source = out["source"] or None
-        targets: list[str] = list(out["targets"])
+        same = source or detect_language(text)
+        targets: list[str] = [t for t in out["targets"] if t != same]
 
         # 用語集で片付く言語は API に投げない
         results: dict[str, str] = {}
@@ -743,7 +753,9 @@ class Bridge:
     def _do_outgoing(self, req_id: str, text: str) -> None:
         out = self.cfg["outgoing"]
         try:
-            if not out["enabled"] or len(text) > int(out["max_chars"]):
+            # 何語の発言を訳すかはここで決める（mod は言語を見ずに全部送ってくる）
+            if (not out["enabled"] or len(text) > int(out["max_chars"])
+                    or not is_written_in(text, out["source"])):
                 self.ipc.write("RES", req_id, "out", "", "")
                 return
             joined = self.translate_outgoing(text)
@@ -873,10 +885,10 @@ def run_test(bridge: Bridge, text: str) -> int:
     print(f"入力      : {text}")
     print(f"言語判定  : {detect_language(text)}")
     try:
-        if detect_language(text) == "ja":
+        if is_written_in(text, bridge.cfg["outgoing"]["source"]):
             print(f"送信用翻訳: {bridge.translate_outgoing(text)}")
-            # 日本語で話す人がロビーにいるとき、ホストとして何を流すか。
-            # 自分向けの訳は出ない（skip_languages）ので中継行だけを見る
+            # 同じ言語で話す人がロビーにいるとき、ホストとして何を流すか。
+            # 既定では自分向けの訳は出ない（skip_languages）ので中継行だけを見る
             _, _, relayed = bridge.translate_incoming(text, relay=True)
             for line in bridge.relay_lines("Karl", text, relayed):
                 print(f"中継(ホスト): {line}")
@@ -911,6 +923,10 @@ def run_selftest(bridge: Bridge) -> int:
         f.write(encode_line("REQ", "3", "in", "민수", "안녕하세요"))
         f.write(encode_line("REQ", "4", "in", "Someone", "こんにちは"))
         f.write(encode_line("REQ", "5", "out", "Me", "回復お願いします"))
+        # 翻訳元（既定は日本語）でない自分の発言。訳は空で返るはず
+        f.write(encode_line("REQ", "8", "out", "Me", "hello everyone"))
+        # 漢字だけの発言も日本語として訳すはず
+        f.write(encode_line("REQ", "9", "out", "Me", "了解"))
         # 6番目のフィールド "1" = 自分がホスト。訳文に加えて中継用の行も返るはず
         f.write(encode_line("REQ", "6", "in", "Karl", "swarm from the left", "1"))
         # ホストが受けた日本語の発言。自分向けの訳は出ないが、
@@ -921,7 +937,7 @@ def run_selftest(bridge: Bridge) -> int:
     deadline = time.time() + 25
     seen: dict[str, list[str]] = {}
     offset = 0
-    while time.time() < deadline and len(seen) < 8:
+    while time.time() < deadline and len(seen) < 10:
         time.sleep(0.2)
         try:
             with open(bridge.ipc.p_out, "rb") as f:
@@ -940,7 +956,7 @@ def run_selftest(bridge: Bridge) -> int:
     bridge.stop()
     ok = True
     print("\n--- selftest 結果 ---")
-    for key in ("HELLO", "1", "2", "3", "4", "5", "6", "7"):
+    for key in ("HELLO", "1", "2", "3", "4", "5", "6", "7", "8", "9"):
         fields = seen.get(key)
         if fields is None:
             print(f"  {key}: 応答なし")
@@ -959,6 +975,16 @@ def run_selftest(bridge: Bridge) -> int:
         ok = False
     elif ja_relay[4] != "":
         print("  !! 日本語の発言に日本語訳が付いています")
+        ok = False
+    # 8 は英語の自分の発言。翻訳元が日本語なので訳さない
+    en_out = seen.get("8") or []
+    if len(en_out) > 4 and en_out[4] != "":
+        print("  !! 翻訳元でない言語の発言が訳されています")
+        ok = False
+    # 9 は漢字だけの発言。日本語として訳す
+    kanji_out = seen.get("9") or []
+    if len(kanji_out) > 4 and kanji_out[4] == "":
+        print("  !! 漢字だけの発言が訳されていません")
         ok = False
     print("--- " + ("PASS" if ok else "FAIL") + " ---")
     return 0 if ok else 1

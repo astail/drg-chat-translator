@@ -66,6 +66,23 @@ def detect_language(text: str) -> str:
     return "und"
 
 
+def is_written_in(text: str, lang: str) -> bool:
+    """発言がその言語で書かれているか。送信で「訳す発言か」を決めるのに使う。
+
+    ja はかなか漢字を含めば当てはまる。detect_language はかなの無い漢字を
+    zh とみなすが、「了解」のような漢字だけの発言も日本語として訳したいため。
+    en は文字種で見るので、ラテン文字の言語（ドイツ語など）にも当てはまる。
+    lang が空なら、言語を問わず文字のある発言すべてが当てはまる。
+    """
+    base = (lang or "").split("-")[0].lower()
+    if not base:
+        return detect_language(text) != "und"
+    if base == "ja":
+        c = _script_counts(text)
+        return c["kana"] > 0 or c["han"] > 0
+    return detect_language(text) == base
+
+
 _URL_RE = re.compile(r"https?://\S+")
 _EMOTE_RE = re.compile(r"^[\W\d_]+$", re.UNICODE)
 

@@ -187,8 +187,8 @@ bridge.alive    bridge の生存確認（1秒ごとに更新）
 |---|---|
 | `HELLO <version>` | 接続開始 |
 | `NAME <playername>` | 自分のプレイヤー名 |
-| `REQ <id> in <sender> <text> <host>` | 受信文を日本語へ。`host`=`1` なら中継用の訳も一緒に |
-| `REQ <id> out <sender> <text> <host>` | 自分の発言を翻訳（結果を2通目として送る） |
+| `REQ <id> in <sender> <text> <host>` | 受信文を訳す（既定は日本語へ）。`host`=`1` なら中継用の訳も一緒に |
+| `REQ <id> out <sender> <text> <host>` | 自分の発言を翻訳（結果を2通目として送る）。mod は言語を見ずに送り、翻訳元の言語でなければ bridge が空の結果を返す |
 | `DISPLAY ok\|fail` | ゲーム内表示ができているか |
 
 ### bridge → mod

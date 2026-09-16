@@ -16,7 +16,7 @@ local Cfg = require("config")
 local U   = require("util")
 local IPC = require("ipc")
 
-local MOD_VERSION = "0.4.3"
+local MOD_VERSION = "0.4.4"
 
 -- 自分の Server_NewMessage の直後に来た発言を「自分のもの」とみなす猶予(ms)。
 -- ホストなら同期実行なので即座、クライアントでもサーバ往復ぶんで足りる。
@@ -446,8 +446,9 @@ local function should_translate_outgoing(text)
     for _, p in ipairs(Cfg.outgoing.ignore_prefixes or {}) do
         if p ~= "" and U.starts_with(text, p) then return false end
     end
-    -- 日本語が入っていなければ既に英語などで書いているとみなす
-    if not U.has_japanese(text) then return false end
+    -- 何語の発言を訳すかは bridge が .env の DRGT_OUTGOING_SOURCE で決める。
+    -- 以前はここで日本語かどうかを見ていたため、英語などで打った発言は
+    -- 設定を変えても訳せなかった。訳さない発言には空の訳が返ってくる
     return true
 end
 
@@ -501,7 +502,7 @@ local function on_incoming(Context, MsgParam)
         if mine then State.local_sent_at = 0 end
 
         if mine then
-            -- 自分の発言。日本語なら訳文を2通目として送る
+            -- 自分の発言。訳す言語なら訳文を2通目として送る
             if not Cfg.outgoing.enabled then return end
             if not should_translate_outgoing(text) then return end
             U.dbg("送信を検出: %s", text)
