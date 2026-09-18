@@ -209,9 +209,24 @@ Ok "mod をコピーしました: $Dest"
 #
 # あわせて UE4SS 同梱のサンプル MOD を無効化する。翻訳には一切不要なうえ、
 # エンジン内部を広く書き換えるのでクラッシュ源になりやすい。
-# Keybinds は RegisterKeyBind が依存するので残す。
+#
+# UE4SS v3.0.1 の Mods/mods.txt に入っている名前をそのまま並べている
+# （bridge/setup_wizard.py の UE4SS_SAMPLE_MODS と同じもの）。
+# 「残すもの以外を落とす」書き方にすると、利用者が自分で入れた別の MOD まで
+# 無効にしてしまうため、落とすものだけを列挙する。
+# Keybinds は RegisterKeyBind が依存するので入れない。
 if (-not (Test-Path $ModsTxt)) { New-Item -ItemType File -Path $ModsTxt -Force | Out-Null }
-$keep = @("keybinds", $ModName.ToLower())
+$samples = @(
+    "cheatmanagerenablermod",
+    "actordumpermod",
+    "consolecommandsmod",
+    "consoleenablermod",
+    "splitscreenmod",
+    "linetracemod",
+    "bpmodloadermod",
+    "bpml_genericfunctions",
+    "jsbluaprofilermod"
+)
 $lines = @(Get-Content $ModsTxt -ErrorAction SilentlyContinue)
 $registered = $false
 $disabled = @()
@@ -223,7 +238,7 @@ $lines = $lines | ForEach-Object {
         $script:registered = $true
         return "$ModName : 1"
     }
-    if ($keep -notcontains $name.ToLower()) {
+    if ($samples -contains $name.ToLower()) {
         if ((($s -split ":", 2)[1]).Trim() -ne "0") { $script:disabled += $name }
         return "$name : 0"
     }
@@ -268,6 +283,8 @@ Write-Host "=== インストール完了 ===" -ForegroundColor Green
 Write-Host ""
 Write-Host " 1. settings.ini を開いてAPIキーを設定する" -ForegroundColor White
 Write-Host "      $cfg"
+Write-Host "      日本語以外で使うなら、言語の設定も書いてください"
+Write-Host "      （README の「言語を変える」。ウィザードに任せるなら --setup）"
 Write-Host " 2. run_bridge.bat を実行して翻訳プロセスを起動する"
 Write-Host " 3. Deep Rock Galactic を起動する"
 Write-Host " 4. チャットで動作確認（ゲーム中は F9 で翻訳のON/OFF）"

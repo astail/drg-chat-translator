@@ -93,9 +93,15 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -GamePath "G:\SteamLibrar
 
 アンインストールは `-Uninstall` を付けて実行してください。
 
-### ⚠ インストーラは APIキーまでは設定しません
+### ⚠ インストーラは APIキーと言語までは設定しません
 
-`settings.ini` は作られますが**APIキーは空**です。続けて次の2つを行ってください。
+`settings.ini` は作られますが**APIキーは空**で、言語は既定（日本語）のままです。
+`install.ps1` はセットアップウィザードを通らないので、
+ウィザードの `[4]`（言語）と `[5]`（翻訳サービス）に当たるぶんを手で書く必要があります。
+日本語以外で使うなら README の[言語を変える](../README.md#言語を変える)を見てください。
+ウィザードをそのまま使いたい場合は `py -3 bridge\drg_bridge.py --setup` でも動きます。
+
+続けて次の2つを行ってください。
 
 **(1) SDK を入れる**（`claude` / `openai` を使う場合のみ）
 
