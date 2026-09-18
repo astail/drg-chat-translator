@@ -677,8 +677,10 @@ local function init()
             IPC.send("TOGGLE", s)
             -- キーバインドのコールバックはゲームスレッド外で走るため、
             -- UObject に触る表示処理は必ず包んでから呼ぶ
+            -- ゲーム内に出す文字は ASCII にしておく。ゲームの言語が日本語以外だと
+            -- 日本語フォントが読み込まれず、「翻訳」が □□ になってしまう
             U.in_game_thread(function()
-                display_line("[DRGTranslate] 翻訳 " .. s)
+                display_line("[DRGTranslate] Translation " .. s)
             end)
         end)
         U.log("%s キーで翻訳のON/OFFを切り替えられます", Cfg.hotkey.toggle)
