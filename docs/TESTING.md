@@ -167,6 +167,33 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
   - **0.5.6 の exe で Claude の翻訳が失敗していた不具合（`temperature`）が直っている**
     ことも、この確認で見ている
 
+- **言語の選択を入れたあとの実機確認**（2026-09-18 / DRG 1.40 / UE4SS 3.x /
+  bridge・MOD とも 0.5.7＋言語選択の変更 / provider=claude / ソロのホスト、スペースリグ）。
+  ゲームフォルダの MOD を最新にしてゲームを起動し、発言は debug の `SIMSAY` で流した
+  - MOD が読み込まれ、hook が2本登録される（`ClientNewMessage` /
+    `Server_NewMessage`）。ゲームは落ちない
+  - 受信: `탄약이 부족해요, 나이트라 찾아주세요` → `弾薬が足りない、ナイトラを探してくれ`、
+    `小心，前面有虫群` → `気をつけろ、前にスウォームがいるぞ`、
+    `watch out, swarm incoming from the left` → `注意!左からスウォーム来てる`、
+    `gg wp, that was close` → `gg wp、危なかったな`
+  - 用語集: `rock and stone!` は API を呼ばず `Rock and Stone!` のまま出る。
+    韓国語の `나이트라` も Wiki 表記の「ナイトラ」になる
+  - 送信: 自分の `こんにちは` → `Hi! / 안녕하세요! / 你好！` が2通目として送られる
+  - **F9 の表示が `[DRGTranslate] Translation OFF` → `Translation ON` になっている**
+    （日本語をやめた変更の確認。`ゲーム内表示: OK` も bridge に返っている）
+  - ソロなので中継は動かない（`DIAG: players=1` → `中継=false`）。仕様どおり
+  - 言語を英語にした設定（`DRGT_INCOMING_TARGET=en` など）での実 API の往復も
+    `--test` で確認した。`回復お願いします、左から大群が来てる` →
+    `Res please, big swarm coming from the left`、`res me please, bulk inc` →
+    `蘇生してください、デトネーター接近中 / ...`
+
+  > **`SIMSAY` で他人の発言を模すときは、自分の名前と違う名前を使ってください。**
+  > MOD は「最初に `Server_NewMessage` を通った送信者＝自分の名前」と学習します
+  > （本来その呼び出しは自分のクライアントしか行わないので、実プレイでは正しい推定です）。
+  > 自分がまだ一度も発言していない状態で `SIMSAY` に `Karl` を渡すと、自分の名前が
+  > `Karl` になり、以降の `Karl` の発言が自分の発言として扱われて受信の確認になりません
+  > （`mod/DRGTranslate/Scripts/main.lua` の名前の学習箇所）。
+
 - **`deepl` / `openai` の実際の翻訳**（2026-09-18 / 配布した 0.5.7 の exe / `--test`）。
   3つのサービスすべてで、受信・送信の両方向を確認した
   - `deepl`: `watch out, swarm incoming from the left` → `気をつけろ、左から群れが迫ってくるぞ`、
