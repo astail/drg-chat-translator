@@ -415,8 +415,12 @@ def choose_language() -> str:
     中止したときにファイルだけが残る。次の起動では needs_setup() が
     False になるので、ウィザードが二度と動かなくなる。
     """
-    step(4, "あなたの言語を選んでください")
+    step(4, "あなたの言語を選んでください / Choose your language")
     print("      他の人の発言をこの言語に訳し、この言語で打った発言を他の言語に訳します。")
+    # この質問だけは、日本語が読めない人にも分かるようにしておく。
+    # ここを間違えると以降の設定が全部ずれる
+    print("      Others' chat is translated into this language, and what you")
+    print("      type in it is translated for everyone else.")
     for i, (code, label) in enumerate(LANGUAGES, 1):
         print(f"      {i}) {label} ({code})")
     print("      一覧に無い言語は、あとで settings.ini で変えられます")
@@ -589,4 +593,16 @@ def run(*, env_path: str, example_path: str, mod_source: str, build_bridge,
     print(f"  ・セットアップからやり直したいときは、{os.path.basename(env_path)} を削除してから")
     print("    もう一度起動してください")
     print()
+
+    # 日本語以外を選んだ人は、ここまでの案内が読めていない可能性が高い。
+    # 実際に手を動かす必要がある4点だけ英語でも出す（案内の全訳はしていない）
+    if lang != "ja":
+        ini = os.path.basename(env_path)
+        print("  (English)")
+        print(f"  - Set the game language to \"{game_lang}\", or translations")
+        print("    will show up as empty boxes (missing font).")
+        print("  - Press F9 in game to turn translation on and off.")
+        print(f"  - Edit {ini} next to this program to change settings.")
+        print(f"  - Delete {ini} and start again to redo this setup.")
+        print()
     return True
