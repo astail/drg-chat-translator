@@ -1,4 +1,16 @@
--- DRGTranslate : Deep Rock Galactic チャット自動翻訳 (UE4SS Lua mod)
+-- =====================================================================
+--  DRGTranslate  -  Deep Rock Galactic チャット自動翻訳 (UE4SS Lua mod)
+--
+--  受信: AFSDGameState::ClientNewMessage(FFSDChatMessage&)
+--        → 訳文を自分にだけローカル表示する
+--  送信: AFSDPlayerController::Server_NewMessage(FString,FString,EChatSenderType)
+--        → 原文はそのまま流し、訳文が届いたら2通目として送る
+--
+--  どちらも UE4SS の RegisterHook（/Script/ 始まりなので pre コールバック）で捕まえる。
+--
+--  翻訳そのものはローカル常駐プロセス(bridge/drg_bridge.py)が担当し、
+--  %APPDATA%\DRGTranslate 配下のテキストファイル経由でやり取りする。
+-- =====================================================================
 
 local Cfg = require("config")
 local U   = require("util")

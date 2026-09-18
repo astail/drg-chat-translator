@@ -1,5 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller のビルド定義。"""
+"""PyInstaller のビルド定義。
+
+Windows 上で次を実行するとビルドされる（build.bat がこれを呼ぶ）。
+
+    pyinstaller DRGTranslate.spec
+
+出来上がるのは dist\\DRGTranslate.exe の1ファイル。
+Python 本体・翻訳SDK・MOD本体・用語集をすべて内包しているので、
+利用者側に Python も pip も不要になる。
+"""
 
 import os
 

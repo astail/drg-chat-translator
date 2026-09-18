@@ -1,4 +1,13 @@
 -- DRGTranslate : ローカル常駐プロセス(bridge)とのファイルIPC
+--
+-- UE4SS の Lua にはソケットが無いため、追記専用の2本のテキストファイルで
+-- 双方向通信する。各ファイルの書き手は片側だけなので競合しない。
+--
+--   <dir>/to_bridge.txt   ゲーム -> bridge   (ゲームが追記 / bridge が読む)
+--   <dir>/to_game.txt     bridge -> ゲーム   (bridge が追記 / ゲームが読む)
+--   <dir>/bridge.alive    bridge の生存確認用
+--
+-- 行フォーマット: <TYPE>\t<field>\t<field>... \n （フィールドは util.esc 済み）
 
 local U = require("util")
 

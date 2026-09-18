@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
-"""DRGTranslate bridge — Deep Rock Galactic のチャットを翻訳するローカル常駐プロセス。"""
+"""DRGTranslate bridge — Deep Rock Galactic のチャットを翻訳するローカル常駐プロセス。
+
+ゲーム内の UE4SS Lua mod とは %APPDATA%\\DRGTranslate 配下のテキストファイルで
+やり取りする（UE4SS の Lua にはソケットが無いため）。
+
+  to_bridge.txt : mod -> bridge
+  to_game.txt   : bridge -> mod
+  bridge.alive  : 生存確認
+
+翻訳プロバイダは deepl / claude / openai の3つ。exe（ソースならリポジトリ）と
+同じフォルダの settings.ini で選ぶ。
+
+使い方:
+    python drg_bridge.py                    通常起動
+    python drg_bridge.py --test "こんにちは"      翻訳だけ試す（ゲーム不要）
+    python drg_bridge.py --selftest --fake  APIキー無しでファイルIPCの疎通確認
+"""
 
 from __future__ import annotations
 

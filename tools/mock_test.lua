@@ -1,4 +1,11 @@
--- 実機なしで mod のロジックを確認するテスト（手順は docs/TESTING.md）。
+-- 実機なしで mod のロジックを確認するテスト。
+--
+--   1. bridge を別プロセスで起動しておく（--fake 付き。APIキー不要）
+--        python3 bridge/drg_bridge.py --fake --dir <IPCフォルダ>
+--   2. lua5.4 tools/mock_test.lua <IPCフォルダ> [client|host]
+--
+-- ゲーム内のフックが呼ばれたときの挙動、翻訳の往復、
+-- 表示先の切り替え（クライアント/ホスト）を確認する。
 
 local ipc_dir = arg[1] or error("使い方: lua5.4 tools/mock_test.lua <IPCフォルダ> [client|host]")
 local role = arg[2] or "client"

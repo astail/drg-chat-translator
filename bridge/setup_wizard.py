@@ -1,4 +1,16 @@
-"""初回セットアップの対話ウィザード。"""
+"""初回セットアップの対話ウィザード。
+
+exe（PyInstaller）から起動される想定で、次を順に案内する。
+
+  1. Deep Rock Galactic を探す
+  2. UE4SS を導入する
+  3. MOD をコピーして mods.txt に登録する
+  4. 自分の言語を選んでもらう
+  5. 翻訳サービスを選んで APIキーを入力してもらう
+  6. 実際に1回翻訳して疎通を確認する
+
+ソースから `python bridge/drg_bridge.py --setup` でも同じものが動く。
+"""
 
 from __future__ import annotations
 
