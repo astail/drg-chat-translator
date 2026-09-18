@@ -1,4 +1,5 @@
 -- DRGTranslate : 共通ユーティリティ
+
 local M = {}
 
 local PREFIX = "[DRGTranslate] "
@@ -17,15 +18,13 @@ function M.dbg(fmt, ...)
     if debug_enabled then M.log("(dbg) " .. fmt, ...) end
 end
 
---- UE4SS が返す FString / FText / RemoteUnrealParam / 素の string を
---- すべて Lua の string に落とす。
+--- UE4SS が返す FString / FText / RemoteUnrealParam / 素の string をすべて Lua の string に落とす。
 function M.tostr(v)
     if v == nil then return "" end
     local t = type(v)
     if t == "string" then return v end
     if t == "number" or t == "boolean" then return tostring(v) end
 
-    -- RemoteUnrealParam の場合は中身を取り出す
     local ok, inner = pcall(function() return v:get() end)
     if ok and inner ~= nil and inner ~= v then
         return M.tostr(inner)
@@ -36,10 +35,6 @@ function M.tostr(v)
 
     return tostring(v)
 end
-
--- ------------------------------------------------------------------
--- IPC 用の行フォーマット（TAB 区切り + エスケープ）
--- ------------------------------------------------------------------
 
 function M.esc(s)
     s = tostring(s or "")
@@ -84,18 +79,13 @@ function M.utf8_len(s)
     return n
 end
 
--- ------------------------------------------------------------------
--- スケジューラ（UE4SS のバージョン差を吸収）
--- ------------------------------------------------------------------
-
---- interval_ms ごとに fn を呼ぶ。fn はゲームスレッド外で実行されるので
---- UObject に触る処理は ExecuteInGameThread で包むこと。
+--- interval_ms ごとに fn を呼ぶ。fn はゲームスレッド外で実行されるので UObject に触る処理は ExecuteInGameThread で包むこと。
 function M.loop(interval_ms, fn)
     if type(LoopAsync) == "function" then
         LoopAsync(interval_ms, function()
             local ok, err = pcall(fn)
             if not ok then M.log("loop error: %s", tostring(err)) end
-            return false -- false = ループ継続
+            return false
         end)
         return true
     end

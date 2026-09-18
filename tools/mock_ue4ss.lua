@@ -1,23 +1,14 @@
 -- UE4SS のグローバル API と DRG のオブジェクトを模したテスト用スタブ。
--- 実機を起動せずに mod のロジック（hook・翻訳の往復・表示先の切替）を確認するためのもの。
---
---   lua5.4 tools/mock_test.lua
---
--- 本番の動作には不要なので、ゲームへは配布されない。
 
 local M = {}
 
-M.hooks = {}          -- [path] = { pre = fn, post = fn }
-M.loops = {}          -- { {interval = ms, fn = fn} }
+M.hooks = {}
+M.loops = {}
 M.keybinds = {}
-M.sent = {}           -- Server_NewMessage で送られたもの
-M.displayed = {}      -- PostGameMessage / ウィジェットに出たもの
-M.displayed_widget_attempts = 0   -- ウィジェット直叩きを試みた回数
+M.sent = {}
+M.displayed = {}
+M.displayed_widget_attempts = 0
 M.log = {}
-
--- ---------------------------------------------------------------------
--- UE の値を模したラッパー
--- ---------------------------------------------------------------------
 
 local function FString(v)
     return setmetatable({ __v = v }, {
@@ -35,10 +26,6 @@ local function Param(v)
     return p
 end
 M.Param = Param
-
--- ---------------------------------------------------------------------
--- 偽のゲームオブジェクト
--- ---------------------------------------------------------------------
 
 local function make_obj(fields)
     local o = fields or {}
@@ -60,15 +47,12 @@ function M.make_world(opts)
         M.sent[#M.sent + 1] = { sender = sender, text = text, type = sender_type }
     end
 
-    -- ロビーの人数。TArray の代わりに Lua の配列を持たせる（#arr で数えられる）
     local players = {}
     for i = 1, (opts.players or 1) do players[i] = make_obj({ __name = "PlayerState_" .. i }) end
 
     local gs = make_obj({ __name = "FSDGameState_0", PlayerArray = players })
     function gs:HasAuthority() return opts.is_host == true end
     function gs:PostGameMessage(text)
-        -- ホストが呼ぶと全員に配信される。ただしロビーに自分しかいなければ
-        -- 配信先も自分だけなので問題ない。他の隊員がいるのに呼んだら異常とする。
         if opts.is_host and #players > 1 then
             error("他の隊員がいるのにホストが PostGameMessage を呼んだ（全員に見えてしまう）")
         end
@@ -77,8 +61,6 @@ function M.make_world(opts)
 
     local hud = make_obj({ __name = "HUD_Chat_C_0" })
     hud["Add Chat Message"] = function(_self, msg)
-        -- 実機ではここが構造体引数になり、UE4SS が組み立てに失敗すると
-        -- プロセスごと落ちる。何回試みたかを数えておく。
         M.displayed_widget_attempts = M.displayed_widget_attempts + 1
         M.displayed[#M.displayed + 1] = { via = "widget", text = msg.Msg }
     end
@@ -86,10 +68,6 @@ function M.make_world(opts)
     M.pc, M.gs, M.hud = pc, gs, hud
     return { pc = pc, gs = gs, hud = hud }
 end
-
--- ---------------------------------------------------------------------
--- UE4SS のグローバル関数
--- ---------------------------------------------------------------------
 
 function M.install()
     _G.RegisterHook = function(path, pre, post)
@@ -143,10 +121,6 @@ function M.receive(sender, text, msg_type)
 end
 
 --- 自分がチャットを送信する（戻り値: 実際に送信された本文）
----
---- 実機では Server_NewMessage のあと、その発言が ClientNewMessage として
---- 全員（自分を含む）に配信される。MOD は本文をそちら側で受け取るので、
---- ここでも同じ順序で両方のフックを呼ぶ。
 function M.send(sender, text, sender_type)
     local h = M.hooks["/Script/FSD.FSDPlayerController:Server_NewMessage"]
     assert(h and h.pre, "Server_NewMessage の hook が登録されていない")

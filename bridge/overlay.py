@@ -1,12 +1,4 @@
-"""翻訳結果を表示する小さなオーバーレイ窓（tkinter / 標準ライブラリのみ）。
-
-ゲーム内チャットへの表示がうまくいかない環境や、
-ホストとしてプレイしている場合の保険として使う。
-日本語を打ち込んで Enter すると、翻訳してゲームのチャットへ送信もできる。
-
-注意: 排他フルスクリーンでは前面に出ない。
-      ゲーム側の表示設定を「ウィンドウ(フルスクリーン)」にすること。
-"""
+"""翻訳結果を表示する小さなオーバーレイ窓（tkinter / 標準ライブラリのみ）。"""
 
 from __future__ import annotations
 
@@ -30,8 +22,6 @@ class Overlay:
         self.cfg = cfg
         self.max_lines = int(cfg["lines"])
         self.mode = cfg.get("mode", "auto")
-        # auto のとき、最後の翻訳からこの秒数が過ぎたら引っ込める。
-        # 0 にすると出しっぱなし。
         self.hide_after = float(cfg.get("hide_after", 12))
         self._last_msg_at = 0.0
         self._visible = True
@@ -45,9 +35,6 @@ class Overlay:
         except tk.TclError:
             pass
         self.root.configure(bg=BG)
-        # 位置だけ先に決める。高さは中身を組み立てたあとに実測して入れる
-        # （overrideredirect した窓に明示サイズを与えると自動リサイズしないので、
-        #   ここで高さを決め打ちすると細い帯だけが残ってしまう）。
         self.root.geometry(f"+{int(cfg['x'])}+{int(cfg['y'])}")
 
         font = ("Yu Gothic UI", int(cfg["font_size"]))
@@ -84,19 +71,16 @@ class Overlay:
         self._append("sys", "翻訳待機中です。ゲームを起動してチャットしてください。")
         self.root.bind("<Escape>", lambda _e: self.root.destroy())
 
-        # 中身が決まってから、幅は設定値・高さは実測値で確定させる
         self.root.update_idletasks()
         self.root.geometry(
             f"{int(cfg['width'])}x{self.root.winfo_reqheight()}"
             f"+{int(cfg['x'])}+{int(cfg['y'])}"
         )
 
-        # auto のときは何か来るまで出さない
         if self.mode == "auto" and self.hide_after > 0:
             self._visible = False
             self.root.withdraw()
 
-    # -- ウィンドウ移動 ---------------------------------------------------
 
     def _drag_start(self, event):
         self._drag_x, self._drag_y = event.x, event.y
@@ -106,12 +90,10 @@ class Overlay:
         y = self.root.winfo_y() + event.y - getattr(self, "_drag_y", 0)
         self.root.geometry(f"+{x}+{y}")
 
-    # -- 表示 -------------------------------------------------------------
 
     def _append(self, tag: str, line: str) -> None:
         self.text.configure(state="normal")
         self.text.insert("end", line + "\n", tag)
-        # 行数を制限
         total = int(self.text.index("end-1c").split(".")[0])
         if total > self.max_lines * 3:
             self.text.delete("1.0", f"{total - self.max_lines * 3}.0")
@@ -147,9 +129,6 @@ class Overlay:
         elif self.mode == "off":
             want = False
         else:
-            # auto: ゲーム内表示ができていないときだけ出す。
-            # さらに、翻訳が流れていない間は引っ込めておく
-            # （出しっぱなしだと画面の隅を占領し続けるため）。
             want = self.bridge.ingame_display_ok is not True
             if want and self.hide_after > 0 and not self._composer_busy():
                 want = (time.monotonic() - self._last_msg_at) <= self.hide_after

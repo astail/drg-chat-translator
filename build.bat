@@ -29,7 +29,6 @@ if errorlevel 1 (
 
 echo.
 echo [2/3] 前回のビルド結果を消します
-rem dist\settings.ini には APIキーが入っているのでフォルダごとは消さない
 if exist build rmdir /s /q build
 if exist dist\DRGTranslate.exe del /q dist\DRGTranslate.exe
 

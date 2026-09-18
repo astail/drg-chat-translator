@@ -1,16 +1,4 @@
-"""初回セットアップの対話ウィザード。
-
-exe（PyInstaller）から起動される想定で、次を順に案内する。
-
-  1. Deep Rock Galactic を探す
-  2. UE4SS を導入する
-  3. MOD をコピーして mods.txt に登録する
-  4. 自分の言語を選んでもらう
-  5. 翻訳サービスを選んで APIキーを入力してもらう
-  6. 実際に1回翻訳して疎通を確認する
-
-ソースから `python bridge/drg_bridge.py --setup` でも同じものが動く。
-"""
+"""初回セットアップの対話ウィザード。"""
 
 from __future__ import annotations
 
@@ -28,13 +16,6 @@ UE4SS_URL = (
 )
 MOD_NAME = "DRGTranslate"
 
-# 自分の言語の候補。ラベルはゲームの言語設定の表記に寄せた
-# （そのまま設定してもらうため）。
-#
-# ここに並べるのは translate.detect_language が文字種で見分けられる言語だけ。
-# 一覧に無い言語（ドイツ語など）を選ばせると、受信は訳せても送信が動かない
-# （ラテン文字は en と判定されるので DRGT_OUTGOING_SOURCE=de に一致しない）。
-# そういう設定は README の「言語を変える」を読んで手で書いてもらう。
 LANGUAGES = [
     ("ja", "日本語"),
     ("en", "English"),
@@ -44,7 +25,6 @@ LANGUAGES = [
     ("ru", "Русский"),
 ]
 
-# 送信・中継の既定に使う言語。DRG のチャットの大半がこの4つに収まる
 BASE_LANGUAGES = ["ja", "en", "ko", "zh"]
 
 PROVIDERS = [
@@ -56,10 +36,6 @@ PROVIDERS = [
      "スラングや誤字に強い。従量課金。既定は最安の Haiku"),
 ]
 
-
-# ---------------------------------------------------------------------------
-# 表示まわり
-# ---------------------------------------------------------------------------
 
 def title(text: str) -> None:
     print()
@@ -97,10 +73,6 @@ def ask_yes(prompt: str, default: bool = True) -> bool:
     return answer.startswith("y")
 
 
-# ---------------------------------------------------------------------------
-# 1. ゲームを探す
-# ---------------------------------------------------------------------------
-
 def _steam_paths() -> list[str]:
     roots: list[str] = []
     try:
@@ -116,9 +88,8 @@ def _steam_paths() -> list[str]:
             except OSError:
                 continue
     except ImportError:
-        pass  # Windows 以外
+        pass
 
-    # libraryfolders.vdf に別ドライブのライブラリが書いてある
     extra: list[str] = []
     for root in roots:
         vdf = os.path.join(root, "steamapps", "libraryfolders.vdf")
@@ -135,7 +106,6 @@ def _steam_paths() -> list[str]:
             pass
     roots.extend(extra)
 
-    # X:\SteamLibrary もよくある配置
     for letter in "CDEFGHIJKLMNOPQRSTUVWXYZ":
         roots.append(f"{letter}:\\SteamLibrary")
     return roots
@@ -177,10 +147,6 @@ def resolve_game(preset: str | None = None) -> str | None:
         warn("そのフォルダに FSD-Win64-Shipping.exe が見つかりません。")
 
 
-# ---------------------------------------------------------------------------
-# 2. UE4SS
-# ---------------------------------------------------------------------------
-
 def win64_dir(game: str) -> str:
     return os.path.join(game, "FSD", "Binaries", "Win64")
 
@@ -199,7 +165,7 @@ def install_ue4ss(game: str) -> bool:
     found = find_ue4ss(game)
     if found:
         ok(f"導入済み: {found}")
-        harden_ue4ss(game)   # 既存の導入でも設定だけは安全側に直す
+        harden_ue4ss(game)
         return True
 
     warn("UE4SS が入っていません。MOD の動作に必要です。")
@@ -228,25 +194,12 @@ def install_ue4ss(game: str) -> bool:
     return True
 
 
-# UE4SS の既定値のうち、クラッシュ要因になりうるものを落としておく。
-#   bUseUObjectArrayCache : UObject 配列をキャッシュする。GC でオブジェクトが
-#                           移動・破棄されると古いポインタを読んで
-#                           EXCEPTION_ACCESS_VIOLATION になる（既知の不具合）
-#   GuiConsoleEnabled     : 別ウィンドウのコンソール。翻訳には不要
-#   EnableDumping         : オブジェクトダンプ。翻訳には不要
 UE4SS_SAFE_SETTINGS = {
     "bUseUObjectArrayCache": "false",
     "GuiConsoleEnabled": "0",
     "EnableDumping": "0",
 }
 
-# UE4SS に同梱されるサンプル MOD。翻訳には一切不要なうえ、
-# エンジン内部を広く書き換えるのでクラッシュ源になりやすいので落としておく。
-#
-# UE4SS v3.0.1 の Mods/mods.txt に入っている名前をそのまま並べている。
-# 「残すもの以外を落とす」書き方にすると、利用者が自分で入れた別の MOD まで
-# 無効にしてしまうため、落とすものだけを列挙する。
-# Keybinds は RegisterKeyBind が依存するので入れない。
 UE4SS_SAMPLE_MODS = {
     "cheatmanagerenablermod",
     "actordumpermod",
@@ -291,10 +244,6 @@ def harden_ue4ss(game: str) -> None:
         warn(f"UE4SS-settings.ini を更新できませんでした: {exc}")
 
 
-# ---------------------------------------------------------------------------
-# 3. MOD のコピー
-# ---------------------------------------------------------------------------
-
 def mods_dir(game: str) -> str:
     base = win64_dir(game)
     for rel in ("ue4ss\\Mods", "Mods"):
@@ -316,7 +265,6 @@ def install_mod(game: str, mod_source: str) -> bool:
     dest = os.path.join(mods, MOD_NAME)
     try:
         if os.path.exists(dest):
-            # 利用者が config.lua を編集している可能性があるので退避
             backup = os.path.join(mods, f"{MOD_NAME}.bak")
             shutil.rmtree(backup, ignore_errors=True)
             shutil.move(dest, backup)
@@ -328,12 +276,10 @@ def install_mod(game: str, mod_source: str) -> bool:
         return False
     ok(dest)
 
-    # mods.txt に登録（UE4SS 3.x はこれを見る）
     mods_txt = os.path.join(mods, "mods.txt")
     lines: list[str] = []
     if os.path.exists(mods_txt):
         try:
-            # UE4SS 同梱の mods.txt は BOM 付きなので utf-8-sig で読む
             with open(mods_txt, encoding="utf-8-sig", errors="replace") as f:
                 lines = f.read().splitlines()
         except OSError:
@@ -343,7 +289,6 @@ def install_mod(game: str, mod_source: str) -> bool:
     disabled = []
     for i, line in enumerate(lines):
         stripped = line.strip()
-        # コメント行・空行・区切り行はそのまま
         if not stripped or stripped.startswith(";") or ":" not in stripped:
             continue
         name = stripped.split(":", 1)[0].strip()
@@ -351,8 +296,6 @@ def install_mod(game: str, mod_source: str) -> bool:
             lines[i] = entry
             replaced = True
         elif name.lower() in UE4SS_SAMPLE_MODS:
-            # UE4SS 同梱のサンプル MOD だけ落とす（翻訳には不要）。
-            # 利用者が自分で入れた MOD は触らない
             if stripped.split(":", 1)[1].strip() != "0":
                 lines[i] = f"{name} : 0"
                 disabled.append(name)
@@ -370,55 +313,26 @@ def install_mod(game: str, mod_source: str) -> bool:
     return True
 
 
-# ---------------------------------------------------------------------------
-# 4. 言語 / 5. 翻訳サービスの設定
-# ---------------------------------------------------------------------------
-
 def language_settings(lang: str) -> dict[str, str]:
-    """自分の言語から、言語まわりの設定をまとめて作る。
-
-    1問で済ませたいのでここで全部決める。手で直すなら4か所
-    （受信・送信の元・送信先・中継先）を揃えて書く必要があり、
-    書き忘れると「日本語の発言に訳が付かないのに、自分の言語の発言は
-    同じ言語へ訳させる」という壊れ方をするため。
-
-    DRGT_INCOMING_SKIP_LANGUAGES は書かない。既定が受信の訳す先と同じに
-    なるので、自分が読める言語を増やしたい人だけが足せばよい。
-    """
+    """自分の言語から、言語まわりの設定をまとめて作る。"""
     others = [x for x in BASE_LANGUAGES if x != lang]
-    # 中継: 自分の言語を先頭に置く。ホスト（マルチ）では自分が読む訳も
-    # この行から読むので、外すと自分の画面に何も出なくなる
     relay = [lang] + others
     values = {
-        # 受信: 他の人の発言を自分の言語にする。
-        # 行頭の目印は日本語のときだけ「訳」、それ以外は読めないので TL にする
         "DRGT_INCOMING_TARGET": lang,
         "DRGT_INCOMING_FORMAT": ("[訳] {sender}: {text}" if lang == "ja"
                                  else "[TL] {sender}: {text}"),
-        # 送信: 自分の言語で打った発言を訳す
         "DRGT_OUTGOING_SOURCE": lang,
         "DRGT_OUTGOING_TARGETS": ",".join(others),
         "DRGT_RELAY_TARGETS": ",".join(relay),
-        # 上限は中継先の数に合わせる。自分の言語が BASE_LANGUAGES の外
-        # （zh-tw / ru）だと5言語になり、既定の4では、発言者の言語が
-        # 中継先に無いとき（ロシア語話者のいる繁体字ホストなど）に
-        # 末尾の言語が黙って落ちる
         "DRGT_RELAY_MAX_LANGS": str(len(relay)),
     }
     return values
 
 
 def choose_language() -> str:
-    """言語を聞くだけ。書き込みは save_language で、APIキーが入ったあとに行う。
-
-    ここで settings.ini を作ってしまうと、この後の APIキー入力を空欄で
-    中止したときにファイルだけが残る。次の起動では needs_setup() が
-    False になるので、ウィザードが二度と動かなくなる。
-    """
+    """言語を聞くだけ。書き込みは save_language で、APIキーが入ったあとに行う。"""
     step(4, "あなたの言語を選んでください / Choose your language")
     print("      他の人の発言をこの言語に訳し、この言語で打った発言を他の言語に訳します。")
-    # この質問だけは、日本語が読めない人にも分かるようにしておく。
-    # ここを間違えると以降の設定が全部ずれる
     print("      Others' chat is translated into this language, and what you")
     print("      type in it is translated for everyone else.")
     for i, (code, label) in enumerate(LANGUAGES, 1):
@@ -443,7 +357,6 @@ def save_language(env_path: str, example_path: str, lang: str) -> None:
     values = language_settings(lang)
     ensure_env_file(env_path, example_path)
     write_env(env_path, values)
-    # このあとの疎通確認も、書いたものと同じ設定で動かす
     os.environ.update(values)
 
 
@@ -466,11 +379,7 @@ def ensure_env_file(env_path: str, example_path: str) -> None:
 
 
 def write_env(env_path: str, values: dict[str, str]) -> None:
-    """既存の設定ファイルを壊さずに、渡された項目だけ書き換える。
-
-    見本はすべてコメントアウトされているので、該当行があれば
-    コメントを外した形で置き換える。無ければ末尾に足す。
-    """
+    """既存の設定ファイルを壊さずに、渡された項目だけ書き換える。"""
     lines: list[str] = []
     if os.path.exists(env_path):
         with open(env_path, encoding="utf-8") as f:
@@ -525,13 +434,8 @@ def configure(env_path: str, example_path: str) -> tuple[str, str] | None:
     return provider, env_name
 
 
-# ---------------------------------------------------------------------------
-# 6. 疎通確認
-# ---------------------------------------------------------------------------
-
 def verify(build_bridge, lang: str = "ja") -> bool:
     step(6, "翻訳を1回試します")
-    # 訳す先と同じ言語の見本だと、訳せたのか見て分からない
     sample = ("気をつけろ、大群が来るぞ" if lang.startswith("en")
               else "watch out, swarm incoming")
     try:
@@ -553,10 +457,6 @@ def verify(build_bridge, lang: str = "ja") -> bool:
     ok("翻訳できました")
     return True
 
-
-# ---------------------------------------------------------------------------
-# 全体の流れ
-# ---------------------------------------------------------------------------
 
 def run(*, env_path: str, example_path: str, mod_source: str, build_bridge,
         game_path: str | None = None) -> bool:
@@ -594,8 +494,6 @@ def run(*, env_path: str, example_path: str, mod_source: str, build_bridge,
     print("    もう一度起動してください")
     print()
 
-    # 日本語以外を選んだ人は、ここまでの案内が読めていない可能性が高い。
-    # 実際に手を動かす必要がある4点だけ英語でも出す（案内の全訳はしていない）
     if lang != "ja":
         ini = os.path.basename(env_path)
         print("  (English)")
