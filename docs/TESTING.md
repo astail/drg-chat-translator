@@ -68,6 +68,10 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
   ゲームフォルダの手入力、UE4SS の検出、MOD のコピー、`mods.txt` の登録
   （既存行の有効化・他MODの保持・重複しないこと）、プロバイダ選択、
   設定ファイルへの書き込み、疎通確認の成功／失敗の両方 — すべて実行して確認
+- **言語の選択**（`choose_language`）Enter（既定の ja）／番号での選択／範囲外の
+  番号で聞き直すこと、選んだ言語に応じて受信・送信・中継の4項目が
+  `settings.ini` に書かれることを確認。`DRGT_INCOMING_SKIP_LANGUAGES` の既定が
+  `DRGT_INCOMING_TARGET` に追従すること（明示したときはそちらが勝つこと）も確認
 - **exe（PyInstaller）のパス解決**を frozen 状態を再現して確認：
   設定ファイルとキャッシュが exe の隣に作られること、同梱した用語集・MOD本体・
   設定ファイルの雛形が読めること、exe の隣に置いた `glossary.json` が
