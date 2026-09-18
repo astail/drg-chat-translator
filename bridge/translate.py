@@ -411,7 +411,7 @@ Missions: mining expedition=採掘遠征, egg hunt=卵狩り, elimination=殲滅
   escort=護衛任務, industrial sabotage=妨害工作, deep dive=ディープダイブ
 Other: haz / hazard=ハザード, overclock=オーバークロック, perk=パーク,
   promotion=昇進, swarm=スウォーム, machine event=マシンイベント,
-  Hoxxes=ホクシス, Karl=カール
+  Hoxxes=ホクシス, Karl=カール, mod / mods=MOD
 
 When translating into Chinese, write Simplified Chinese as used in mainland China —
 never Traditional characters — unless the target language explicitly says Traditional.
@@ -420,7 +420,9 @@ enemies, classes and missions, and leave short English chat abbreviations
 (gg, afk, brb, ez, nice) as they are.
 
 Keep these as-is rather than translating them: Rock and Stone (the players'
-rallying cry), leaf lover (an insult for a non-dwarf — リーフラバー).
+rallying cry), leaf lover (an insult for a non-dwarf — リーフラバー), and
+mod / mods (a game modification — write MOD in Japanese and leave the word
+alone in other languages; never render it as オーバークロック or 改造).
 
 Watch for these meanings, which differ from everyday English:
 - "run" / "mission" = one playthrough of a mission, not physical running
