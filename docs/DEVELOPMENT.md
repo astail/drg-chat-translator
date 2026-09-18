@@ -4,6 +4,7 @@ exe を使わずにソースから動かす場合や、exe のビルド・リリ
 ふつうに遊ぶだけなら [README](../README.md) の手順（exe）で足ります。
 
 - [仕組み](#仕組み)
+- [表示言語（多言語対応）](#表示言語多言語対応)
 - [ソースから使う](#ソースから使う)
 - [exe をビルドする](#exe-をビルドする)
 - [リリースの作り方（メンテナ向け）](#リリースの作り方メンテナ向け)
@@ -32,6 +33,42 @@ exe を使わずにソースから動かす場合や、exe のビルド・リリ
 
 UE4SS の Lua にはソケットが無いため、追記専用のテキストファイル2本で双方向通信しています。
 IPC の書式は [INTERNALS.md](INTERNALS.md#ipc-プロトコル) を参照してください。
+
+---
+
+## 表示言語（多言語対応）
+
+利用者に見せる文言は `bridge/i18n.py` の1つの表にまとまっています。
+対応言語は `ja` / `en` / `ko` / `zh` / `zh-tw` / `ru` の6つです。
+
+```python
+from i18n import t
+
+log.info(t("b.startup"), provider_name, ...)   # logging の書式はそのまま
+warn(t("w.failed", err=exc))                   # {name} は kwargs で埋める
+```
+
+- 表示言語は `i18n.init()` が決めます。`DRGT_UI_LANG` →
+  `DRGT_INCOMING_TARGET` → OS の言語 → 英語、の順に見ます。
+  `DRGT_UI_LANG` を持たない古い `settings.ini` でも、これまでと同じ言語で出ます。
+- セットアップは最初の質問で言語を聞き、`i18n.set_lang()` を呼んでから残りを進めます。
+  選ばれた言語は `settings.ini` の `DRGT_UI_LANG` に書かれます。
+- 訳が無いキーは英語にフォールバックします（落ちません）。
+
+**言語を増やすとき**
+
+1. `i18n.py` の `LANGUAGES` に `("xx", "その言語での表記")` を足す
+2. `_M` の各キーに `"xx"` を足す（足し忘れたキーは英語で出ます）
+3. `README.xx.md` を追加し、全 README 冒頭の言語リンクに足す
+4. `i18n.readme()` が返すファイル名と一致しているか確認する
+
+**英語で書くもの / 日本語のままにするもの**
+
+- 利用者が編集する設定ファイル（`settings.example.ini`、`config.lua`）の
+  コメントは**英語**です。言語ごとに用意すると数が増えるため、
+  どの言語の人でも読める英語に寄せています。
+- `--test` / `--selftest` の出力、`--help`、`docs/` 以下の開発者向け文書、
+  ソースコードのコメントは日本語のままです。
 
 ---
 
@@ -245,15 +282,18 @@ git push origin v0.5.5
 公開前に中身を確認したいときは、Actions から `release` を手動実行すると
 リリースを作らずに zip だけが成果物として残ります。
 
-zip に入るのは `DRGTranslate.exe` / `settings.example.ini` / `README.md` / `LICENSE` と
-`docs\*.txt`（`はじめに.txt`）です。`docs` の `.md` は入りません。
+zip に入るのは `DRGTranslate.exe` / `settings.example.ini` / `README*.md`（各言語）/
+`LICENSE` と `docs\*.txt`（`はじめに.txt` / `getting-started.txt`）です。
+`docs` の `.md` は入りません。
 
 ---
 
 ## ファイル構成
 
 ```
-settings.example.ini         設定のひな形（初回に settings.ini としてコピーされる）
+README.md                    日本語版（本体）
+README.en.md ほか            各言語版（en / ko / zh / zh-TW / ru）
+settings.example.ini         設定のひな形（初回に settings.ini としてコピーされる。英語）
 DRGTranslate.spec            exe のビルド定義（PyInstaller）
 build.bat                    exe をビルドする
 LICENSE                      MIT
@@ -266,6 +306,7 @@ mod/DRGTranslate/            UE4SS の Mods へコピーされる本体
   Scripts/config.lua           ゲーム内の設定
 bridge/
   drg_bridge.py              常駐プロセス本体（exe のエントリでもある）
+  i18n.py                    利用者向け文言の対訳表（6言語）
   setup_wizard.py            初回セットアップの対話ウィザード
   translate.py               翻訳API・言語判定・キャッシュ・用語集
   overlay.py                 保険用の小窓（tkinter）
@@ -275,5 +316,6 @@ docs/
   DEVELOPMENT.md             このファイル
   TESTING.md                 動作確認の状況
   INTERNALS.md               解析した DRG 側 API のメモ
-  はじめに.txt               配布 zip に入れる手引き
+  はじめに.txt               配布 zip に入れる手引き（日本語）
+  getting-started.txt        同上（英語）
 ```

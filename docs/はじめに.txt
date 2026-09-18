@@ -1,14 +1,18 @@
 DRGTranslate - Deep Rock Galactic チャット自動翻訳
 ==================================================
 
+  Other languages: README.en.md / README.ko.md / README.zh.md /
+                   README.zh-TW.md / README.ru.md  (and getting-started.txt)
+
 ■ 使い方（3ステップ）
 
   1. DRGTranslate.exe をダブルクリック
   2. 画面の案内どおりに進む
+       ・最初に自分の言語を選びます（日本語ならそのまま Enter）
+         ここで選んだ言語で、そのあとの案内が出ます
        ・ゲームの場所を自動で探します
        ・UE4SS が入っていなければ導入するか聞かれます（Y）
        ・MOD をゲームへコピーします
-       ・自分の言語を選びます（日本語ならそのまま Enter）
        ・翻訳サービスを選び、APIキーを貼り付けます
   3. 黒い窓が出たまま Deep Rock Galactic を起動
 
@@ -34,17 +38,20 @@ DRGTranslate - Deep Rock Galactic チャット自動翻訳
   送信  日本語で打つと 英語・韓国語・中国語 に翻訳して送信
   中継  自分がホストのときは、同僚ドワーフの発言の訳を全員のチャットに流す
 
-  どの言語を使うかはセットアップで選べます（あとから settings.ini でも変えられます）。
+  どの言語を使うかはセットアップの最初に選べます
+  （あとから settings.ini でも変えられます）。
   F9 キーで翻訳の ON/OFF を切り替えられます。
 
 ■ 設定を変える
 
   exe と同じ場所に settings.ini が作られます。ダブルクリックするとメモ帳で
   開けます（拡張子を表示していない PC では「settings」と表示されます）。
-  全項目の説明も settings.ini の中に書いてあります。
+  全項目の説明も settings.ini の中に書いてあります
+  （どの言語の人でも読めるように、説明は英語です）。
   書き換えたら DRGTranslate.exe を起動し直してください。
 
   よく変える項目:
+    DRGT_UI_LANG=ja                  セットアップと黒い窓の表示言語
     DRGT_OUTGOING_TARGETS=en,ko,zh   送信時の翻訳先
     DRGT_RELAY_ENABLED=false         ホストでも中継しない
     DRGT_OVERLAY_ENABLED=true        ゲーム内に出ないときの小窓
@@ -54,7 +61,7 @@ DRGTranslate - Deep Rock Galactic チャット自動翻訳
 
 ■ 注意
 
-  ・ゲームの言語を「日本語」にしてください（□□□ 対策）
+  ・ゲームの言語を、自分が読む言語にしてください（□□□ 対策）
   ・署名していない exe なので、ウイルス対策ソフトが警告を出すことがあります
   ・チャット本文が翻訳サービスに送信されます
 
