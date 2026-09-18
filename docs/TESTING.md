@@ -8,7 +8,9 @@
 py -3 bridge\drg_bridge.py --selftest --fake
 ```
 
-CI（リリース時のビルド）でも同じものが走ります。
+CI（リリース時のビルド）でも同じものが走ります。同梱される `anthropic` が、
+こちらの送る引数を受け付けるかもここで確認します（SDK の更新で引数が消えると、
+最新の SDK を同梱する exe だけ翻訳に失敗するため）。
 
 ### MOD のロジック（UE4SS を模したスタブ）
 
@@ -91,9 +93,9 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
     `Server_NewMessage`）を通ってクラッシュしない**ことを確認
   - **ホストの中継**が実際にチャット欄へ出る。`Karl: im down, need a res over here`
     に対して `[JP] Karl: ダウンしてる、ここでレズ頼む` / `[KR] ...` / `[ZH] ...`
-    の3行が 700ms 間隔で並ぶ（このとき確認したのは1言語1行・言語の目印つきの
-    書式。0.5.4 で目印を外し、同じ内容を1行にまとめる形に変えたので、
-    その書式は実機では未確認）
+    の3行が 700ms 間隔で並ぶ（0.5.3 までの1言語1行・言語の目印つきの書式）。
+    0.5.4 で目印を外して全言語を1行にまとめた形も、実機で1メッセージとして
+    流れることを確認している
   - **日本語・韓国語・簡体字中国語のすべてがゲーム内フォントで描画される**
     （ゲーム言語=日本語の状態。豆腐にならない）
   - 一連の操作を通してゲームは落ちず、動作し続けた
@@ -114,9 +116,9 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
   受信の訳す先を `en` にしたとき、用語集の日本語訳が使われないことも `--test` で確認
 
 - **実機で翻訳元・訳す先を英語にした設定**（2026-09-16 / DRG 1.40 / UE4SS 3.x /
-  bridge 0.5.5 + MOD 0.4.4 / provider=claude / ソロのホスト、スペースリグ）。
-  MOD の 0.4.4 は番号を bridge にそろえる前の表記で、中身は 0.5.5 と同じ。
-  発言は debug の `SIMSAY` で流し、チャット欄の表示も画面で確認した
+  bridge 0.5.5 + MOD 0.4.4（番号をそろえる前の表記）/ provider=claude /
+  ソロのホスト、スペースリグ）。発言は debug の `SIMSAY` で流し、
+  チャット欄の表示も画面で確認した
   - `DRGT_OUTGOING_SOURCE=en` / `DRGT_OUTGOING_TARGETS=en,ja,ko` /
     `DRGT_INCOMING_TARGET=en` / `DRGT_INCOMING_SKIP_LANGUAGES=en` のとき
     - 自分の `need ammo over here, anyone got some?` →
@@ -130,6 +132,20 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
     - 自分の `回復お願いします、ダウンしそう` → en/ko/zh の2通目、`了解`（漢字だけ）も訳す
     - 自分の `need ammo over here` は訳されない
     - 同僚ドワーフの `gg` → `[訳] Karl: お疲れさま！`（用語集）、英語の発言 → 日本語訳
+
+- **リリースした exe での通し確認**（2026-09-18 / DRG 1.40 / UE4SS 3.x /
+  exe・MOD とも 0.5.7 / provider=claude / ソロのホスト、スペースリグ）。
+  配布 zip の exe をそのまま使い、発言は debug の `SIMSAY` で流した
+  - 自分の `みんなよろしく、0.5.7 のテスト中です` →
+    `hey everyone, testing 0.5.7 / 여러분 안녕하세요, 0.5.7 테스트 중입니다 / 大家好，正在测试 0.5.7`
+    が2通目として送られる
+  - 自分の `need ammo over here` は訳されない（翻訳元が日本語のため）
+  - 同僚ドワーフの `watch out, bulk inc from the left` → `[訳] Karl: 左からデトネーター来るぞ`、
+    `탄약이 부족해요` → `[訳] Karl: 弾薬が足りません`、`gg` → `[訳] Karl: お疲れさま！`（用語集）
+  - F9 で `[DRGTranslate] 翻訳 OFF` → `翻訳 ON` が画面に出る
+  - 日本語・韓国語・簡体字中国語がゲーム内フォントで描画される。ゲームは落ちない
+  - **0.5.6 の exe で Claude の翻訳が失敗していた不具合（`temperature`）が直っている**
+    ことも、この確認で見ている
 
 ### 未検証
 
