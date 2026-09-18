@@ -11,7 +11,7 @@ exe を使わずにソースから動かす場合や、exe のビルド・リリ
 
 関連ドキュメント
 
-- [TESTING.md](TESTING.md) — テストの実行方法と、どこまで動作確認できているか
+- [TESTING.md](TESTING.md) — どこまで動作確認できていて、どこが未確認か
 - [INTERNALS.md](INTERNALS.md) — 解析した DRG 側 API のメモ
 
 ---
@@ -127,7 +127,7 @@ copy settings.example.ini settings.ini
 
 `settings.ini` の各項目は README の[設定](../README.md#設定)と `settings.example.ini` を参照してください。
 
-### 動作確認
+### 翻訳を試す
 
 ゲームを起動せずに試せます。
 
@@ -155,11 +155,37 @@ README の[使い方](../README.md#使い方)を参照してください。
 
 ```
 py -3 bridge\drg_bridge.py --test "回復お願いします"      # 送信方向を試す
-py -3 bridge\drg_bridge.py --selftest --fake             # APIキー無しで疎通確認
 py -3 bridge\drg_bridge.py --provider claude --test "bulk inc, res me"   # 一時的に上書き
 py -3 bridge\drg_bridge.py --setup                       # exe と同じセットアップウィザード
 py -3 bridge\drg_bridge.py --config other.ini            # 別の設定ファイルで動かす
 ```
+
+### テストを走らせる
+
+どちらも APIキーは要りません。
+
+**bridge 単体**
+
+```
+py -3 bridge\drg_bridge.py --selftest --fake
+```
+
+CI（リリース時のビルド）でも同じものが走ります。同梱される `anthropic` が、
+こちらの送る引数を受け付けるかもここで確認します（SDK の更新で引数が消えると、
+最新の SDK を同梱する exe だけ翻訳に失敗するため）。
+
+**MOD のロジック**（UE4SS を模したスタブ。Lua 5.4 が必要）
+
+```bash
+python3 bridge/drg_bridge.py --fake --dir /tmp/drgtl &
+lua5.4 tools/mock_test.lua /tmp/drgtl client
+lua5.4 tools/mock_test.lua /tmp/drgtl host
+```
+
+`--fake` は翻訳APIを呼ばずに目印を付けて返すテスト専用モードです。
+`provider` として設定から選ぶことはできません。
+
+どこまで動作確認できているかは [TESTING.md](TESTING.md) にまとめてあります。
 
 ### ファイルの置き場所（exe との違い）
 
@@ -247,7 +273,7 @@ bridge/
 tools/                       実機なしで動かすテスト用スタブ
 docs/
   DEVELOPMENT.md             このファイル
-  TESTING.md                 テストの実行方法と動作確認の状況
+  TESTING.md                 動作確認の状況
   INTERNALS.md               解析した DRG 側 API のメモ
   はじめに.txt               配布 zip に入れる手引き
 ```
