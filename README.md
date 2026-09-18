@@ -1,5 +1,7 @@
 # DRGTranslate
 
+**日本語** | [English](README.en.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
+
 Deep Rock Galactic のチャットを自動翻訳する MOD です。
 
 | できること | ホスト（マルチ） | ホスト（ソロ） | クライアント |
@@ -64,36 +66,37 @@ Claude か OpenAI を選んでください。`Rock and Stone` のような定型
 
 ```
 DRGTranslate.exe      これだけで動きます
-settings.example.ini  設定ファイルの見本（全項目の説明つき）
+settings.example.ini  設定ファイルの見本（全項目の説明つき。英語）
 はじめに.txt          3ステップの手引き
-README.md / LICENSE
+README.md ほか        各言語の README / LICENSE
 ```
 
 **`DRGTranslate.exe` をダブルクリックするだけ**です。ほかにインストールするものは
 ありません。用意するものは**翻訳サービスのAPIキーだけ**です
 （[始める前に](#始める前に翻訳サービスの-apiキーを用意する)）。
 
-初回起動時に、次を順番に案内します。
+初回起動時に、次を順番に案内します。**最初に言語を聞き、そのあとの案内は選んだ言語で出ます。**
 
 ```
-[1] Deep Rock Galactic を探しています
-    OK  G:\SteamLibrary\steamapps\common\Deep Rock Galactic
-[2] UE4SS を確認しています
-    !!  UE4SS が入っていません。MOD の動作に必要です。
-    今すぐダウンロードして導入しますか？ (Y/n):
-[3] MOD をコピーしています
-    OK  ...\Mods\DRGTranslate
-    OK  mods.txt に登録しました（DRGTranslate : 1）
-[4] あなたの言語を選んでください / Choose your language
-      他の人の発言をこの言語に訳し、この言語で打った発言を他の言語に訳します。
+[1] 言語を選んでください / Choose your language
+      セットアップの案内と、他の人の発言の訳がこの言語になります。
+      Setup and the chat you read are shown in this language.
       1) 日本語 (ja)
       2) English (en)
       3) 한국어 (ko)
       4) 简体中文 (zh)
       5) 繁體中文 (zh-tw)
       6) Русский (ru)
-    番号 [1]:
+    番号 / number [1]:
     OK  日本語 にします（受信→ja / 送信→en,ko,zh）
+[2] Deep Rock Galactic を探しています
+    OK  G:\SteamLibrary\steamapps\common\Deep Rock Galactic
+[3] UE4SS を確認しています
+    !!  UE4SS が入っていません。MOD の動作に必要です。
+    今すぐダウンロードして導入しますか？ (Y/n):
+[4] MOD をコピーしています
+    OK  ...\Mods\DRGTranslate
+    OK  mods.txt に登録しました（DRGTranslate : 1）
 [5] 翻訳サービスを選んでください
       1) DeepL    機械翻訳。無料のお試し枠あり
       2) OpenAI   スラングや誤字に強い。従量課金
@@ -105,6 +108,9 @@ README.md / LICENSE
         → 気をつけろ、大群がやってくる
     OK  翻訳できました
 ```
+
+ここで選んだ言語は `settings.ini` の `DRGT_UI_LANG` に残り、2回目以降の起動でも使われます
+（黒い窓に出るメッセージもその言語になります）。
 
 設定が終わるとそのまま翻訳プロセスが常駐するので、窓を開いたままゲームを起動してください。
 
@@ -229,15 +235,16 @@ exe と同じフォルダにある **`settings.ini`** をダブルクリック�
 
 **すべての項目が既定値つきでコメントアウトされています。**
 変えたい行の先頭の `#` を外すだけです。
+（ファイル内の説明は、どの言語の人でも読めるように英語で書いてあります。）
 
 ```ini
-# 使う翻訳サービス。deepl / claude / openai のどれか
+# Which translation service to use: deepl / claude / openai
 DRGT_PROVIDER=openai
 
 # OpenAI  https://platform.openai.com/api-keys
 OPENAI_API_KEY=sk-...
 
-# 翻訳先（カンマ区切り）。英語だけでいいなら en
+# Target languages (comma separated). Use just en if English is enough
 #DRGT_OUTGOING_TARGETS=en,ko,zh
 ```
 
@@ -245,6 +252,7 @@ OPENAI_API_KEY=sk-...
 
 | キー | 説明 |
 |---|---|
+| `DRGT_UI_LANG` | セットアップと黒い窓のメッセージの言語。`ja` / `en` / `ko` / `zh` / `zh-tw` / `ru`。未設定なら `DRGT_INCOMING_TARGET` と同じ言語 |
 | `DRGT_PROVIDER` | `deepl` / `claude` / `openai` |
 | `DEEPL_AUTH_KEY`<br>`ANTHROPIC_API_KEY`<br>`OPENAI_API_KEY` | APIキー。使うサービスのものだけでOK |
 | `DRGT_INCOMING_TARGET` | 受信した発言を何語に訳すか。既定 `ja` |
@@ -264,8 +272,8 @@ OS 側に同名の環境変数がある場合は、そちらが `settings.ini` �
 
 ### 言語を変える
 
-**ふつうは初回セットアップの `[4]` で選ぶだけで済みます。** 選んだ言語に合わせて
-`DRGT_INCOMING_TARGET` / `DRGT_INCOMING_FORMAT` / `DRGT_OUTGOING_SOURCE` /
+**ふつうは初回セットアップの `[1]` で選ぶだけで済みます。** 選んだ言語に合わせて
+`DRGT_UI_LANG` / `DRGT_INCOMING_TARGET` / `DRGT_INCOMING_FORMAT` / `DRGT_OUTGOING_SOURCE` /
 `DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS` / `DRGT_RELAY_MAX_LANGS` が
 まとめて書かれます。あとから変えたいときや、一覧に無い言語を使いたいときは
 `settings.ini` を直してください（[セットアップをやり直す](#導入)と選び直せます）。
@@ -409,6 +417,7 @@ DRG の頻出フレーズを最初から登録済みです（exe に同梱され
 | `display.strategy` | 翻訳の表示方法。`auto` / `gamestate` / `widget` / `off` |
 | `debug` | UE4SS コンソールに詳細ログを出す |
 
+ファイル内の説明は、どの言語の人でも読めるように英語で書いてあります。
 `config.lua` を書き換えたら **ゲームを再起動**してください。
 [セットアップをやり直す](#導入)と MOD が入れ直され、編集していた
 `config.lua` は `Mods\DRGTranslate.bak` に退避されます。
@@ -421,6 +430,8 @@ DRG の頻出フレーズを最初から登録済みです（exe に同梱され
   中継・F9 の切り替え・日本語/韓国語/中国語の表示までは確認しています。
 - 英語で打った発言を日本語・韓国語に訳す設定（[言語を変える](#言語を変える)）も実機で確認しています。
 - DeepL / Claude / OpenAI の3つとも、実際に翻訳できることを確認しています。
+- セットアップと黒い窓のメッセージは6言語ぶんを機械的に確認しています（実機のゲームを起動しての確認はまだです）。
+- **ロシア語・繁体字中国語がゲーム内フォントで描画されるかは未確認です**（日本語・韓国語・簡体字中国語は確認済み）。
 - **複数人のロビーで、中継が同僚ドワーフに届くところはまだ確認していません。**
 - 小窓（`DRGT_OVERLAY_ENABLED=true`）の実機での見え方も未確認です。
 
