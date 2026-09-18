@@ -292,7 +292,8 @@ An environment variable of the same name set in Windows takes priority over
 **Normally picking a language at step `[1]` of the first-run setup is all you need.**
 It writes `DRGT_UI_LANG`, `DRGT_INCOMING_TARGET`, `DRGT_INCOMING_FORMAT`,
 `DRGT_OUTGOING_SOURCE`, `DRGT_OUTGOING_TARGETS`, `DRGT_RELAY_TARGETS` and
-`DRGT_RELAY_MAX_LANGS` together to match. Edit `settings.ini` when you want to change it
+`DRGT_RELAY_MAX_LANGS` together to match (plus `DRGT_INCOMING_SKIP_LANGUAGES` for
+traditional Chinese, because the language check cannot tell it apart from simplified). Edit `settings.ini` when you want to change it
 later, or to use a language that is not on the list
 ([running setup again](#install) lets you pick another one).
 

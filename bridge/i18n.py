@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import os
+import sys
 
 # 表示言語として選べるもの。(コード, その言語での表記)
 LANGUAGES: list[tuple[str, str]] = [
@@ -68,6 +69,23 @@ def readme(code: str | None = None) -> str:
     return "README.{}.md".format("zh-TW" if lang == "zh-tw" else lang)
 
 
+def _windows_ui_lang() -> str | None:
+    """Windows の表示言語を BCP-47（ja-JP / zh-TW など）で聞く。
+
+    Windows は LANG などの環境変数を持たないので OS に直接聞く。
+    locale.getdefaultlocale() は Python 3.15 で消えるため使わない。
+    """
+    try:
+        import ctypes
+        lcid = ctypes.windll.kernel32.GetUserDefaultUILanguage()
+        buf = ctypes.create_unicode_buffer(85)  # LOCALE_NAME_MAX_LENGTH
+        if ctypes.windll.kernel32.LCIDToLocaleName(lcid, buf, len(buf), 0):
+            return normalize(buf.value)
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def _os_lang() -> str | None:
     """OS の言語設定。どちらの設定も無い人に、いきなり英語を出さないための保険。"""
     for value in (os.environ.get("LC_ALL"), os.environ.get("LC_MESSAGES"),
@@ -75,9 +93,11 @@ def _os_lang() -> str | None:
         lang = normalize((value or "").split(".")[0])
         if lang:
             return lang
+    if sys.platform == "win32":
+        return _windows_ui_lang()
     try:
         import locale
-        return normalize((locale.getdefaultlocale()[0] or "").split(".")[0])
+        return normalize((locale.getlocale()[0] or "").split(".")[0])
     except Exception:  # noqa: BLE001
         return None
 
@@ -88,10 +108,17 @@ def init() -> str:
     DRGT_UI_LANG が最優先。無ければ受信の翻訳先（= その人が読む言語）、
     それも無ければ OS の言語を見る。DRGT_UI_LANG を持たない古い settings.ini
     でも、これまでどおりの言語で出る。
+
+    順に normalize して、最初に解決したものを採る。対応していない言語が
+    途中に入っていても（受信を de にしている等）、そこで英語に落ちずに
+    次の候補を見る。
     """
-    return set_lang(os.environ.get("DRGT_UI_LANG")
-                    or os.environ.get("DRGT_INCOMING_TARGET")
-                    or _os_lang())
+    for candidate in (os.environ.get("DRGT_UI_LANG"),
+                      os.environ.get("DRGT_INCOMING_TARGET"),
+                      _os_lang()):
+        if normalize(candidate):
+            return set_lang(candidate)
+    return set_lang(None)
 
 
 def t(key: str, /, **kwargs: object) -> str:

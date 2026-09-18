@@ -49,8 +49,13 @@ warn(t("w.failed", err=exc))                   # {name} は kwargs で埋める
 ```
 
 - 表示言語は `i18n.init()` が決めます。`DRGT_UI_LANG` →
-  `DRGT_INCOMING_TARGET` → OS の言語 → 英語、の順に見ます。
+  `DRGT_INCOMING_TARGET` → OS の言語 → 英語、の順に見ます。候補は順に
+  `normalize()` して、最初に解決したものを採ります。対応していない言語が
+  途中にあっても（受信を `de` にしている等）そこで止まらず次の候補へ進みます。
   `DRGT_UI_LANG` を持たない古い `settings.ini` でも、これまでと同じ言語で出ます。
+- OS の言語は、Windows では `GetUserDefaultUILanguage` + `LCIDToLocaleName` で
+  聞きます（`LANG` などの環境変数を持たないため）。`locale.getdefaultlocale()` は
+  Python 3.15 で消えるので使っていません。
 - セットアップは最初の質問で言語を聞き、`i18n.set_lang()` を呼んでから残りを進めます。
   選ばれた言語は `settings.ini` の `DRGT_UI_LANG` に書かれます。
 - 訳が無いキーは英語にフォールバックします（落ちません）。

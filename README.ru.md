@@ -287,7 +287,9 @@ OPENAI_API_KEY=sk-...
 **Обычно достаточно выбрать язык на шаге `[1]` первой установки.** Под него сразу
 записываются `DRGT_UI_LANG`, `DRGT_INCOMING_TARGET`, `DRGT_INCOMING_FORMAT`,
 `DRGT_OUTGOING_SOURCE`, `DRGT_OUTGOING_TARGETS`, `DRGT_RELAY_TARGETS` и
-`DRGT_RELAY_MAX_LANGS`. Правьте `settings.ini`, если захотите что-то изменить позже или
+`DRGT_RELAY_MAX_LANGS` (а для традиционного китайского ещё и
+`DRGT_INCOMING_SKIP_LANGUAGES`: проверка языка не отличает его от упрощённого).
+Правьте `settings.ini`, если захотите что-то изменить позже или
 использовать язык, которого нет в списке ([повторная установка](#установка) позволяет
 выбрать другой).
 

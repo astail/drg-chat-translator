@@ -277,7 +277,8 @@ OS 쪽에 같은 이름의 환경 변수가 있으면 그쪽이 `settings.ini` �
 **보통은 첫 설치의 `[1]` 에서 고르는 것만으로 끝납니다.** 고른 언어에 맞춰
 `DRGT_UI_LANG` / `DRGT_INCOMING_TARGET` / `DRGT_INCOMING_FORMAT` /
 `DRGT_OUTGOING_SOURCE` / `DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS` /
-`DRGT_RELAY_MAX_LANGS` 가 한꺼번에 쓰입니다. 나중에 바꾸고 싶거나 목록에 없는 언어를
+`DRGT_RELAY_MAX_LANGS` 가 한꺼번에 쓰입니다(번체 중국어일 때는
+`DRGT_INCOMING_SKIP_LANGUAGES` 도. 언어 판별이 간체와 번체를 구분하지 못하기 때문입니다). 나중에 바꾸고 싶거나 목록에 없는 언어를
 쓰고 싶을 때는 `settings.ini` 를 고치세요([설치를 다시 하면](#설치) 다시 고를 수도
 있습니다).
 
