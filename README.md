@@ -84,7 +84,7 @@ README.md / LICENSE
 [3] MOD をコピーしています
     OK  ...\Mods\DRGTranslate
     OK  mods.txt に登録しました（DRGTranslate : 1）
-[4] あなたの言語を選んでください
+[4] あなたの言語を選んでください / Choose your language
       他の人の発言をこの言語に訳し、この言語で打った発言を他の言語に訳します。
       1) 日本語 (ja)
       2) English (en)
@@ -93,7 +93,7 @@ README.md / LICENSE
       5) 繁體中文 (zh-tw)
       6) Русский (ru)
     番号 [1]:
-    OK  日本語 に設定しました（受信→ja / 送信→en,ko,zh）
+    OK  日本語 にします（受信→ja / 送信→en,ko,zh）
 [5] 翻訳サービスを選んでください
       1) DeepL    機械翻訳。無料のお試し枠あり
       2) OpenAI   スラングや誤字に強い。従量課金
