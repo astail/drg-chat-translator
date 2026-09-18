@@ -15,6 +15,8 @@ import queue
 import time
 import tkinter as tk
 
+from i18n import t
+
 log = logging.getLogger("drgtl.overlay")
 
 BG = "#101014"
@@ -76,7 +78,7 @@ class Overlay:
             self.entry.pack(fill="x", padx=6, pady=(0, 6), ipady=4)
             self.entry.bind("<Return>", self._on_submit)
 
-        self._append("sys", "翻訳待機中です。ゲームを起動してチャットしてください。")
+        self._append("sys", t("o.waiting"))
         self.root.bind("<Escape>", lambda _e: self.root.destroy())
 
         self.root.update_idletasks()
@@ -116,7 +118,7 @@ class Overlay:
         if not text:
             return
         if not self.bridge.game_connected:
-            self._append("sys", "ゲームと接続していないため送信できません")
+            self._append("sys", t("o.not_connected"))
             return
         self.bridge.outbound_from_overlay.put(text)
 
@@ -158,7 +160,7 @@ class Overlay:
                 self._last_msg_at = time.monotonic()
             self._apply_visibility()
         except Exception:  # noqa: BLE001
-            log.exception("オーバーレイの更新でエラー")
+            log.exception(t("o.update_error"))
         if not self.bridge.stop_event.is_set():
             self.root.after(120, self._tick)
         else:
