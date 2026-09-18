@@ -34,7 +34,8 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
 
 - **実際のAPIキーを使った翻訳の往復**（Claude / `claude-haiku-4-5`）
   - 英語→日本語: `watch out, swarm incoming from the left` → 左から群れが来るぞ、気をつけろ
-  - 韓国語→日本語: `탄약이 부족해요, 나이트라 찾아주세요` → 弾薬が足りない、ニトラを探してくれ
+  - 韓国語→日本語: `탄약이 부족해요, 나이트라 찾아주세요` → 弾薬が足りない、ナイトラを探してくれ
+    （この記録は当初「ニトラ」と書いていた。`Nitra` の日本語は[DRG 日本語 Wiki](https://wikiwiki.jp/rockandstone/) に合わせて**ナイトラ**。用語集も `nitra` → `ナイトラ` になっている）
   - 日本語→英語+韓国語: `回復お願いします` → `heal plz / 힐 부탁합니다`（呼び出しは1回）
   - ゲーム内スラング: `bulk inc, res me` → バルク来た、俺を助けてくれ
   - 用語集の直接置換: `rock and stone!` → ロックアンドストーン！（APIを経由しない）
