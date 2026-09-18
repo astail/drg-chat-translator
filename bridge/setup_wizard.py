@@ -371,16 +371,26 @@ def language_settings(lang: str) -> dict[str, str]:
     なるので、自分が読める言語を増やしたい人だけが足せばよい。
     """
     others = [x for x in BASE_LANGUAGES if x != lang]
-    return {
-        # 受信: 他の人の発言を自分の言語にする
+    # 中継: 自分の言語を先頭に置く。ホスト（マルチ）では自分が読む訳も
+    # この行から読むので、外すと自分の画面に何も出なくなる
+    relay = [lang] + others
+    values = {
+        # 受信: 他の人の発言を自分の言語にする。
+        # 行頭の目印は日本語のときだけ「訳」、それ以外は読めないので TL にする
         "DRGT_INCOMING_TARGET": lang,
+        "DRGT_INCOMING_FORMAT": ("[訳] {sender}: {text}" if lang == "ja"
+                                 else "[TL] {sender}: {text}"),
         # 送信: 自分の言語で打った発言を訳す
         "DRGT_OUTGOING_SOURCE": lang,
         "DRGT_OUTGOING_TARGETS": ",".join(others),
-        # 中継: 自分の言語を先頭に置く。ホスト（マルチ）では自分が読む訳も
-        # この行から読むので、外すと自分の画面に何も出なくなる
-        "DRGT_RELAY_TARGETS": ",".join([lang] + others),
+        "DRGT_RELAY_TARGETS": ",".join(relay),
+        # 上限は中継先の数に合わせる。自分の言語が BASE_LANGUAGES の外
+        # （zh-tw / ru）だと5言語になり、既定の4では、発言者の言語が
+        # 中継先に無いとき（ロシア語話者のいる繁体字ホストなど）に
+        # 末尾の言語が黙って落ちる
+        "DRGT_RELAY_MAX_LANGS": str(len(relay)),
     }
+    return values
 
 
 def choose_language(env_path: str, example_path: str) -> str:
