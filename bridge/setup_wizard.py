@@ -408,7 +408,13 @@ def language_settings(lang: str) -> dict[str, str]:
     return values
 
 
-def choose_language(env_path: str, example_path: str) -> str:
+def choose_language() -> str:
+    """言語を聞くだけ。書き込みは save_language で、APIキーが入ったあとに行う。
+
+    ここで settings.ini を作ってしまうと、この後の APIキー入力を空欄で
+    中止したときにファイルだけが残る。次の起動では needs_setup() が
+    False になるので、ウィザードが二度と動かなくなる。
+    """
     step(4, "あなたの言語を選んでください")
     print("      他の人の発言をこの言語に訳し、この言語で打った発言を他の言語に訳します。")
     for i, (code, label) in enumerate(LANGUAGES, 1):
@@ -424,12 +430,17 @@ def choose_language(env_path: str, example_path: str) -> str:
         warn(f"1〜{len(LANGUAGES)} の数字を入れてください。")
 
     values = language_settings(lang)
+    ok(f"{label} にします（受信→{lang} / 送信→{values['DRGT_OUTGOING_TARGETS']}）")
+    return lang
+
+
+def save_language(env_path: str, example_path: str, lang: str) -> None:
+    """選んだ言語を設定ファイルへ書く。APIキーが入ったあとに呼ぶ。"""
+    values = language_settings(lang)
     ensure_env_file(env_path, example_path)
     write_env(env_path, values)
     # このあとの疎通確認も、書いたものと同じ設定で動かす
     os.environ.update(values)
-    ok(f"{label} に設定しました（受信→{lang} / 送信→{values['DRGT_OUTGOING_TARGETS']}）")
-    return lang
 
 
 def choose_provider() -> tuple[str, str, str, str]:
@@ -557,9 +568,10 @@ def run(*, env_path: str, example_path: str, mod_source: str, build_bridge,
         return False
     if not install_mod(game, mod_source):
         return False
-    lang = choose_language(env_path, example_path)
+    lang = choose_language()
     if not configure(env_path, example_path):
         return False
+    save_language(env_path, example_path, lang)
     if not verify(build_bridge, lang):
         warn("翻訳の確認に失敗しましたが、設定自体は保存されています。")
         print(f"    {env_path} を直してから、もう一度起動してください。")
