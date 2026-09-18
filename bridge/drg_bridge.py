@@ -821,7 +821,9 @@ class Bridge:
             self.overlay_queue.put(("in", f"[DRGTranslate] 翻訳 {state}"))
 
         elif kind == "PING":
-            self.ipc.write("NOTE", "[DRGTranslate] bridge は動作中です")
+            # NOTE は mod が display_line でゲーム内に出す。ゲームの言語が
+            # 日本語以外だと日本語フォントが無く豆腐になるので、英数字で書く
+            self.ipc.write("NOTE", "[DRGTranslate] bridge is running")
 
     def run_loop(self) -> None:
         log.info("待機中: %s", self.ipc.dir)
