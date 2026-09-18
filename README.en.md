@@ -73,7 +73,8 @@ It contains:
 ```
 DRGTranslate.exe      everything you need
 settings.example.ini  a sample settings file (every option, explained)
-はじめに.txt          a three-step guide (Japanese)
+getting-started.txt   a three-step guide
+はじめに.txt          the same guide in Japanese
 README.md and more    the README in each language / LICENSE
 ```
 
@@ -293,9 +294,10 @@ An environment variable of the same name set in Windows takes priority over
 It writes `DRGT_UI_LANG`, `DRGT_INCOMING_TARGET`, `DRGT_INCOMING_FORMAT`,
 `DRGT_OUTGOING_SOURCE`, `DRGT_OUTGOING_TARGETS`, `DRGT_RELAY_TARGETS` and
 `DRGT_RELAY_MAX_LANGS` together to match (plus `DRGT_INCOMING_SKIP_LANGUAGES` for
-traditional Chinese, because the language check cannot tell it apart from simplified). Edit `settings.ini` when you want to change it
-later, or to use a language that is not on the list
-([running setup again](#install) lets you pick another one).
+traditional Chinese, because the language check cannot tell it apart from
+simplified). Edit `settings.ini` when you want to change it later, or to use a
+language that is not on the list ([running setup again](#install) lets you pick
+another one).
 
 Languages are written like `ja` (Japanese), `en` (English), `ko` (Korean),
 `zh` (Chinese, simplified), `zh-tw` (Chinese, traditional), `ru` (Russian).
@@ -458,9 +460,10 @@ moved aside to `Mods\DRGTranslate.bak`.
 - Translating English messages into Japanese and Korean
   ([Change the language](#change-the-language)) confirmed on a real machine as well.
 - DeepL, Claude and OpenAI have all been confirmed to actually translate.
-- Setup and the console messages were checked in all six languages by automated runs
-  (not yet inside a running game).
-- **Whether Russian and traditional Chinese render in the game's font has not been
+- Setup and the console messages were checked in all six languages, on Windows, using an
+  exe built the same way the released one is.
+- The game does list Traditional Chinese and Russian among its languages (confirmed from
+  the game's own data). **Whether translations actually render in those two has not been
   checked** (Japanese, Korean and simplified Chinese have been).
 - **Relaying to fellow dwarves in a lobby with several people has not been confirmed
   yet.**

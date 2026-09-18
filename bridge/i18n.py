@@ -211,7 +211,7 @@ _M.update({
         "ko": "목록에 없는 언어는 나중에 settings.ini 에서 바꿀 수 있습니다"
               " (README 의 \"언어 바꾸기\").",
         "zh": "列表中没有的语言，之后可以在 settings.ini 中修改（见 README 的“更改语言”）。",
-        "zh-tw": "清單中沒有的語言，之後可以在 settings.ini 中修改（見 README 的「更改語言」）。",
+        "zh-tw": "清單中沒有的語言，之後可以在 settings.ini 中修改（見 README 的「變更語言」）。",
         "ru": "Языки, которых нет в списке, можно задать позже в settings.ini"
               " (раздел «Смена языка» в README).",
     },
