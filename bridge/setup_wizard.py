@@ -345,13 +345,11 @@ def language_settings(lang: str) -> dict[str, str]:
         "DRGT_OUTGOING_TARGETS": ",".join(others),
         "DRGT_RELAY_TARGETS": ",".join(relay),
         "DRGT_RELAY_MAX_LANGS": str(len(relay)),
+        # 言語判定は文字の種類で見るので zh-tw のような地域つきの言語は
+        # 元の言語（zh）までしか分からない。書かないでおくと、やり直しで
+        # 別の言語を選んだときに前の値が残ってしまうので、常に書く
+        "DRGT_INCOMING_SKIP_LANGUAGES": lang.split("-")[0],
     }
-    base = lang.split("-")[0]
-    if base != lang:
-        # zh-tw のような地域つきの言語。言語判定は文字の種類で見るので簡体字と
-        # 繁体字を区別できず、放っておくと中国語の発言すべてに訳が付いてしまう。
-        # 自分が読める言語として、まとめて訳さない扱いにする
-        values["DRGT_INCOMING_SKIP_LANGUAGES"] = base
     return values
 
 
