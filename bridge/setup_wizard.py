@@ -241,9 +241,23 @@ UE4SS_SAFE_SETTINGS = {
 }
 
 # UE4SS に同梱されるサンプル MOD。翻訳には一切不要なうえ、
-# エンジン内部を広く書き換えるのでクラッシュ源になりやすい。
-# Keybinds は RegisterKeyBind が依存するので残す。
-UE4SS_KEEP_MODS = {"keybinds", MOD_NAME.lower()}
+# エンジン内部を広く書き換えるのでクラッシュ源になりやすいので落としておく。
+#
+# UE4SS v3.0.1 の Mods/mods.txt に入っている名前をそのまま並べている。
+# 「残すもの以外を落とす」書き方にすると、利用者が自分で入れた別の MOD まで
+# 無効にしてしまうため、落とすものだけを列挙する。
+# Keybinds は RegisterKeyBind が依存するので入れない。
+UE4SS_SAMPLE_MODS = {
+    "cheatmanagerenablermod",
+    "actordumpermod",
+    "consolecommandsmod",
+    "consoleenablermod",
+    "splitscreenmod",
+    "linetracemod",
+    "bpmodloadermod",
+    "bpml_genericfunctions",
+    "jsbluaprofilermod",
+}
 
 
 def harden_ue4ss(game: str) -> None:
@@ -336,8 +350,9 @@ def install_mod(game: str, mod_source: str) -> bool:
         if name.lower() == MOD_NAME.lower():
             lines[i] = entry
             replaced = True
-        elif name.lower() not in UE4SS_KEEP_MODS:
-            # UE4SS 同梱のサンプル MOD は落としておく（翻訳には不要）
+        elif name.lower() in UE4SS_SAMPLE_MODS:
+            # UE4SS 同梱のサンプル MOD だけ落とす（翻訳には不要）。
+            # 利用者が自分で入れた MOD は触らない
             if stripped.split(":", 1)[1].strip() != "0":
                 lines[i] = f"{name} : 0"
                 disabled.append(name)
