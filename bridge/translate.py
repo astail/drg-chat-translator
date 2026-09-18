@@ -8,6 +8,7 @@ bridge の起動自体は成功する（翻訳しようとしたときにだけ�
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -631,8 +632,13 @@ class ClaudeProvider(LLMProvider):
             return self.model.startswith(self._FALLBACK_CAPABLE)
         return bool(setting)
 
-    def _complete(self, system: str, user: str, json_targets: list[str] | None) -> str:
-        client = self._get_client()
+    def _build_params(self, system: str, user: str,
+                      json_targets: list[str] | None) -> dict:
+        """messages.create に渡す引数を組み立てる。
+
+        呼び出さずに中身だけ確かめられるよう、送信とは分けてある
+        （--selftest が、同梱の SDK がこの引数を受け付けるかを見る）。
+        """
         modern = self._is_modern()
 
         output_config: dict = {}
@@ -674,17 +680,24 @@ class ClaudeProvider(LLMProvider):
         if modern:
             # 4.6 以降は思考が使える。Opus 5 は既定で ON なので明示的に切る。
             params["thinking"] = {"type": "disabled"}
-        else:
-            # 旧世代は thinking を省略すれば思考しない。
-            # サンプリングパラメータもこちらでは有効なので、訳のブレを抑えておく。
-            params["temperature"] = 0
+        # 旧世代は thinking を省略すれば思考しない。
+        # temperature は送らない。API は旧世代なら受け付けるが、anthropic 1.x の
+        # messages.create() から引数が消えているため、送ると TypeError になる
+        # （exe には最新の SDK が同梱されるので、exe だけ翻訳できなくなる）。
+
+        if self._use_fallback():
+            # ゲームチャットは暴言を含むことがあり、安全性判定で拒否される場合がある。
+            # そのときは Anthropic 推奨の別モデルへ自動で回してもらう。
+            params["betas"] = ["server-side-fallback-2026-07-01"]
+            params["fallbacks"] = "default"
+        return params
+
+    def _complete(self, system: str, user: str, json_targets: list[str] | None) -> str:
+        client = self._get_client()
+        params = self._build_params(system, user, json_targets)
 
         try:
-            if self._use_fallback():
-                # ゲームチャットは暴言を含むことがあり、安全性判定で拒否される場合がある。
-                # そのときは Anthropic 推奨の別モデルへ自動で回してもらう。
-                params["betas"] = ["server-side-fallback-2026-07-01"]
-                params["fallbacks"] = "default"
+            if "betas" in params:
                 resp = client.beta.messages.create(**params)
             else:
                 resp = client.messages.create(**params)
@@ -702,6 +715,38 @@ class ClaudeProvider(LLMProvider):
             block.text for block in resp.content if getattr(block, "type", "") == "text"
         )
 
+
+
+def check_claude_params() -> list[str]:
+    """同梱の anthropic SDK が、こちらの送る引数を受け付けるか確かめる。
+
+    SDK の更新で引数が消えると（1.x で temperature が消えた例がある）、
+    最新の SDK を同梱する exe だけ翻訳に失敗する。APIキーもネットワークも
+    要らない確認なので --selftest から呼んでいる。
+    """
+    try:
+        import anthropic
+    except ImportError:
+        return []
+
+    client = anthropic.Anthropic(api_key="dummy-for-signature-check")
+    methods = {
+        "messages.create": client.messages.create,
+        "beta.messages.create": client.beta.messages.create,
+    }
+    problems: list[str] = []
+    # 旧世代 / 4.6 以降 / 拒否されたとき別モデルへ回すもの、の3通り
+    for model in ("claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"):
+        params = ClaudeProvider({"model": model})._build_params("system", "user", ["ja"])
+        name = "beta.messages.create" if "betas" in params else "messages.create"
+        accepted = inspect.signature(methods[name]).parameters
+        for key in params:
+            if key not in accepted:
+                problems.append(
+                    f"{model}: anthropic {anthropic.__version__} の {name}() は "
+                    f"{key} を受け付けません"
+                )
+    return problems
 
 class OpenAIProvider(LLMProvider):
     """OpenAI (Chat Completions)。`pip install openai` が必要。

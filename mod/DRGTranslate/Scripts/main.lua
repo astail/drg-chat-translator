@@ -18,7 +18,7 @@ local IPC = require("ipc")
 
 -- bridge/drg_bridge.py の VERSION と同じ番号にする（アプリ全体で1つの番号）。
 -- MOD を変えていないリリースでも上げる。食い違っているとリリースの CI が止まる
-local MOD_VERSION = "0.5.6"
+local MOD_VERSION = "0.5.7"
 
 -- 自分の Server_NewMessage の直後に来た発言を「自分のもの」とみなす猶予(ms)。
 -- ホストなら同期実行なので即座、クライアントでもサーバ往復ぶんで足りる。

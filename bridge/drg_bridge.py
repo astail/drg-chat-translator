@@ -40,6 +40,7 @@ from translate import (  # noqa: E402
     TranslationError,
     Translator,
     build_provider,
+    check_claude_params,
     detect_language,
     is_translatable,
     is_written_in,
@@ -48,7 +49,7 @@ from translate import (  # noqa: E402
 
 # アプリ全体で1つの番号。mod/DRGTranslate/Scripts/main.lua の MOD_VERSION と
 # リリースのタグもこれにそろえる（食い違っているとリリースの CI が止まる）
-VERSION = "0.5.6"
+VERSION = "0.5.7"
 log = logging.getLogger("drgtl")
 
 # 応答が遅い代わりにスラングや誤字に強いプロバイダ
@@ -991,6 +992,10 @@ def run_selftest(bridge: Bridge) -> int:
     kanji_out = seen.get("9") or []
     if len(kanji_out) > 4 and kanji_out[4] == "":
         print("  !! 漢字だけの発言が訳されていません")
+        ok = False
+    # 同梱の anthropic SDK が、こちらの送る引数を受け付けるか
+    for problem in check_claude_params():
+        print(f"  !! {problem}")
         ok = False
     print("--- " + ("PASS" if ok else "FAIL") + " ---")
     return 0 if ok else 1
