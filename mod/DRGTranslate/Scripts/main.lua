@@ -296,10 +296,11 @@ local function display_line(text)
     report_display(false)
     if host and not State.warned_display then
         State.warned_display = true
-        U.log("ホストで他の隊員がいるので、ゲーム内チャットには出しません"
-              .. "（出すと全員に見えてしまうため）。訳を自分でも見たいときは "
-              .. "settings.ini の DRGT_OVERLAY_ENABLED=true で小窓に出せます。"
-              .. "中継が有効なら日本語の行はチャットに流れます")
+        U.log("ホストで他の隊員がいるので、受信の訳はゲーム内チャットには出しません"
+              .. "（ホストのチャット欄に出したものは全員に届くので、訳は中継として"
+              .. "1行にまとめて流しています）。中継が有効なら、その行に日本語が"
+              .. "含まれるので読めます。中継を切っている場合は settings.ini の "
+              .. "DRGT_OVERLAY_ENABLED=true で小窓に出せます")
     end
     return false
 end
