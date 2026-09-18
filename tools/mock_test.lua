@@ -47,6 +47,28 @@ local function pump(times, sleep_sec)
     end
 end
 
+--- cond が真になるまで回す。最大 timeout 秒（既定15秒）。
+---
+--- 「訳が届く」ような待ちに使う。固定回数だけ回していたころは、
+--- bridge の応答が少し遅れるだけで FAIL したり、遅れて届いた訳を
+--- 次の「訳さないこと」の確認が拾ってしまったりして不安定だった。
+--- 真になったらすぐ戻るので、速いときは待ち時間も増えない。
+local function wait_until(cond, timeout)
+    local step = 0.06
+    for _ = 1, math.ceil((timeout or 15) / step) do
+        if cond() then return true end
+        mock.tick()
+        mock.sleep(step)
+    end
+    return cond() == true
+end
+
+--- 「何も起きないこと」を確かめる前の待ち。
+--- こちらは待つしかないので、少し長めに回す。
+local function settle()
+    pump(25)
+end
+
 local function last_display()
     local d = mock.displayed[#mock.displayed]
     return d and d.text or nil
@@ -81,7 +103,11 @@ print("-- 受信 --")
 
 local before = #mock.displayed
 mock.receive("Karl", "Rock and Stone!")
-pump(12)
+if role == "client" or (role == "host" and players == 1) then
+    wait_until(function() return #mock.displayed > before end)
+else
+    settle()   -- 出ないことを確かめるので、待つしかない
+end
 
 if role == "client" then
     check(#mock.displayed > before, "英語の発言が翻訳されて表示される", last_display())
@@ -92,7 +118,7 @@ if role == "client" then
     -- 訳文が原文と同じでも表示する
     before = #mock.displayed
     mock.receive("Karl", "for karl")
-    pump(12)
+    wait_until(function() return #mock.displayed > before end)
     check(#mock.displayed > before, "原文と同じ訳文でも表示される", last_display())
 
     check(mock.displayed[#mock.displayed].via == "gamestate",
@@ -120,7 +146,12 @@ pump(40, 0.05)   -- 上の受信で溜まった中継行を出し切ってから
 
 local relay_before = #mock.sent
 mock.receive("Karl", "swarm from the left")
-pump(40, 0.05)   -- 1行ずつ間隔を空けて送るので長めに回す
+if role == "host" and players >= 2 then
+    wait_until(function() return #mock.sent > relay_before end)
+    pump(20, 0.05)   -- 2行目が続かないことも見るので、少し余分に回す
+else
+    settle()
+end
 local relayed, senders = {}, {}
 for i = relay_before + 1, #mock.sent do
     relayed[#relayed + 1] = mock.sent[i].text
@@ -148,11 +179,12 @@ elseif role == "host" then
           "本文に発言者名が二重に入らない", relayed[1])
 
     -- 一度発言して名前が分かったあとは、自分の名前で中継する
+    local before_own = #mock.sent
     mock.send("Kiyo", "了解です")
-    pump(20)
+    wait_until(function() return #mock.sent > before_own end)
     local after = #mock.sent
     mock.receive("Karl", "nitra over here")
-    pump(40, 0.05)
+    wait_until(function() return #mock.sent > after end)
     check(#mock.sent > after and mock.sent[after + 1].sender == "Kiyo",
           "名前が判明したあとは自分の名前で中継する",
           #mock.sent > after and mock.sent[after + 1].sender or "送信なし")
@@ -168,7 +200,7 @@ end
 relay_before = #mock.sent
 before = #mock.displayed
 mock.receive("Hosty", "Karl: 気をつけろ / 조심해 / 小心")
-pump(20)
+settle()
 check(#mock.displayed == before and #mock.sent == relay_before,
       "中継された行は翻訳も再中継もしない")
 
@@ -177,7 +209,11 @@ check(#mock.displayed == before and #mock.sent == relay_before,
 relay_before = #mock.sent
 before = #mock.displayed
 mock.receive("Karl", "warning: swarm incoming")
-pump(40, 0.05)
+if role == "host" and players >= 2 then
+    wait_until(function() return #mock.sent > relay_before end)
+else
+    wait_until(function() return #mock.displayed > before end)
+end
 if role == "host" and players >= 2 then
     check(#mock.sent > relay_before,
           "コロンを含む発言も中継する（中継行と誤判定しない）")
@@ -188,12 +224,12 @@ end
 
 before = #mock.displayed
 mock.receive("Someone", "こんにちは")
-pump(10)
+settle()
 check(#mock.displayed == before, "日本語の発言は翻訳しない")
 
 before = #mock.displayed
 mock.receive("System", "Mission Control speaking", 1)
-pump(10)
+settle()
 check(#mock.displayed == before, "ゲームメッセージ(ES_Game)は既定で翻訳しない")
 
 -- ------------------------------------------------------------------
@@ -204,7 +240,7 @@ print("-- 送信 --")
 local sent_before = #mock.sent
 local passed_through = mock.send("Kiyo", "回復お願いします")
 check(passed_through == "回復お願いします", "原文は書き換えられずそのまま流れる", passed_through)
-pump(12)
+wait_until(function() return #mock.sent > sent_before end)
 check(#mock.sent > sent_before, "遅れて翻訳文が2通目として送信される")
 if #mock.sent > sent_before then
     local s = mock.sent[#mock.sent]
@@ -214,23 +250,23 @@ end
 
 sent_before = #mock.sent
 mock.send("Kiyo", "hello everyone")
-pump(8)
+settle()
 check(#mock.sent == sent_before, "翻訳元（既定は日本語）でない発言は翻訳しない")
 
 sent_before = #mock.sent
 mock.send("Kiyo", "/help これはコマンド")
-pump(8)
+settle()
 check(#mock.sent == sent_before, "/ で始まる発言は翻訳しない")
 
 sent_before = #mock.sent
 mock.send("Kiyo", "あ")
-pump(8)
+settle()
 check(#mock.sent == sent_before, "min_length 未満の発言は翻訳しない")
 
 -- 用語集にある定型句は翻訳APIを介さず置き換わる
 sent_before = #mock.sent
 mock.send("Kiyo", "弾がない")
-pump(12)
+wait_until(function() return #mock.sent > sent_before end)
 check(#mock.sent > sent_before, "用語集の定型句も2通目として送られる")
 if #mock.sent > sent_before then
     check(mock.sent[#mock.sent].text == "I'm out of ammo / 탄약이 없어요 / 我没弹药了",
@@ -244,7 +280,7 @@ print("-- ループ防止 --")
 
 before = #mock.displayed
 mock.receive("Kiyo", "please heal me")
-pump(10)
+settle()
 check(#mock.displayed == before, "自分の名前の発言は翻訳しない")
 
 -- ------------------------------------------------------------------
@@ -256,19 +292,23 @@ check(mock.keybinds["F9"] ~= nil, "F9 が登録されている")
 mock.keybinds["F9"]()          -- OFF
 before, sent_before = #mock.displayed, #mock.sent
 mock.receive("Karl", "anyone got nitra")
-pump(30)
+settle()
 check(#mock.displayed == before, "OFF のあとは受信を翻訳しない")
 check(#mock.sent == sent_before, "OFF のあとは中継もしない", #mock.sent - sent_before)
 
 sent_before = #mock.sent
 mock.send("Kiyo", "テスト、聞こえますか")
-pump(20)
+settle()
 check(#mock.sent == sent_before, "OFF のあとは自分の発言も翻訳しない")
 
 mock.keybinds["F9"]()          -- ON に戻す
 before, sent_before = #mock.displayed, #mock.sent
 mock.receive("Karl", "nitra right here")
-pump(40, 0.05)
+if role == "client" or players == 1 then
+    wait_until(function() return #mock.displayed > before end)
+else
+    wait_until(function() return #mock.sent > sent_before end)
+end
 if role == "client" or players == 1 then
     -- クライアントとソロのホストは、自分に見える表示で確認する
     check(#mock.displayed > before, "ON に戻すと翻訳が再開する", last_display())
