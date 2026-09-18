@@ -2,12 +2,15 @@
 
 exe（PyInstaller）から起動される想定で、次を順に案内する。
 
-  1. Deep Rock Galactic を探す
-  2. UE4SS を導入する
-  3. MOD をコピーして mods.txt に登録する
-  4. 自分の言語を選んでもらう
+  1. 自分の言語を選んでもらう（以降の案内はその言語で出す）
+  2. Deep Rock Galactic を探す
+  3. UE4SS を導入する
+  4. MOD をコピーして mods.txt に登録する
   5. 翻訳サービスを選んで APIキーを入力してもらう
   6. 実際に1回翻訳して疎通を確認する
+
+言語を最初に聞くのは、2番目以降の案内文をその言語で出すため。選んだ言語は
+settings.ini の DRGT_UI_LANG に残るので、2回目以降の起動でも同じ言語で出る。
 
 ソースから `python bridge/drg_bridge.py --setup` でも同じものが動く。
 """
@@ -17,9 +20,11 @@ from __future__ import annotations
 import io
 import os
 import shutil
-import sys
 import urllib.request
 import zipfile
+
+import i18n
+from i18n import t
 
 UE4SS_VERSION = "v3.0.1"
 UE4SS_URL = (
@@ -28,24 +33,17 @@ UE4SS_URL = (
 )
 MOD_NAME = "DRGTranslate"
 
-LANGUAGES = [
-    ("ja", "日本語"),
-    ("en", "English"),
-    ("ko", "한국어"),
-    ("zh", "简体中文"),
-    ("zh-tw", "繁體中文"),
-    ("ru", "Русский"),
-]
+LANGUAGES = i18n.LANGUAGES
 
 BASE_LANGUAGES = ["ja", "en", "ko", "zh"]
 
 PROVIDERS = [
     ("deepl", "DeepL", "DEEPL_AUTH_KEY", "https://www.deepl.com/pro-api",
-     "機械翻訳。無料のお試し枠あり"),
+     "w.provider.deepl"),
     ("openai", "OpenAI", "OPENAI_API_KEY", "https://platform.openai.com/api-keys",
-     "スラングや誤字に強い。従量課金"),
+     "w.provider.openai"),
     ("claude", "Claude", "ANTHROPIC_API_KEY", "https://platform.claude.com/settings/keys",
-     "スラングや誤字に強い。従量課金。既定は最安の Haiku"),
+     "w.provider.claude"),
 ]
 
 
@@ -83,6 +81,15 @@ def ask_yes(prompt: str, default: bool = True) -> bool:
     if not answer:
         return default
     return answer.startswith("y")
+
+
+def ask_choice(prompt: str, count: int) -> int:
+    """1〜count の番号を聞く。戻り値は 0 始まりの添字。"""
+    while True:
+        answer = ask(prompt, "1")
+        if answer.isdigit() and 1 <= int(answer) <= count:
+            return int(answer) - 1
+        warn(t("w.err.number", n=count))
 
 
 def _steam_paths() -> list[str]:
@@ -137,18 +144,18 @@ def find_game() -> str | None:
 
 
 def resolve_game(preset: str | None = None) -> str | None:
-    step(1, "Deep Rock Galactic を探しています")
+    step(2, t("w.step.game"))
     path = preset or find_game()
     if path:
         ok(path)
-        if ask_yes("このフォルダで進めますか？"):
+        if ask_yes(t("w.game.use_this")):
             return path
         path = None
 
     while True:
-        warn("見つかりませんでした。")
-        print("    Steam のライブラリで「管理 → ローカルファイルを閲覧」すると分かります。")
-        answer = ask("Deep Rock Galactic のフォルダを貼り付けてください（空欄で中止）")
+        warn(t("w.game.not_found"))
+        print(f"    {t('w.game.steam_hint')}")
+        answer = ask(t("w.game.ask_path"))
         if not answer:
             return None
         answer = answer.strip('"')
@@ -156,7 +163,7 @@ def resolve_game(preset: str | None = None) -> str | None:
                                        "FSD-Win64-Shipping.exe")):
             ok(answer)
             return answer
-        warn("そのフォルダに FSD-Win64-Shipping.exe が見つかりません。")
+        warn(t("w.game.no_exe"))
 
 
 def win64_dir(game: str) -> str:
@@ -173,35 +180,35 @@ def find_ue4ss(game: str) -> str | None:
 
 
 def install_ue4ss(game: str) -> bool:
-    step(2, "UE4SS を確認しています")
+    step(3, t("w.step.ue4ss"))
     found = find_ue4ss(game)
     if found:
-        ok(f"導入済み: {found}")
+        ok(t("w.ue4ss.found", path=found))
         harden_ue4ss(game)
         return True
 
-    warn("UE4SS が入っていません。MOD の動作に必要です。")
-    print(f"    取得元: {UE4SS_URL}")
-    if not ask_yes("今すぐダウンロードして導入しますか？"):
-        print("    中止しました。手動で導入してから、もう一度実行してください。")
+    warn(t("w.ue4ss.missing"))
+    print(f"    {t('w.ue4ss.source', url=UE4SS_URL)}")
+    if not ask_yes(t("w.ue4ss.ask")):
+        print(f"    {t('w.ue4ss.cancel')}")
         return False
 
     target = win64_dir(game)
     try:
-        print("    ダウンロード中...")
+        print(f"    {t('w.ue4ss.downloading')}")
         with urllib.request.urlopen(UE4SS_URL, timeout=60) as resp:
             data = resp.read()
-        print(f"    展開中... ({len(data) // 1024} KB)")
+        print(f"    {t('w.ue4ss.extracting', kb=len(data) // 1024)}")
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             z.extractall(target)
     except Exception as exc:  # noqa: BLE001
-        warn(f"失敗しました: {exc}")
-        print("    次のURLから手動でダウンロードし、中身を下記へ展開してください。")
+        warn(t("w.failed", err=exc))
+        print(f"    {t('w.ue4ss.manual')}")
         print(f"      {UE4SS_URL}")
         print(f"      {target}")
         return False
 
-    ok(f"導入しました: {target}")
+    ok(t("w.ue4ss.done", path=target))
     harden_ue4ss(game)
     return True
 
@@ -234,7 +241,7 @@ def harden_ue4ss(game: str) -> None:
         with open(path, encoding="utf-8", errors="replace") as f:
             lines = f.read().splitlines()
     except OSError as exc:  # noqa: BLE001
-        warn(f"UE4SS-settings.ini を読めませんでした: {exc}")
+        warn(t("w.ue4ss.read_failed", err=exc))
         return
 
     changed = []
@@ -251,9 +258,9 @@ def harden_ue4ss(game: str) -> None:
     try:
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
-        ok("UE4SS を安全な設定にしました（" + ", ".join(changed) + "）")
+        ok(t("w.ue4ss.hardened", changed=", ".join(changed)))
     except OSError as exc:  # noqa: BLE001
-        warn(f"UE4SS-settings.ini を更新できませんでした: {exc}")
+        warn(t("w.ue4ss.write_failed", err=exc))
 
 
 def mods_dir(game: str) -> str:
@@ -268,9 +275,9 @@ def mods_dir(game: str) -> str:
 
 
 def install_mod(game: str, mod_source: str) -> bool:
-    step(3, "MOD をコピーしています")
+    step(4, t("w.step.mod"))
     if not os.path.isdir(mod_source):
-        warn(f"MOD の元ファイルが見つかりません: {mod_source}")
+        warn(t("w.mod.source_missing", path=mod_source))
         return False
 
     mods = mods_dir(game)
@@ -280,11 +287,11 @@ def install_mod(game: str, mod_source: str) -> bool:
             backup = os.path.join(mods, f"{MOD_NAME}.bak")
             shutil.rmtree(backup, ignore_errors=True)
             shutil.move(dest, backup)
-            print(f"    既存の MOD は {MOD_NAME}.bak に退避しました")
+            print(f"    {t('w.mod.backup', name=MOD_NAME)}")
         shutil.copytree(mod_source, dest)
     except OSError as exc:
-        warn(f"コピーに失敗しました: {exc}")
-        print("    ゲームを終了してから、もう一度実行してください。")
+        warn(t("w.mod.copy_failed", err=exc))
+        print(f"    {t('w.mod.close_game')}")
         return False
     ok(dest)
 
@@ -316,11 +323,11 @@ def install_mod(game: str, mod_source: str) -> bool:
     try:
         with open(mods_txt, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
-        ok(f"mods.txt に登録しました（{entry}）")
+        ok(t("w.mod.registered", entry=entry))
         if disabled:
-            ok(f"同梱サンプル MOD を無効化しました（{', '.join(disabled)}）")
+            ok(t("w.mod.samples_off", names=", ".join(disabled)))
     except OSError as exc:
-        warn(f"mods.txt を更新できませんでした: {exc}")
+        warn(t("w.mod.modstxt_failed", err=exc))
         return False
     return True
 
@@ -330,6 +337,7 @@ def language_settings(lang: str) -> dict[str, str]:
     others = [x for x in BASE_LANGUAGES if x != lang]
     relay = [lang] + others
     values = {
+        "DRGT_UI_LANG": lang,
         "DRGT_INCOMING_TARGET": lang,
         "DRGT_INCOMING_FORMAT": ("[訳] {sender}: {text}" if lang == "ja"
                                  else "[TL] {sender}: {text}"),
@@ -338,29 +346,34 @@ def language_settings(lang: str) -> dict[str, str]:
         "DRGT_RELAY_TARGETS": ",".join(relay),
         "DRGT_RELAY_MAX_LANGS": str(len(relay)),
     }
+    base = lang.split("-")[0]
+    if base != lang:
+        # zh-tw のような地域つきの言語。言語判定は文字の種類で見るので簡体字と
+        # 繁体字を区別できず、放っておくと中国語の発言すべてに訳が付いてしまう。
+        # 自分が読める言語として、まとめて訳さない扱いにする
+        values["DRGT_INCOMING_SKIP_LANGUAGES"] = base
     return values
 
 
 def choose_language() -> str:
-    """言語を聞くだけ。書き込みは save_language で、APIキーが入ったあとに行う。"""
-    step(4, "あなたの言語を選んでください / Choose your language")
-    print("      他の人の発言をこの言語に訳し、この言語で打った発言を他の言語に訳します。")
-    print("      Others' chat is translated into this language, and what you")
-    print("      type in it is translated for everyone else.")
+    """最初の質問。ここから先の案内は選ばれた言語で出す。
+
+    まだ言語が分からない時点の問いかけなので、この節だけ日本語と英語を併記する。
+    書き込みは save_language で、APIキーが入ったあとに行う。
+    """
+    step(1, "言語を選んでください / Choose your language")
+    print("      セットアップの案内と、他の人の発言の訳がこの言語になります。")
+    print("      Setup and the chat you read are shown in this language.")
     for i, (code, label) in enumerate(LANGUAGES, 1):
         print(f"      {i}) {label} ({code})")
-    print("      一覧に無い言語は、あとで settings.ini で変えられます")
-    print("      （README の「言語を変える」）。")
 
-    while True:
-        answer = ask("番号", "1")
-        if answer.isdigit() and 1 <= int(answer) <= len(LANGUAGES):
-            lang, label = LANGUAGES[int(answer) - 1]
-            break
-        warn(f"1〜{len(LANGUAGES)} の数字を入れてください。")
+    index = ask_choice("番号 / number", len(LANGUAGES))
+    lang, label = LANGUAGES[index]
+    i18n.set_lang(lang)
 
     values = language_settings(lang)
-    ok(f"{label} にします（受信→{lang} / 送信→{values['DRGT_OUTGOING_TARGETS']}）")
+    ok(t("w.lang.ok", label=label, lang=lang, targets=values["DRGT_OUTGOING_TARGETS"]))
+    print(f"      {t('w.lang.note')}")
     return lang
 
 
@@ -373,15 +386,11 @@ def save_language(env_path: str, example_path: str, lang: str) -> None:
 
 
 def choose_provider() -> tuple[str, str, str, str]:
-    step(5, "翻訳サービスを選んでください")
-    for i, (_, label, _, _, note) in enumerate(PROVIDERS, 1):
-        print(f"      {i}) {label:<8} {note}")
-    while True:
-        answer = ask("番号", "1")
-        if answer.isdigit() and 1 <= int(answer) <= len(PROVIDERS):
-            key, label, env, url, _ = PROVIDERS[int(answer) - 1]
-            return key, label, env, url
-        warn("1〜3 の数字を入れてください。")
+    step(5, t("w.step.provider"))
+    for i, (_, label, _, _, note_key) in enumerate(PROVIDERS, 1):
+        print(f"      {i}) {label:<8} {t(note_key)}")
+    key, label, env, url, _ = PROVIDERS[ask_choice(t("w.prompt.number"), len(PROVIDERS))]
+    return key, label, env, url
 
 
 def ensure_env_file(env_path: str, example_path: str) -> None:
@@ -416,25 +425,25 @@ def write_env(env_path: str, values: dict[str, str]) -> None:
 def configure(env_path: str, example_path: str) -> tuple[str, str] | None:
     provider, label, env_name, url = choose_provider()
 
-    print(f"\n    {label} のAPIキーが必要です。")
-    print(f"      取得先: {url}")
+    print(f"\n    {t('w.key.need', label=label)}")
+    print(f"      {t('w.key.where', url=url)}")
     if provider in ("openai", "claude"):
         pkg = "openai" if provider == "openai" else "anthropic"
-        print(f"      ※ このexeには {pkg} が同梱済みです。追加インストールは不要です。")
+        print(f"      {t('w.key.bundled', pkg=pkg)}")
 
     existing = os.environ.get(env_name, "").strip()
     if existing:
         masked = existing[:6] + "..." + existing[-4:] if len(existing) > 12 else "***"
-        print(f"    既に設定されています: {masked}")
-        if not ask_yes("入力し直しますか？", default=False):
+        print(f"    {t('w.key.existing', masked=masked)}")
+        if not ask_yes(t("w.key.reenter"), default=False):
             return provider, env_name
 
     while True:
-        api_key = ask("APIキーを貼り付けてください（空欄で中止）")
+        api_key = ask(t("w.key.ask"))
         if not api_key:
             return None
         if len(api_key) < 8:
-            warn("短すぎます。キー全体を貼り付けてください。")
+            warn(t("w.key.short"))
             continue
         break
 
@@ -442,40 +451,43 @@ def configure(env_path: str, example_path: str) -> tuple[str, str] | None:
     write_env(env_path, {"DRGT_PROVIDER": provider, env_name: api_key})
     os.environ[env_name] = api_key
     os.environ["DRGT_PROVIDER"] = provider
-    ok(f"保存しました: {env_path}")
+    ok(t("w.saved", path=env_path))
     return provider, env_name
 
 
 def verify(build_bridge, lang: str = "ja") -> bool:
-    step(6, "翻訳を1回試します")
+    step(6, t("w.step.verify"))
     sample = ("気をつけろ、大群が来るぞ" if lang.startswith("en")
               else "watch out, swarm incoming")
     try:
         bridge = build_bridge()
         problem = bridge.translator.provider.setup_problem()
         if problem:
-            warn("設定が足りません:")
+            warn(t("w.verify.missing"))
             for line in problem.splitlines():
                 print(f"      {line}")
             return False
         translated, _ = bridge.translator.translate(sample, None, lang)
     except Exception as exc:  # noqa: BLE001
-        warn(f"失敗しました: {exc}")
-        print("    APIキーが正しいか、ネットワークに繋がっているか確認してください。")
+        warn(t("w.failed", err=exc))
+        print(f"    {t('w.verify.check')}")
         return False
 
     print(f"      {sample}")
     print(f"        → {translated}")
-    ok("翻訳できました")
+    ok(t("w.verify.ok"))
     return True
 
 
 def run(*, env_path: str, example_path: str, mod_source: str, build_bridge,
         game_path: str | None = None) -> bool:
     """セットアップを最後まで通す。成功したら True。"""
-    title("DRGTranslate セットアップ")
-    print("  Deep Rock Galactic のチャットを自動翻訳する MOD を導入します。")
-    print("  途中でやめたい場合は、質問に空欄のまま Enter を押してください。")
+    title("DRGTranslate")
+    lang = choose_language()
+
+    title(t("w.title"))
+    print(f"  {t('w.intro')}")
+    print(f"  {t('w.intro.cancel')}")
 
     game = resolve_game(game_path)
     if not game:
@@ -484,35 +496,23 @@ def run(*, env_path: str, example_path: str, mod_source: str, build_bridge,
         return False
     if not install_mod(game, mod_source):
         return False
-    lang = choose_language()
     if not configure(env_path, example_path):
         return False
     save_language(env_path, example_path, lang)
     if not verify(build_bridge, lang):
-        warn("翻訳の確認に失敗しましたが、設定自体は保存されています。")
-        print(f"    {env_path} を直してから、もう一度起動してください。")
+        warn(t("w.verify.saved_anyway"))
+        print(f"    {t('w.verify.fix_restart', path=env_path)}")
         return False
 
-    title("セットアップ完了")
-    print("  このあと翻訳プロセスが起動します。")
-    print("  この窓を開いたまま Deep Rock Galactic を起動してください。")
+    title(t("w.done.title"))
+    print(f"  {t('w.done.starting')}")
+    print(f"  {t('w.done.keep_open')}")
     print()
-    game_lang = dict(LANGUAGES).get(lang, lang)
-    print(f"  ・ゲームの言語設定を「{game_lang}」にしてください"
-          "（フォントが読み込まれず、訳文が □□□ になります）")
-    print("  ・ゲーム中は F9 で翻訳の ON/OFF を切り替えられます")
-    print(f"  ・設定は {os.path.basename(env_path)} をメモ帳で開いて変えられます")
-    print(f"  ・セットアップからやり直したいときは、{os.path.basename(env_path)} を削除してから")
-    print("    もう一度起動してください")
+    ini = os.path.basename(env_path)
+    print(f"  {t('w.done.game_lang', lang=i18n.label(lang))}")
+    print(f"  {t('w.done.f9')}")
+    print(f"  {t('w.done.settings', ini=ini)}")
+    print(f"  {t('w.done.redo', ini=ini)}")
+    print(f"  {t('w.done.readme', readme=i18n.readme(lang))}")
     print()
-
-    if lang != "ja":
-        ini = os.path.basename(env_path)
-        print("  (English)")
-        print(f"  - Set the game language to \"{game_lang}\", or translations")
-        print("    will show up as empty boxes (missing font).")
-        print("  - Press F9 in game to turn translation on and off.")
-        print(f"  - Edit {ini} next to this program to change settings.")
-        print(f"  - Delete {ini} and start again to redo this setup.")
-        print()
     return True

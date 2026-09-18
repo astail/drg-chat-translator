@@ -20,6 +20,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from i18n import t
+
 log = logging.getLogger("drgtl.translate")
 
 
@@ -110,10 +112,10 @@ class Glossary:
                 self.outgoing = {
                     _normalize(k): v for k, v in data.get("outgoing", {}).items()
                 }
-                log.info("用語集を読み込みました: %s (受信 %d / 送信 %d)",
+                log.info(t("p.glossary.loaded"),
                          path, len(self.incoming), len(self.outgoing))
             except Exception as exc:  # noqa: BLE001
-                log.warning("用語集の読み込みに失敗しました (%s): %s", path, exc)
+                log.warning(t("p.glossary.failed"), path, exc)
 
     def lookup_incoming(self, text: str) -> str | None:
         return self.incoming.get(_normalize(text))
@@ -140,9 +142,9 @@ class Cache:
             try:
                 with open(path, encoding="utf-8") as f:
                     self._data = json.load(f)
-                log.info("キャッシュを読み込みました: %d 件", len(self._data))
+                log.info(t("p.cache.loaded"), len(self._data))
             except Exception as exc:  # noqa: BLE001
-                log.warning("キャッシュの読み込みに失敗しました: %s", exc)
+                log.warning(t("p.cache.load_failed"), exc)
 
     @staticmethod
     def key(scope: str, text: str, src: str, tgt: str) -> str:
@@ -182,7 +184,7 @@ class Cache:
                 json.dump(snapshot, f, ensure_ascii=False)
             os.replace(tmp, self.path)
         except Exception as exc:  # noqa: BLE001
-            log.warning("キャッシュの保存に失敗しました: %s", exc)
+            log.warning(t("p.cache.save_failed"), exc)
 
 
 class TranslationError(RuntimeError):
@@ -204,9 +206,9 @@ def _http(url: str, *, data: bytes | None = None, headers: dict | None = None,
             pass
         raise TranslationError(f"HTTP {exc.code}: {body}") from exc
     except urllib.error.URLError as exc:
-        raise TranslationError(f"接続失敗: {exc.reason}") from exc
+        raise TranslationError(t("p.conn_failed", reason=exc.reason)) from exc
     except TimeoutError as exc:
-        raise TranslationError("タイムアウト") from exc
+        raise TranslationError(t("p.timeout")) from exc
 
 
 LANG_NAMES = {
@@ -278,15 +280,12 @@ class DeepLProvider(Provider):
     def setup_problem(self) -> str | None:
         if (self.opts.get("api_key") or os.environ.get("DEEPL_AUTH_KEY") or "").strip():
             return None
-        return "settings.ini に DEEPL_AUTH_KEY を設定してください（https://www.deepl.com/pro-api）"
+        return t("p.need_key", key="DEEPL_AUTH_KEY", url="https://www.deepl.com/pro-api")
 
     def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
         key = (self.opts.get("api_key") or os.environ.get("DEEPL_AUTH_KEY") or "").strip()
         if not key:
-            raise TranslationError(
-                "DeepL のAPIキーが設定されていません"
-                "（settings.ini の DEEPL_AUTH_KEY）"
-            )
+            raise TranslationError(t("p.no_key", name="DeepL", key="DEEPL_AUTH_KEY"))
         url = self.opts.get("api_url") or (
             "https://api-free.deepl.com/v2/translate"
             if key.endswith(":fx")
@@ -375,8 +374,8 @@ Rules:
 def _missing_sdk_message(package: str) -> str:
     """SDK 未導入の案内。"""
     return (
-        f"{package} パッケージが見つかりません。次のコマンドで入れてください:\n"
-        f'    "{sys.executable}" -m pip install {package}'
+        t("p.missing_sdk", package=package) + "\n"
+        + f'    "{sys.executable}" -m pip install {package}'
     )
 
 
@@ -406,9 +405,7 @@ class LLMProvider(Provider):
     def _require_key(self) -> None:
         """キーが無いことを SDK より先に自前で判定する。"""
         if not self.api_key():
-            raise TranslationError(
-                f"settings.ini に {self.key_env} を設定してください（{self.key_url}）"
-            )
+            raise TranslationError(t("p.need_key", key=self.key_env, url=self.key_url))
 
     def setup_problem(self) -> str | None:
         try:
@@ -416,7 +413,7 @@ class LLMProvider(Provider):
         except ImportError:
             return _missing_sdk_message(self.sdk_package)
         if not self.api_key():
-            return f"settings.ini に {self.key_env} を設定してください（{self.key_url}）"
+            return t("p.need_key", key=self.key_env, url=self.key_url)
         return None
 
 
@@ -464,9 +461,9 @@ class LLMProvider(Provider):
         try:
             data = json.loads(raw)
         except json.JSONDecodeError as exc:
-            raise TranslationError(f"JSON として読めない応答: {raw[:120]}") from exc
+            raise TranslationError(t("p.bad_json", raw=raw[:120])) from exc
         if not isinstance(data, dict):
-            raise TranslationError("JSON オブジェクトではない応答")
+            raise TranslationError(t("p.not_object"))
         return {t: self._clean(str(data[t])) for t in targets
                 if isinstance(data.get(t), str) and data[t].strip()}
 
@@ -479,7 +476,7 @@ class LLMProvider(Provider):
         raw = self._complete(self.system_prompt(source, [target], False), text, None)
         out = self._clean(raw)
         if not out:
-            raise TranslationError("空の応答")
+            raise TranslationError(t("p.empty"))
         return out, (source or detect_language(text))
 
     def translate_multi(self, text: str, source: str | None,
@@ -521,7 +518,7 @@ class ClaudeProvider(LLMProvider):
             self._client = anthropic.Anthropic(**kwargs)
         except Exception as exc:  # noqa: BLE001
             raise TranslationError(
-                f"settings.ini に {self.key_env} を設定してください（{self.key_url}）"
+                t("p.need_key", key=self.key_env, url=self.key_url)
             ) from exc
         return self._client
 
@@ -553,10 +550,7 @@ class ClaudeProvider(LLMProvider):
         elif self.opts.get("effort") not in (None, "", "auto"):
             if not self._warned_effort:
                 self._warned_effort = True
-                log.warning(
-                    "%s は effort に対応していないため無視します（4.6 以降のモデルのみ）",
-                    self.model,
-                )
+                log.warning(t("p.effort_ignored"), self.model)
 
         if json_targets:
             output_config["format"] = {
@@ -596,14 +590,14 @@ class ClaudeProvider(LLMProvider):
             else:
                 resp = client.messages.create(**params)
         except Exception as exc:  # noqa: BLE001
-            raise TranslationError(f"Claude API 呼び出しに失敗: {exc}") from exc
+            raise TranslationError(t("p.api_failed", name="Claude", err=exc)) from exc
 
         if getattr(resp, "stop_reason", None) == "refusal":
             detail = ""
             details = getattr(resp, "stop_details", None)
             if details is not None:
                 detail = f" ({getattr(details, 'category', '') or ''})"
-            raise TranslationError(f"翻訳を拒否されました{detail}")
+            raise TranslationError(t("p.refused", detail=detail))
 
         return "".join(
             block.text for block in resp.content if getattr(block, "type", "") == "text"
@@ -663,7 +657,7 @@ class OpenAIProvider(LLMProvider):
             self._client = openai.OpenAI(**kwargs)
         except Exception as exc:  # noqa: BLE001
             raise TranslationError(
-                f"settings.ini に {self.key_env} を設定してください（{self.key_url}）"
+                t("p.need_key", key=self.key_env, url=self.key_url)
             ) from exc
         return self._client
 
@@ -691,15 +685,15 @@ class OpenAIProvider(LLMProvider):
                 optional.pop("temperature", None)
                 retried = True
             if not retried:
-                raise TranslationError(f"OpenAI API 呼び出しに失敗: {exc}") from exc
+                raise TranslationError(t("p.api_failed", name="OpenAI", err=exc)) from exc
             try:
                 resp = client.chat.completions.create(**params, **optional)
             except Exception as exc2:  # noqa: BLE001
-                raise TranslationError(f"OpenAI API 呼び出しに失敗: {exc2}") from exc2
+                raise TranslationError(t("p.api_failed", name="OpenAI", err=exc2)) from exc2
 
         choice = resp.choices[0]
         if getattr(choice, "finish_reason", None) == "content_filter":
-            raise TranslationError("翻訳を拒否されました (content_filter)")
+            raise TranslationError(t("p.refused", detail=" (content_filter)"))
         return choice.message.content or ""
 
 
@@ -714,7 +708,7 @@ def build_provider(name: str, opts: dict, timeout: float) -> Provider:
     cls = PROVIDERS.get(name)
     if cls is None:
         raise ValueError(
-            f"未知の provider '{name}' です。使えるのは: {', '.join(sorted(PROVIDERS))}"
+            t("p.unknown_provider", name=name, names=", ".join(sorted(PROVIDERS)))
         )
     return cls(opts, timeout)
 
@@ -743,13 +737,13 @@ class Translator:
 
     def _check_cooldown(self) -> None:
         if time.monotonic() < self._cooldown_until:
-            raise TranslationError("プロバイダが一時的に停止中です（連続失敗によるクールダウン）")
+            raise TranslationError(t("p.cooldown"))
 
     def _note_failure(self) -> None:
         self._fail_streak += 1
         if self._fail_streak >= 5:
             self._cooldown_until = time.monotonic() + 30.0
-            log.warning("翻訳が5回連続で失敗したため30秒待機します")
+            log.warning(t("p.cooldown_start"))
 
     def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
         src_key = source or "auto"

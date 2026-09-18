@@ -33,6 +33,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import i18n  # noqa: E402
+from i18n import t  # noqa: E402
 from translate import (  # noqa: E402
     Cache,
     Glossary,
@@ -192,7 +194,7 @@ def _int(key: str, default: int) -> int:
     try:
         return int(_str(key, str(default)))
     except ValueError:
-        log.warning("%s は整数として読めません。既定値 %s を使います", key, default)
+        log.warning(t("b.config.not_int"), key, default)
         return default
 
 
@@ -200,7 +202,7 @@ def _float(key: str, default: float) -> float:
     try:
         return float(_str(key, str(default)))
     except ValueError:
-        log.warning("%s は数値として読めません。既定値 %s を使います", key, default)
+        log.warning(t("b.config.not_num"), key, default)
         return default
 
 
@@ -297,10 +299,11 @@ def build_config() -> dict:
 def load_config(env_path: str | None) -> dict:
     path = env_path or os.path.join(APP_DIR, SETTINGS_FILE)
     n = load_dotenv(path)
+    i18n.init()
     if n:
-        log.info("設定を読み込みました: %s (%d 項目)", path, n)
+        log.info(t("b.config.loaded"), path, n)
     elif not os.path.exists(path):
-        log.warning("設定ファイルがありません: %s", path)
+        log.warning(t("b.config.missing"), path)
     return build_config()
 
 
@@ -416,7 +419,7 @@ class Ipc:
                 with open(self.p_out, "a", encoding="utf-8", newline="") as f:
                     f.write(payload)
             except OSError as exc:
-                log.warning("to_game.txt へ書き込めません: %s", exc)
+                log.warning(t("b.ipc.write_failed"), exc)
 
     def heartbeat(self) -> None:
         try:
@@ -484,7 +487,7 @@ class Bridge:
         self.overlay_queue: queue.Queue[tuple[str, str]] = queue.Queue()
         self.outbound_from_overlay: queue.Queue[str] = queue.Queue()
 
-        log.info("provider=%s / 受信→%s / 送信→%s",
+        log.info(t("b.startup"),
                  provider_name,
                  cfg["incoming"]["target"],
                  ",".join(cfg["outgoing"]["targets"]))
@@ -492,7 +495,7 @@ class Bridge:
         problem = provider.setup_problem()
         if problem:
             log.warning("=" * 62)
-            log.warning("翻訳できる状態になっていません:")
+            log.warning(t("b.not_ready"))
             for line in problem.splitlines():
                 log.warning("  %s", line)
             log.warning("=" * 62)
@@ -594,14 +597,14 @@ class Bridge:
             if line:
                 self.overlay_queue.put(("in", line))
             if translated:
-                log.info("受信 [%s] %s -> %s", sender, text, translated)
+                log.info(t("b.in"), sender, text, translated)
             if relay_lines:
-                log.info("中継(ホスト) %s", " | ".join(relay_lines))
+                log.info(t("b.relay"), " | ".join(relay_lines))
         except TranslationError as exc:
-            log.warning("受信翻訳に失敗: %s", exc)
+            log.warning(t("b.in.failed"), exc)
             self.ipc.write("ERR", req_id, str(exc))
         except Exception as exc:  # noqa: BLE001
-            log.exception("受信翻訳で予期しないエラー")
+            log.exception(t("b.in.error"))
             self.ipc.write("ERR", req_id, str(exc))
 
     def translate_outgoing(self, text: str) -> str:
@@ -624,7 +627,7 @@ class Bridge:
             try:
                 results.update(self.translator.translate_multi(text, source, pending))
             except TranslationError as exc:
-                log.warning("送信翻訳に失敗 (%s): %s", ",".join(pending), exc)
+                log.warning(t("b.out.failed"), ",".join(pending), exc)
 
         pieces: list[str] = [text] if out["include_source"] else []
         pieces += [results[t] for t in targets if results.get(t)]
@@ -640,10 +643,10 @@ class Bridge:
             joined = self.translate_outgoing(text)
             self.ipc.write("RES", req_id, "out", out["source"], joined)
             if joined:
-                log.info("送信 %s -> %s", text, joined)
+                log.info(t("b.out"), text, joined)
                 self.overlay_queue.put(("out", joined))
         except Exception as exc:  # noqa: BLE001
-            log.exception("送信翻訳で予期しないエラー")
+            log.exception(t("b.out.error"))
             self.ipc.write("ERR", req_id, str(exc))
 
     def handle(self, fields: list[str]) -> None:
@@ -651,7 +654,7 @@ class Bridge:
         self.last_game_msg = time.time()
         if not self.game_connected:
             self.game_connected = True
-            log.info("ゲーム(mod)と接続しました")
+            log.info(t("b.game.connected"))
 
         if kind == "REQ" and len(fields) >= 5:
             req_id, req_kind, sender, text = fields[1], fields[2], fields[3], fields[4]
@@ -661,7 +664,7 @@ class Bridge:
             elif req_kind == "out":
                 self.pool.submit(self._do_outgoing, req_id, text)
             else:
-                self.ipc.write("ERR", req_id, f"未知の種別: {req_kind}")
+                self.ipc.write("ERR", req_id, t("b.ipc.unknown_kind", kind=req_kind))
 
         elif kind == "HELLO":
             log.info("mod version = %s", fields[1] if len(fields) > 1 else "?")
@@ -669,23 +672,23 @@ class Bridge:
 
         elif kind == "NAME":
             self.player_name = fields[1] if len(fields) > 1 else ""
-            log.info("プレイヤー名: %s", self.player_name)
+            log.info(t("b.player"), self.player_name)
 
         elif kind == "DISPLAY":
             ok = (len(fields) > 1 and fields[1] == "ok")
             self.ingame_display_ok = ok
-            log.info("ゲーム内表示: %s", "OK" if ok else "失敗（オーバーレイに切替）")
+            log.info(t("b.display"), "OK" if ok else t("b.display.failed"))
 
         elif kind == "TOGGLE":
             state = fields[1] if len(fields) > 1 else "?"
-            log.info("翻訳 %s（ゲーム内で F9 が押されました）", state)
-            self.overlay_queue.put(("in", f"[DRGTranslate] 翻訳 {state}"))
+            log.info(t("b.toggle"), state)
+            self.overlay_queue.put(("in", t("o.toggle", state=state)))
 
         elif kind == "PING":
             self.ipc.write("NOTE", "[DRGTranslate] bridge is running")
 
     def run_loop(self) -> None:
-        log.info("待機中: %s", self.ipc.dir)
+        log.info(t("b.waiting"), self.ipc.dir)
         last_beat = 0.0
         while not self.stop_event.is_set():
             try:
@@ -713,19 +716,19 @@ class Bridge:
                     )
                     if alive and not self.game_connected:
                         self.game_connected = True
-                        log.info("ゲーム(mod)と接続しました")
+                        log.info(t("b.game.connected"))
                     elif not alive and self.game_connected:
                         self.game_connected = False
-                        log.info("ゲーム(mod)からの通信が途絶えました")
+                        log.info(t("b.game.lost"))
             except Exception:  # noqa: BLE001
-                log.exception("メインループでエラー")
+                log.exception(t("b.loop.error"))
 
             self.stop_event.wait(0.05)
 
         self.cache.maybe_save(force=True)
         self.ipc.cleanup()
         self.pool.shutdown(wait=False)
-        log.info("終了しました")
+        log.info(t("b.stopped"))
 
     def stop(self) -> None:
         self.stop_event.set()
@@ -889,7 +892,7 @@ def main(argv: list[str] | None = None) -> int:
     if interactive and (args.setup or needs_setup(env_path)):
         setup_logging("warning")
         if not run_setup(env_path, args):
-            print("\nセットアップを完了できませんでした。")
+            print("\n" + t("w.incomplete"))
             return 1
 
     cfg = load_config(env_path)
@@ -910,7 +913,7 @@ def main(argv: list[str] | None = None) -> int:
         return run_selftest(bridge)
 
     def on_signal(_sig, _frm):
-        log.info("停止します...")
+        log.info(t("b.stopping"))
         bridge.stop()
 
     signal.signal(signal.SIGINT, on_signal)
@@ -924,7 +927,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             import overlay as overlay_mod
         except Exception as exc:  # noqa: BLE001
-            log.warning("オーバーレイを起動できません (%s)。ログのみで続行します", exc)
+            log.warning(t("b.overlay.failed"), exc)
             use_overlay = False
 
     if use_overlay:
@@ -952,7 +955,7 @@ def cli() -> int:
     double_clicked = FROZEN and len(sys.argv) == 1
     if double_clicked or (FROZEN and code != 0):
         try:
-            input("\nEnter キーを押すと閉じます...")
+            input("\n" + t("b.press_enter"))
         except (EOFError, KeyboardInterrupt):
             pass
     return code
