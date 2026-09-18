@@ -252,6 +252,7 @@ OPENAI_API_KEY=sk-...
 | `DRGT_OUTGOING_TARGETS` | 送信時の翻訳先。既定 `en,ko,zh`（英語・韓国語・簡体字中国語）。英語だけなら `en`、繁体字は `zh-tw`。翻訳元と同じ言語は自動で除く |
 | `DRGT_RELAY_ENABLED` | ホストのとき、同僚ドワーフの発言の訳を全員に流すか。既定 `true` |
 | `DRGT_RELAY_TARGETS` | 中継先の言語。既定 `ja,en,ko,zh`（発言者の言語は自動で除外） |
+| `DRGT_RELAY_MAX_LANGS` | 1つの発言につき中継する言語数の上限。既定 `4`（中継先を5言語にするなら `5` に上げてください。超えたぶんは流れません） |
 | `DRGT_RELAY_MAX_LINE_CHARS` | 中継の1行の上限文字数。既定 `0`（全言語を1行にまとめる） |
 | `DRGT_INCOMING_FORMAT` | 表示形式。`{sender}` `{text}` `{lang}` `{original}` が使えます |
 | `DRGT_INCOMING_SKIP_LANGUAGES` | この言語は自分のチャットに訳を出さない。既定は `DRGT_INCOMING_TARGET` と同じ（ホストの中継はこの設定に関わらず動きます） |
@@ -264,8 +265,10 @@ OS 側に同名の環境変数がある場合は、そちらが `settings.ini` �
 ### 言語を変える
 
 **ふつうは初回セットアップの `[4]` で選ぶだけで済みます。** 選んだ言語に合わせて
-受信・送信・中継の設定がまとめて書かれます。あとから変えたいときや、
-一覧に無い言語を使いたいときは `settings.ini` を直してください。
+`DRGT_INCOMING_TARGET` / `DRGT_INCOMING_FORMAT` / `DRGT_OUTGOING_SOURCE` /
+`DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS` / `DRGT_RELAY_MAX_LANGS` が
+まとめて書かれます。あとから変えたいときや、一覧に無い言語を使いたいときは
+`settings.ini` を直してください（[セットアップをやり直す](#導入)と選び直せます）。
 
 言語は `ja`（日本語）/ `en`（英語）/ `ko`（韓国語）/ `zh`（中国語・簡体字）/
 `zh-tw`（中国語・繁体字）/ `ru`（ロシア語）のように書きます。
