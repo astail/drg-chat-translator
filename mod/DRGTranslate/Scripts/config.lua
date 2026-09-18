@@ -1,91 +1,103 @@
--- DRGTranslate : ゲーム内側(UE4SS Lua)の設定
+-- DRGTranslate : settings for the in-game side (UE4SS Lua)
 --
--- 言語・翻訳先・表示フォーマットなどの「翻訳まわりの設定」は
--- bridge/config.json 側にあります。ここはゲーム内の挙動だけ。
+-- Languages, translation targets, display format and anything else about the
+-- translation itself live in settings.ini, next to DRGTranslate.exe.
+-- This file only covers how the mod behaves inside the game.
+--
+-- Restart the game after editing this file.
 
 local M = {}
 
--- MOD 全体の有効/無効（F9 でゲーム中に切り替え可）
+-- Turn the whole mod on or off (F9 toggles it while you play)
 M.enabled = true
 
--- UE4SS コンソールに詳細ログを出す
+-- Write verbose logs to the UE4SS console
 M.debug = false
 
--- 受信チャットの翻訳
+-- Translating incoming chat
 M.incoming = {
     enabled = true,
-    -- 自分の発言は翻訳しない
+    -- Do not translate your own messages
     skip_own = true,
-    -- ゲームシステムメッセージ(EChatMessageType::ES_Game)も翻訳するか
+    -- Also translate system messages (EChatMessageType::ES_Game)
     translate_game_messages = false,
 }
 
--- 自分の発言の翻訳送信
+-- Translating what you send
 --
--- 打った日本語はそのまま送られ、翻訳が届いたら2通目として送られる。
+-- What you typed is sent as is, and the translation follows as a second
+-- message once it arrives.
 --   You: 回復お願いします
 --   You: Please heal me / 회복 부탁드립니다
 M.outgoing = {
     enabled = true,
 
-    -- この接頭辞で始まる発言は翻訳しない（コマンド類）
+    -- Messages starting with these are not translated (commands and such)
     ignore_prefixes = { "/", "!", "." },
 
-    -- この文字数未満は翻訳しない
+    -- Messages shorter than this are not translated
     min_length = 2,
 }
 
--- 中継（自分がホストのときだけ、他人の発言の訳を全員に配る）
+-- Relay (only while you host: push translations of others to everyone)
 --
--- 英語の発言なら日本語・韓国語・中国語、というように発言者の言語を除いた
--- 訳を作り、全言語を1行にまとめてチャットに流す。クライアントのときは何もしない。
+-- For an English message it builds Japanese, Korean and Chinese - the
+-- speaker's own language is left out - and posts them all as a single chat
+-- line. It does nothing while you are a client.
 --
--- 何語に訳すか・行の書式は bridge 側（settings.ini の DRGT_RELAY_*）で決める。
+-- Which languages, and the format of the line, are decided on the bridge side
+-- (DRGT_RELAY_* in settings.ini).
 M.host_relay = {
     enabled = true,
 
-    -- 送信間隔(ms)。まとめて送るとチャットが一瞬で流れるので間隔を空ける
+    -- Delay between relayed lines (ms). Sending them all at once would flood
+    -- the chat in an instant
     interval_ms = 700,
 
-    -- 送信待ちの行がこれを超えたら古いものから捨てる（乱戦時の詰まり防止）
+    -- Drop the oldest lines once more than this are waiting (keeps the queue
+    -- from piling up during a heavy swarm)
     max_queue = 12,
 
-    -- "self"     : 自分（ホスト）の名前で送る
-    -- "original" : 元の発言者の名前で送る。見た目は自然だが、
-    --              サーバ側で名前が上書きされる可能性がある。
-    --              本文から発言者名が消えるので、MOD を入れた他の隊員が
-    --              中継行だと見分けられなくなる（その人の画面に訳が二重に出る）
+    -- "self"     : send under your own (the host's) name
+    -- "original" : send under the original speaker's name. It looks more
+    --              natural, but the server may overwrite the name. The
+    --              speaker's name also disappears from the text, so other
+    --              dwarves running this mod can no longer tell it is a relay
+    --              line (they end up seeing the translation twice)
     sender = "self",
 
-    -- "chat"    : 通常のチャットとして送る（自分の翻訳送信と同じ経路）
-    -- "gamemsg" : GameState:PostGameMessage でシステムメッセージとして流す
+    -- "chat"    : send as a normal chat message (same path as your own
+    --             translated messages)
+    -- "gamemsg" : post as a system message via GameState:PostGameMessage
     method = "chat",
 }
 
--- 翻訳結果をどこに表示するか
+-- Where translations are shown
 M.display = {
-    -- "auto"      : クライアントなら GameState:PostGameMessage、ホストならチャットWidget直叩き
-    -- "gamestate" : 常に GameState:PostGameMessage を使う
-    -- "widget"    : 常に HUD_Chat ウィジェットを直接叩く
-    --               （構造体引数を渡すため落ちる可能性がある。自己責任）
-    -- "off"       : ゲーム内には出さない（bridge のオーバーレイのみ）
+    -- "auto"      : GameState:PostGameMessage as a client, the chat widget
+    --               directly as a host
+    -- "gamestate" : always use GameState:PostGameMessage
+    -- "widget"    : always drive the HUD_Chat widget directly
+    --               (this passes a struct argument, so it may crash the game.
+    --                Use at your own risk)
+    -- "off"       : show nothing in game (bridge overlay only)
     strategy = "auto",
 
-    -- ホスト(リッスンサーバ)でウィジェット表示に失敗したとき、
-    -- PostGameMessage にフォールバックするか。
-    -- true にすると「全員に」翻訳文が見えてしまうので既定は false。
+    -- When the widget fails on a host (listen server), fall back to
+    -- PostGameMessage.
+    -- That would show the translation to *everyone*, so it is off by default.
     host_broadcast_fallback = false,
 }
 
--- ローカルプロセス(bridge)との通信
+-- Talking to the local process (bridge)
 M.ipc = {
-    -- 受信ポーリング間隔(ms)
+    -- How often to poll for incoming lines (ms)
     poll_ms = 100,
-    -- 通信フォルダ。既定は %APPDATA%\DRGTranslate
+    -- Folder used for the exchange. Defaults to %APPDATA%\DRGTranslate
     dir = nil,
 }
 
--- ゲーム中に MOD をON/OFFするキー
+-- Key that toggles the mod while you play
 M.hotkey = {
     toggle = "F9",
 }
