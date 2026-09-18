@@ -593,7 +593,9 @@ IPC.on("SAY", function(fields)
     U.in_game_thread(function() send_chat(get_player_name(), text, 0) end)
 end)
 
--- ゲーム内にローカル表示するだけのお知らせ
+-- ゲーム内にローカル表示するだけのお知らせ。
+-- 送る側（bridge）は英数字で書くこと。ゲームの言語が日本語以外のときは
+-- 日本語フォントが読み込まれず、豆腐（□□□）になる
 IPC.on("NOTE", function(fields)
     local text = fields[2] or ""
     if text ~= "" then
