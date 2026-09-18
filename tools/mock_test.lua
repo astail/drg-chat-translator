@@ -19,12 +19,9 @@ package.path = table.concat({
 
 local mock = require("mock_ue4ss")
 mock.install()
--- 中継は「ホスト かつ 他に人がいる」ときだけ働く。既定は4人ロビー想定。
--- 人数は環境変数で変えられる（ソロの確認用）
 local players = tonumber(os.getenv("MOCK_PLAYERS") or "") or 4
 mock.make_world({ player_name = "Kiyo", is_host = (role == "host"), players = players })
 
--- config を差し替えてから main.lua を読み込む
 local Cfg = require("config")
 Cfg.ipc.dir = ipc_dir
 Cfg.debug = false
@@ -48,11 +45,6 @@ local function pump(times, sleep_sec)
 end
 
 --- cond が真になるまで回す。最大 timeout 秒（既定15秒）。
----
---- 「訳が届く」ような待ちに使う。固定回数だけ回していたころは、
---- bridge の応答が少し遅れるだけで FAIL したり、遅れて届いた訳を
---- 次の「訳さないこと」の確認が拾ってしまったりして不安定だった。
---- 真になったらすぐ戻るので、速いときは待ち時間も増えない。
 local function wait_until(cond, timeout)
     local step = 0.06
     for _ = 1, math.ceil((timeout or 15) / step) do
@@ -64,7 +56,6 @@ local function wait_until(cond, timeout)
 end
 
 --- 「何も起きないこと」を確かめる前の待ち。
---- こちらは待つしかないので、少し長めに回す。
 local function settle()
     pump(25)
 end
@@ -83,7 +74,6 @@ check(mock.hooks["/Script/FSD.FSDPlayerController:Server_NewMessage"] ~= nil, "�
 check(#mock.loops > 0, "ポーリングループが登録される")
 check(mock.keybinds["F9"] ~= nil, "F9 のキーバインドが登録される")
 
--- bridge の生存確認が通るまで待つ（bridge.alive は1秒ごとに更新される）
 local connected = false
 for _ = 1, 60 do
     pump(1, 0.05)
@@ -96,9 +86,6 @@ if not connected then
     os.exit(1)
 end
 
--- ------------------------------------------------------------------
--- 受信
--- ------------------------------------------------------------------
 print("-- 受信 --")
 
 local before = #mock.displayed
@@ -106,7 +93,7 @@ mock.receive("Karl", "Rock and Stone!")
 if role == "client" or (role == "host" and players == 1) then
     wait_until(function() return #mock.displayed > before end)
 else
-    settle()   -- 出ないことを確かめるので、待つしかない
+    settle()
 end
 
 if role == "client" then
@@ -115,7 +102,6 @@ if role == "client" then
           "用語集がヒットし、掛け声は英語のまま出る", last_display())
     check((last_display() or ""):find("Karl", 1, true) ~= nil, "発言者名が含まれる", last_display())
 
-    -- 訳文が原文と同じでも表示する
     before = #mock.displayed
     mock.receive("Karl", "for karl")
     wait_until(function() return #mock.displayed > before end)
@@ -124,31 +110,25 @@ if role == "client" then
     check(mock.displayed[#mock.displayed].via == "gamestate",
           "クライアントでは PostGameMessage を使う")
 elseif players >= 2 then
-    -- 他の隊員がいるホストでは、PostGameMessage が全員に配信されてしまうので
-    -- ゲーム内には出さない。ウィジェット直叩きは実機で動かないので試さない。
     check(#mock.displayed == before,
           "他の隊員がいるホストではゲーム内に出さない", last_display())
     check(mock.displayed_widget_attempts == 0,
           "ホストでもウィジェット直叩きは試さない", mock.displayed_widget_attempts)
 else
-    -- ソロなら配信先が自分だけなので PostGameMessage を使ってよい
     check(#mock.displayed > before, "ソロのホストではゲーム内に出す", last_display())
     check(mock.displayed[#mock.displayed].via == "gamestate",
           "そのとき使うのは PostGameMessage")
 end
 
--- ------------------------------------------------------------------
--- 中継（ホストのときだけ、他人の発言の訳を全員に配る）
--- ------------------------------------------------------------------
 print("-- 中継 --")
 
-pump(40, 0.05)   -- 上の受信で溜まった中継行を出し切ってから数える
+pump(40, 0.05)
 
 local relay_before = #mock.sent
 mock.receive("Karl", "swarm from the left")
 if role == "host" and players >= 2 then
     wait_until(function() return #mock.sent > relay_before end)
-    pump(20, 0.05)   -- 2行目が続かないことも見るので、少し余分に回す
+    pump(20, 0.05)
 else
     settle()
 end
@@ -162,7 +142,6 @@ if role == "host" and players == 1 then
     check(#relayed == 0, "ソロ（自分しかいない）なら中継しない", table.concat(relayed, " | "))
 elseif role == "host" then
     check(#relayed == 1, "ホストは発言者以外の3言語ぶんを1行で中継する", #relayed)
-    -- 訳文の目印は --fake の翻訳器が付けるもの。どの言語を頼んだかを確認できる
     local tags = table.concat(relayed, " ")
     check(tags:find("[ja]", 1, true) ~= nil and tags:find("[ko]", 1, true) ~= nil
           and tags:find("[zh]", 1, true) ~= nil,
@@ -172,13 +151,10 @@ elseif role == "host" then
           "訳どうしは / でつなぐ", relayed[1])
     check(tags:find("[JP]", 1, true) == nil and tags:find("[KR]", 1, true) == nil,
           "言語の目印([JP] など)は付けない", tags)
-    -- まだ一度も発言していないので自分の名前が分からない。
-    -- そのときは元の発言者名で送り、本文側の名前は落とす（二重表示の防止）
     check(senders[1] == "Karl", "自分の名前が未判明なら元の発言者名で送る", senders[1])
     check(relayed[1]:find("Karl", 1, true) == nil,
           "本文に発言者名が二重に入らない", relayed[1])
 
-    -- 一度発言して名前が分かったあとは、自分の名前で中継する
     local before_own = #mock.sent
     mock.send("Kiyo", "了解です")
     wait_until(function() return #mock.sent > before_own end)
@@ -195,8 +171,6 @@ else
     check(#relayed == 0, "クライアントは中継しない", table.concat(relayed, " | "))
 end
 
--- 中継行を受け取ってもさらに翻訳しない（ホスト・クライアント共通）。
--- 別のホスト(Hosty)が、少し前に喋った Karl の発言の訳を流してきた形
 relay_before = #mock.sent
 before = #mock.displayed
 mock.receive("Hosty", "Karl: 気をつけろ / 조심해 / 小心")
@@ -204,8 +178,6 @@ settle()
 check(#mock.displayed == before and #mock.sent == relay_before,
       "中継された行は翻訳も再中継もしない")
 
--- コロンで始まるだけの普通の発言（"warning: ..."）を中継行と間違えない。
--- 行頭の名前が「最近チャットで見かけた人」でなければ中継行ではない
 relay_before = #mock.sent
 before = #mock.displayed
 mock.receive("Karl", "warning: swarm incoming")
@@ -232,9 +204,6 @@ mock.receive("System", "Mission Control speaking", 1)
 settle()
 check(#mock.displayed == before, "ゲームメッセージ(ES_Game)は既定で翻訳しない")
 
--- ------------------------------------------------------------------
--- 送信（原文をそのまま流し、翻訳を2通目として送る）
--- ------------------------------------------------------------------
 print("-- 送信 --")
 
 local sent_before = #mock.sent
@@ -263,7 +232,6 @@ mock.send("Kiyo", "あ")
 settle()
 check(#mock.sent == sent_before, "min_length 未満の発言は翻訳しない")
 
--- 用語集にある定型句は翻訳APIを介さず置き換わる
 sent_before = #mock.sent
 mock.send("Kiyo", "弾がない")
 wait_until(function() return #mock.sent > sent_before end)
@@ -273,9 +241,6 @@ if #mock.sent > sent_before then
           "送信側の用語集がヒットする", mock.sent[#mock.sent].text)
 end
 
--- ------------------------------------------------------------------
--- 自分の発言の翻訳がエコーバックしても再翻訳しない
--- ------------------------------------------------------------------
 print("-- ループ防止 --")
 
 before = #mock.displayed
@@ -283,13 +248,10 @@ mock.receive("Kiyo", "please heal me")
 settle()
 check(#mock.displayed == before, "自分の名前の発言は翻訳しない")
 
--- ------------------------------------------------------------------
--- F9（翻訳のON/OFF）
--- ------------------------------------------------------------------
 print("-- F9 切り替え --")
 
 check(mock.keybinds["F9"] ~= nil, "F9 が登録されている")
-mock.keybinds["F9"]()          -- OFF
+mock.keybinds["F9"]()
 before, sent_before = #mock.displayed, #mock.sent
 mock.receive("Karl", "anyone got nitra")
 settle()
@@ -301,7 +263,7 @@ mock.send("Kiyo", "テスト、聞こえますか")
 settle()
 check(#mock.sent == sent_before, "OFF のあとは自分の発言も翻訳しない")
 
-mock.keybinds["F9"]()          -- ON に戻す
+mock.keybinds["F9"]()
 before, sent_before = #mock.displayed, #mock.sent
 mock.receive("Karl", "nitra right here")
 if role == "client" or players == 1 then
@@ -310,13 +272,11 @@ else
     wait_until(function() return #mock.sent > sent_before end)
 end
 if role == "client" or players == 1 then
-    -- クライアントとソロのホストは、自分に見える表示で確認する
     check(#mock.displayed > before, "ON に戻すと翻訳が再開する", last_display())
 else
     check(#mock.sent > sent_before, "ON に戻すと中継が再開する", #mock.sent - sent_before)
 end
 
--- ------------------------------------------------------------------
 print()
 if failures == 0 then
     print("ALL PASS")

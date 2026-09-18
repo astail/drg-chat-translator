@@ -47,30 +47,23 @@ from translate import (  # noqa: E402
     same_phrase,
 )
 
-# アプリ全体で1つの番号。mod/DRGTranslate/Scripts/main.lua の MOD_VERSION と
-# リリースのタグもこれにそろえる（食い違っているとリリースの CI が止まる）
 VERSION = "0.5.7"
 log = logging.getLogger("drgtl")
 
-# 応答が遅い代わりにスラングや誤字に強いプロバイダ
 LLM_PROVIDERS = {"claude", "openai"}
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# PyInstaller で固めた exe として動いているか
 FROZEN = getattr(sys, "frozen", False)
 
 if FROZEN:
-    # onefile の exe は実行のたび一時フォルダへ展開される。
-    # settings.ini やキャッシュはそこに置くと消えるので、exe と同じ場所を使う。
     APP_DIR = os.path.dirname(os.path.abspath(sys.executable))
-    # 同梱したリソース（用語集・MOD本体）の展開先
     BUNDLE_DIR = getattr(sys, "_MEIPASS", APP_DIR)
 else:
-    APP_DIR = os.path.dirname(HERE)    # リポジトリのルート
+    APP_DIR = os.path.dirname(HERE)
     BUNDLE_DIR = APP_DIR
 
-ROOT = APP_DIR   # 後方互換
+ROOT = APP_DIR
 
 SETTINGS_FILE = "settings.ini"
 SETTINGS_EXAMPLE_FILE = "settings.example.ini"
@@ -80,10 +73,6 @@ def bundled(*parts: str) -> str:
     """同梱リソースのパス。exe なら展開先、ソース実行ならリポジトリ内。"""
     return os.path.join(BUNDLE_DIR, *parts)
 
-
-# ---------------------------------------------------------------------------
-# 設定
-# ---------------------------------------------------------------------------
 
 DEFAULTS: dict = {
     "provider": "deepl",
@@ -106,7 +95,6 @@ DEFAULTS: dict = {
     "incoming": {
         "enabled": True,
         "target": "ja",
-        # 実際の既定は build_config が target から作る（下の incoming_target）
         "skip_languages": ["ja"],
         "format": "[訳] {sender}: {text}",
         "max_chars": 400,
@@ -114,37 +102,21 @@ DEFAULTS: dict = {
     "outgoing": {
         "enabled": True,
         "source": "ja",
-        # zh は簡体字（中国大陸）。DRG の中国語話者はこちらが大多数
         "targets": ["en", "ko", "zh"],
         "separator": " / ",
         "include_source": False,
         "max_chars": 200,
     },
-    # 中継（自分がホストのときだけ、他人の発言の訳を全員に配る）
-    #
-    # 発言者の言語は除いて訳す。英語の発言なら ja/ko/zh、
-    # 韓国語の発言なら ja/en/zh、どれでもない言語なら4つすべて。
-    # 自分の発言を訳すとき(outgoing)と同じで、全言語を1行にまとめて送る。
-    #
-    #   Karl: 気をつけろ、大群が来るぞ / 조심해 / 小心
-    #
-    # 言語の目印は付けない。訳文は文字の見た目で区別がつくうえ、
-    # チャット欄は狭いので、記号を並べるより訳文そのものに使いたい。
-    # 行頭の「元の発言者名 + :」は残す（誰の発言の訳かが分からなくなるため）。
-    # {lang} も使えるので、目印が要るなら settings.ini の書式で戻せる。
     "relay": {
         "enabled": True,
         "targets": ["ja", "en", "ko", "zh"],
-        # format = 行の先頭の言語、item_format = 2言語目以降
         "format": "{sender}: {text}",
         "item_format": "{text}",
         "separator": " / ",
         "max_chars": 200,
         "max_langs": 4,
-        # 0 なら何文字でも1行のまま。ゲーム側で切られる場合だけ指定する
         "max_line_chars": 0,
     },
-    # exe のときは exe の隣、ソース実行のときは bridge/ の下
     "cache": {
         "enabled": True,
         "max_entries": 5000,
@@ -168,7 +140,6 @@ DEFAULTS: dict = {
     },
     "network": {
         "timeout_sec": 6.0,
-        # LLM(claude/openai)は応答に時間がかかるので別枠のタイムアウトを使う
         "llm_timeout_sec": 20.0,
         "max_workers": 4,
         "min_interval_sec": 0.0,
@@ -177,22 +148,11 @@ DEFAULTS: dict = {
 }
 
 
-# 中継行に付ける言語の目印。チャットで見慣れた書き方に寄せる（ja→JP, ko→KR）
 LANG_TAGS = {"ja": "JP", "ko": "KR"}
 
 
 def load_dotenv(path: str) -> int:
-    """設定ファイル（settings.ini）を読んで os.environ に入れる。読み込んだ件数を返す。
-
-    既に環境変数として設定されている値は上書きしない（実環境の指定が優先）。
-    python-dotenv は使わない — 依存を増やさないため。
-
-    対応する書き方:
-        KEY=value
-        KEY = value          前後の空白は無視
-        KEY="value with spaces"   引用符で囲めば空白を保持
-        # comment            行頭の # はコメント
-    """
+    """設定ファイル（settings.ini）を読んで os.environ に入れる。読み込んだ件数を返す。"""
     if not os.path.exists(path):
         return 0
     loaded = 0
@@ -252,22 +212,13 @@ def _list(key: str, default: list[str]) -> list[str]:
 
 
 def build_config() -> dict:
-    """環境変数（settings.ini 読み込み済み）から設定を組み立てる。
-
-    APIキーだけは各SDKが読む慣習的な名前をそのまま使い、
-    それ以外は他ツールと衝突しないよう DRGT_ を付けている
-    （LOG_LEVEL や MAX_WORKERS のような名前は実際によくぶつかる）。
-    """
+    """環境変数（settings.ini 読み込み済み）から設定を組み立てる。"""
     d = DEFAULTS
-    # skip_languages の既定に使う。固定の ja にすると、訳す先だけ en に変えた人が
-    # 「日本語の発言に訳が付かないのに、英語の発言は en→en を API に投げる」
-    # という壊れ方をする（DRGT_INCOMING_SKIP_LANGUAGES の書き忘れが起きやすい）
     incoming_target = _str("DRGT_INCOMING_TARGET", d["incoming"]["target"])
     return {
         "provider": _str("DRGT_PROVIDER", d["provider"]).strip().lower(),
         "providers": {
             "deepl": {
-                # api_key が空ならプロバイダ側が DEEPL_AUTH_KEY を読む
                 "api_key": _str("DEEPL_AUTH_KEY", ""),
                 "api_url": _str("DRGT_DEEPL_API_URL", ""),
             },
@@ -288,8 +239,6 @@ def build_config() -> dict:
         "incoming": {
             "enabled": _bool("DRGT_INCOMING_ENABLED", True),
             "target": incoming_target,
-            # 既定は訳す先の言語そのもの。自分が読める言語を増やしたいときだけ
-            # 明示する（日本語話者で英語も読むなら ja,en）
             "skip_languages": _list("DRGT_INCOMING_SKIP_LANGUAGES", [incoming_target]),
             "format": _str("DRGT_INCOMING_FORMAT", d["incoming"]["format"]),
             "max_chars": _int("DRGT_INCOMING_MAX_CHARS", 400),
@@ -309,7 +258,6 @@ def build_config() -> dict:
             "item_format": _str("DRGT_RELAY_ITEM_FORMAT", d["relay"]["item_format"]),
             "separator": os.environ.get("DRGT_RELAY_SEPARATOR") or d["relay"]["separator"],
             "max_chars": _int("DRGT_RELAY_MAX_CHARS", d["relay"]["max_chars"]),
-            # 1言語1行だった頃の DRGT_RELAY_MAX_LINES も言語数として受け付ける
             "max_langs": _int("DRGT_RELAY_MAX_LANGS",
                               _int("DRGT_RELAY_MAX_LINES", d["relay"]["max_langs"])),
             "max_line_chars": _int("DRGT_RELAY_MAX_LINE_CHARS",
@@ -362,11 +310,7 @@ def resolve_path(cfg_path: str) -> str:
 
 
 def resolve_glossary(cfg_path: str) -> str:
-    """用語集のパス。
-
-    exe の隣に glossary.json を置けばそれを使う（利用者が編集できる）。
-    無ければ exe に同梱したものを使う。
-    """
+    """用語集のパス。exe の隣に置かれていればそれを、無ければ同梱のものを使う。"""
     path = resolve_path(cfg_path)
     if os.path.exists(path):
         return path
@@ -380,13 +324,7 @@ def ipc_dir(override: str | None) -> str:
     appdata = os.environ.get("APPDATA")
     if appdata:
         return os.path.join(appdata, "DRGTranslate")
-    # Windows 以外（開発・テスト用）
     return os.path.join(os.path.expanduser("~"), ".config", "DRGTranslate")
-
-
-# ---------------------------------------------------------------------------
-# 行フォーマット（Lua 側 util.lua と同じ規則）
-# ---------------------------------------------------------------------------
 
 
 def esc(s: str) -> str:
@@ -422,11 +360,6 @@ def decode_line(line: str) -> list[str]:
     return [unesc(f) for f in line.split("\t")]
 
 
-# ---------------------------------------------------------------------------
-# IPC
-# ---------------------------------------------------------------------------
-
-
 class Ipc:
     def __init__(self, directory: str):
         self.dir = directory
@@ -438,8 +371,6 @@ class Ipc:
         self._offset = 0
         self._buf = ""
         self._wlock = threading.Lock()
-        # 前回のセッションの残骸を消す。to_bridge.txt も消さないと、
-        # 落ちたゲームが残した HELLO を読んで「接続済み」と誤認する。
         for p in (self.p_out, self.p_in):
             try:
                 with open(p, "w", encoding="utf-8"):
@@ -457,7 +388,6 @@ class Ipc:
         except OSError:
             return []
         if size < self._offset:
-            # mod 側がセッション開始時に切り詰めた
             self._offset = 0
             self._buf = ""
         if size == self._offset:
@@ -496,11 +426,7 @@ class Ipc:
             pass
 
     def game_alive(self) -> bool:
-        """MOD が生きているか。game.alive の更新時刻で判定する。
-
-        MOD は送るものが無ければ何も書かないので、受信の有無で判定すると
-        「黙っているだけ」を切断と誤認してしまう。
-        """
+        """MOD が生きているか。game.alive の更新時刻で判定する。"""
         try:
             with open(self.p_game_alive, encoding="utf-8") as f:
                 content = f.readline()
@@ -510,8 +436,6 @@ class Ipc:
         if not m:
             return False
         age = time.time() - int(m.group(1))
-        # レベルロード中は UE4SS の Lua スレッドが数秒止まることがあるので広めに取る。
-        # 実際に落ちたときの検知が数秒遅れる分には困らない。
         return -5.0 <= age <= 20.0
 
     def cleanup(self) -> None:
@@ -519,11 +443,6 @@ class Ipc:
             os.remove(self.p_alive)
         except OSError:
             pass
-
-
-# ---------------------------------------------------------------------------
-# 本体
-# ---------------------------------------------------------------------------
 
 
 class Bridge:
@@ -538,7 +457,6 @@ class Bridge:
             net["llm_timeout_sec"] if provider_name in LLM_PROVIDERS else net["timeout_sec"]
         )
         if fake:
-            # テスト用。APIキーもネットワークも無い環境で動かすためのもの
             provider = StubProvider({}, timeout)
         else:
             provider = build_provider(
@@ -563,7 +481,6 @@ class Bridge:
         self.last_game_msg = 0.0
         self.ingame_display_ok: bool | None = None
 
-        # オーバーレイ用
         self.overlay_queue: queue.Queue[tuple[str, str]] = queue.Queue()
         self.outbound_from_overlay: queue.Queue[str] = queue.Queue()
 
@@ -572,8 +489,6 @@ class Bridge:
                  cfg["incoming"]["target"],
                  ",".join(cfg["outgoing"]["targets"]))
 
-        # 設定漏れは起動時点で知らせる。ゲーム内で「翻訳が出ない」となってから
-        # 原因を探すことになるのを避けるため。
         problem = provider.setup_problem()
         if problem:
             log.warning("=" * 62)
@@ -582,10 +497,8 @@ class Bridge:
                 log.warning("  %s", line)
             log.warning("=" * 62)
 
-    # -- 翻訳処理 ---------------------------------------------------------
-
     def relay_targets(self, source_lang: str) -> list[str]:
-        """中継先の言語。発言者の言語は除く（訳す意味がないため）。"""
+        """中継先の言語。発言者の言語は除く。"""
         rel = self.cfg["relay"]
         if not rel["enabled"]:
             return []
@@ -594,19 +507,7 @@ class Bridge:
 
     def translate_incoming(self, text: str, relay: bool = False
                            ) -> tuple[str, str, dict[str, str]]:
-        """受信文を訳す。(検出言語, 日本語訳, 中継用の訳) を返す。
-
-        用語集の判定を含む本番と同じ経路。--test からも呼ぶので、
-        利用者が試したときに実際に出るものと同じ結果になる。
-
-        relay=True（自分がホストのとき）は、全員に配る用の訳も一緒に作る。
-        日本語訳と中継用をまとめて1回の API 呼び出しで取るので、
-        中継を入れても呼び出し回数は増えない。
-
-        skip_languages（既定は訳す先の言語）に当たる発言でも、中継用の訳は作る。
-        自分は読めるが他の言語の人は読めない、という発言のためで、
-        このとき日本語訳は空で返る。
-        """
+        """受信文を訳す。(検出言語, 自分向けの訳, 中継用の訳) を返す。"""
         inc = self.cfg["incoming"]
         if not inc["enabled"]:
             return "", "", {}
@@ -614,9 +515,6 @@ class Bridge:
             return "", "", {}
 
         lang = detect_language(text)
-        # skip_languages は「自分のチャットに訳を出さない言語」。
-        # ここで打ち切ると中継まで一緒に止まり、日本語で話す人の発言だけが
-        # 他の言語の人に届かなくなる。自分向けの訳を作らないだけにする。
         skip_self = lang in set(inc["skip_languages"])
 
         target = inc["target"]
@@ -626,55 +524,31 @@ class Bridge:
 
         hit = self.glossary.lookup_incoming(text)
 
-        # 用語集の訳が原文と同じ＝どの言語でもそのまま使う掛け声。
-        # 中継しても同じ文字列が並ぶだけなので、API を呼ぶ前に打ち切る
-        # （"Rock and Stone!" は連呼されるので、ここを通すと呼び出しが嵩む）
         if hit is not None and same_phrase(hit, text):
             targets = []
         elif hit is not None and target != "ja":
-            # 用語集の訳は日本語。訳す先を英語などに変えているときは使えない
             hit = None
 
         if not targets:
-            # 中継しないときは今までどおり1言語だけ。
-            # プロバイダ自身の言語判定（DeepL の detected_source_language）も使える。
             if skip_self:
-                # 自分にも出さず中継もしないなら、API を呼ぶ理由がない
                 return lang, "", {}
             if hit is not None:
                 return lang, hit, {}
-            # 訳文が原文と同じでも表示する。"Rock and Stone!" のような
-            # ゲーム固有の掛け声は、そのまま出るのが正しい訳のため。
             translated, detected = self.translator.translate(text, None, target)
             return detected, translated, {}
 
-        # 自分向けに出さない言語なら、その訳は頼まない（ja の発言を ja に
-        # 訳させるだけで、費用も応答時間も無駄になる）
         pending = list(targets)
         if not skip_self and hit is None and target not in pending:
             pending.append(target)
         results = self.translator.translate_multi(text, None, pending)
         if not skip_self and hit is not None:
             results.setdefault(target, hit)
-        # 原文と変わらない訳は中継しない。掛け声のたぐいは訳しても同じ文字列に
-        # なることがあり、流すとチャットが荒れるだけになる
         relayed = {t: results[t] for t in targets
                    if results.get(t) and not same_phrase(results[t], text)}
         return lang, "" if skip_self else results.get(target, ""), relayed
 
     def relay_lines(self, sender: str, text: str, relayed: dict[str, str]) -> list[str]:
-        """中継用の訳を1行にまとめる。
-
-        自分の発言を訳すとき(translate_outgoing)と同じように、全言語を
-        separator でつないで1行にする。1言語1行で流していた頃は、
-        1つの発言でチャットが3〜4行埋まり、読む側が追いきれなかった。
-
-        発言者の名前は先頭にだけ付ける（言語ごとに付けると同じ名前が
-        何度も並ぶ）。mod 側は「他人が流した、行頭が別人の名前で始まる発言」
-        を中継行とみなして、訳文をもう一度訳すのを防いでいる。
-
-        max_line_chars を超えるときだけ行を分ける。既定は 0（分けない）。
-        """
+        """中継用の訳を1行にまとめる。max_line_chars を超えるときだけ行を分ける。"""
         rel = self.cfg["relay"]
         pieces = [
             (rel["format"] if i == 0 else rel["item_format"]).format(
@@ -690,7 +564,6 @@ class Bridge:
         if limit <= 0:
             return [sep.join(pieces)]
 
-        # 1つで limit を超える訳は、それだけで1行にする（分けようがない）
         lines: list[str] = []
         current = pieces[0]
         for piece in pieces[1:]:
@@ -732,18 +605,12 @@ class Bridge:
             self.ipc.write("ERR", req_id, str(exc))
 
     def translate_outgoing(self, text: str) -> str:
-        """自分の発言を設定された言語すべてに訳して 1 行にまとめる。
-
-        翻訳元と同じ言語は訳しても原文のままなので除く。英語で打つ人が
-        翻訳元だけ en に変え、翻訳先を既定の en,ko,zh のままにしていても、
-        英語が2通目に重ねて出ないようにするため。
-        """
+        """自分の発言を設定された言語すべてに訳して 1 行にまとめる。"""
         out = self.cfg["outgoing"]
         source = out["source"] or None
         same = source or detect_language(text)
         targets: list[str] = [t for t in out["targets"] if t != same]
 
-        # 用語集で片付く言語は API に投げない
         results: dict[str, str] = {}
         pending: list[str] = []
         for target in targets:
@@ -755,7 +622,6 @@ class Bridge:
 
         if pending:
             try:
-                # LLM プロバイダなら 1 回の呼び出しで全言語ぶん返ってくる
                 results.update(self.translator.translate_multi(text, source, pending))
             except TranslationError as exc:
                 log.warning("送信翻訳に失敗 (%s): %s", ",".join(pending), exc)
@@ -767,7 +633,6 @@ class Bridge:
     def _do_outgoing(self, req_id: str, text: str) -> None:
         out = self.cfg["outgoing"]
         try:
-            # 何語の発言を訳すかはここで決める（mod は言語を見ずに全部送ってくる）
             if (not out["enabled"] or len(text) > int(out["max_chars"])
                     or not is_written_in(text, out["source"])):
                 self.ipc.write("RES", req_id, "out", "", "")
@@ -781,8 +646,6 @@ class Bridge:
             log.exception("送信翻訳で予期しないエラー")
             self.ipc.write("ERR", req_id, str(exc))
 
-    # -- 受信ループ -------------------------------------------------------
-
     def handle(self, fields: list[str]) -> None:
         kind = fields[0] if fields else ""
         self.last_game_msg = time.time()
@@ -792,7 +655,6 @@ class Bridge:
 
         if kind == "REQ" and len(fields) >= 5:
             req_id, req_kind, sender, text = fields[1], fields[2], fields[3], fields[4]
-            # 6番目は「自分がホストか」。ホストかどうかを知っているのは mod 側だけ
             host = len(fields) > 5 and fields[5] == "1"
             if req_kind == "in":
                 self.pool.submit(self._do_incoming, req_id, sender, text, host)
@@ -815,14 +677,11 @@ class Bridge:
             log.info("ゲーム内表示: %s", "OK" if ok else "失敗（オーバーレイに切替）")
 
         elif kind == "TOGGLE":
-            # F9 の押下。ホストだとゲーム内に出せないので、ここが唯一の反応になる
             state = fields[1] if len(fields) > 1 else "?"
             log.info("翻訳 %s（ゲーム内で F9 が押されました）", state)
             self.overlay_queue.put(("in", f"[DRGTranslate] 翻訳 {state}"))
 
         elif kind == "PING":
-            # NOTE は mod が display_line でゲーム内に出す。ゲームの言語が
-            # 日本語以外だと日本語フォントが無く豆腐になるので、英数字で書く
             self.ipc.write("NOTE", "[DRGTranslate] bridge is running")
 
     def run_loop(self) -> None:
@@ -833,7 +692,6 @@ class Bridge:
                 for fields in self.ipc.read_lines():
                     self.handle(fields)
 
-                # オーバーレイの入力欄から送られたものをゲームへ流す
                 while True:
                     try:
                         text = self.outbound_from_overlay.get_nowait()
@@ -849,8 +707,6 @@ class Bridge:
                     last_beat = now
                     self.ipc.heartbeat()
                     self.cache.maybe_save()
-                    # 生死は game.alive の更新で見る。無言＝切断ではない。
-                    # 直前に何か受け取っていれば、心拍が遅れていても生きている。
                     alive = (
                         self.ipc.game_alive()
                         or (now - self.last_game_msg) <= 20.0
@@ -875,20 +731,8 @@ class Bridge:
         self.stop_event.set()
 
 
-# ---------------------------------------------------------------------------
-# エントリポイント
-# ---------------------------------------------------------------------------
-
-
 def setup_logging(level: str) -> None:
-    """ログの出力先とレベルを設定する。2回目以降の呼び出しも効かせること。
-
-    初回起動はウィザードのあいだ warning にして、終わったら設定の
-    log_level（既定 info）に戻す、という2段構えになっている。
-    basicConfig は既にハンドラがあると黙って何もしないので、force を
-    付けないと warning のまま常駐してしまい、「黒い窓に何も流れない」
-    ことになる（初回だけ症状が出て、2回目からは直るので気づきにくい）。
-    """
+    """ログの出力先とレベルを設定する。2回目以降の呼び出しも効かせるため force を付ける。"""
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)-7s %(message)s",
@@ -903,14 +747,10 @@ def run_test(bridge: Bridge, text: str) -> int:
     try:
         if is_written_in(text, bridge.cfg["outgoing"]["source"]):
             print(f"送信用翻訳: {bridge.translate_outgoing(text)}")
-            # 同じ言語で話す人がロビーにいるとき、ホストとして何を流すか。
-            # 既定では自分向けの訳は出ない（skip_languages）ので中継行だけを見る
             _, _, relayed = bridge.translate_incoming(text, relay=True)
             for line in bridge.relay_lines("Karl", text, relayed):
                 print(f"中継(ホスト): {line}")
         else:
-            # 本番の受信経路と同じもの（用語集の判定を含む）を通す。
-            # ホストのときに全員へ配る中継文もここで確認できる
             detected, translated, relayed = bridge.translate_incoming(text, relay=True)
             if translated:
                 print(f"受信用翻訳: {translated}  (元言語: {detected or '不明'})")
@@ -939,14 +779,9 @@ def run_selftest(bridge: Bridge) -> int:
         f.write(encode_line("REQ", "3", "in", "민수", "안녕하세요"))
         f.write(encode_line("REQ", "4", "in", "Someone", "こんにちは"))
         f.write(encode_line("REQ", "5", "out", "Me", "回復お願いします"))
-        # 翻訳元（既定は日本語）でない自分の発言。訳は空で返るはず
         f.write(encode_line("REQ", "8", "out", "Me", "hello everyone"))
-        # 漢字だけの発言も日本語として訳すはず
         f.write(encode_line("REQ", "9", "out", "Me", "了解"))
-        # 6番目のフィールド "1" = 自分がホスト。訳文に加えて中継用の行も返るはず
         f.write(encode_line("REQ", "6", "in", "Karl", "swarm from the left", "1"))
-        # ホストが受けた日本語の発言。自分向けの訳は出ないが、
-        # 他の言語の人のために中継用の行は返るはず
         f.write(encode_line("REQ", "7", "in", "Someone", "左から来てる、下がって", "1"))
         f.write(encode_line("DISPLAY", "ok"))
 
@@ -979,12 +814,10 @@ def run_selftest(bridge: Bridge) -> int:
             ok = False
             continue
         print(f"  {key}: {fields}")
-    # 6 はホストとしての受信。日本語訳(5番目)に加えて中継行が付いていること
     relay = seen.get("6") or []
     if len(relay) < 6:
         print("  !! 中継行が返っていません")
         ok = False
-    # 7 は日本語の発言。日本語訳は空のまま、中継行だけが付いていること
     ja_relay = seen.get("7") or []
     if len(ja_relay) < 6:
         print("  !! 日本語の発言の中継行が返っていません")
@@ -992,17 +825,14 @@ def run_selftest(bridge: Bridge) -> int:
     elif ja_relay[4] != "":
         print("  !! 日本語の発言に日本語訳が付いています")
         ok = False
-    # 8 は英語の自分の発言。翻訳元が日本語なので訳さない
     en_out = seen.get("8") or []
     if len(en_out) > 4 and en_out[4] != "":
         print("  !! 翻訳元でない言語の発言が訳されています")
         ok = False
-    # 9 は漢字だけの発言。日本語として訳す
     kanji_out = seen.get("9") or []
     if len(kanji_out) > 4 and kanji_out[4] == "":
         print("  !! 漢字だけの発言が訳されていません")
         ok = False
-    # 同梱の anthropic SDK が、こちらの送る引数を受け付けるか
     for problem in check_claude_params():
         print(f"  !! {problem}")
         ok = False
@@ -1011,10 +841,7 @@ def run_selftest(bridge: Bridge) -> int:
 
 
 def needs_setup(env_path: str) -> bool:
-    """初回起動かどうか。設定ファイルが無ければ未セットアップ。
-
-    設定ファイルを消せば、次の起動でセットアップからやり直せる。
-    """
+    """初回起動かどうか。設定ファイルが無ければ未セットアップ。"""
     return not os.path.exists(env_path)
 
 
@@ -1022,7 +849,6 @@ def run_setup(env_path: str, args) -> bool:
     import setup_wizard
 
     def build_bridge():
-        # ウィザードが書いた settings.ini を読み直してから作る
         cfg = load_config(env_path)
         if args.provider:
             cfg["provider"] = args.provider
@@ -1037,7 +863,6 @@ def run_setup(env_path: str, args) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Windows のコンソールでも日本語が化けないようにする
     for stream in (sys.stdout, sys.stderr):
         try:
             stream.reconfigure(encoding="utf-8", errors="replace")
@@ -1060,8 +885,6 @@ def main(argv: list[str] | None = None) -> int:
 
     env_path = args.config or os.path.join(APP_DIR, SETTINGS_FILE)
 
-    # 初回起動、または --setup 明示のときはウィザードを通す。
-    # --test / --selftest / --fake は検証用なので邪魔しない。
     interactive = not (args.test or args.selftest or args.fake or args.no_setup)
     if interactive and (args.setup or needs_setup(env_path)):
         setup_logging("warning")
@@ -1107,7 +930,7 @@ def main(argv: list[str] | None = None) -> int:
     if use_overlay:
         worker = threading.Thread(target=bridge.run_loop, name="ipc", daemon=True)
         worker.start()
-        overlay_mod.run(bridge)   # Tk はメインスレッドで動かす必要がある
+        overlay_mod.run(bridge)
         bridge.stop()
         worker.join(timeout=3)
     else:
@@ -1116,14 +939,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def cli() -> int:
-    """exe のエントリポイント。
-
-    ダブルクリック起動だと、エラーで落ちた瞬間に窓が消えて何も読めない。
-    そこで exe のときは最後に入力待ちを入れる。
-
-    ただし --test / --selftest のようにコマンドラインから叩く用途では
-    待たれると困る（スクリプトが止まる）ので、引数無しの起動だけにする。
-    """
+    """exe のエントリポイント。ダブルクリック起動やエラー終了では窓を閉じずに入力を待つ。"""
     try:
         code = main()
     except KeyboardInterrupt:

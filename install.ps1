@@ -31,10 +31,6 @@ function Ok($m)   { Write-Host "[o] $m" -ForegroundColor Green }
 function Warn($m) { Write-Host "[!] $m" -ForegroundColor Yellow }
 function Die($m)  { Write-Host "[x] $m" -ForegroundColor Red; exit 1 }
 
-# ---------------------------------------------------------------------------
-# 1. Deep Rock Galactic を探す
-# ---------------------------------------------------------------------------
-
 function Find-DRG {
     $candidates = @()
 
@@ -58,7 +54,6 @@ function Find-DRG {
             }
         }
     }
-    # ドライブ直下の SteamLibrary もよくある配置なので見る
     foreach ($drive in (Get-PSDrive -PSProvider FileSystem)) {
         $libraryRoots += (Join-Path $drive.Root "SteamLibrary")
     }
@@ -90,10 +85,6 @@ if (-not (Test-Path (Join-Path $Win64 "FSD-Win64-Shipping.exe"))) {
     Die "Deep Rock Galactic のフォルダではないようです: $GamePath"
 }
 Ok "ゲーム: $GamePath"
-
-# ---------------------------------------------------------------------------
-# 2. UE4SS
-# ---------------------------------------------------------------------------
 
 function Get-ModsDir {
     foreach ($rel in @("ue4ss\Mods", "Mods")) {
@@ -137,16 +128,6 @@ if (-not $ModsDir) {
 }
 Ok "Mods フォルダ: $ModsDir"
 
-# ---------------------------------------------------------------------------
-# UE4SS の既定値のうち、クラッシュ要因になりうるものを落とす
-#
-#   bUseUObjectArrayCache : UObject 配列をキャッシュする。GC でオブジェクトが
-#                           破棄・移動されると古いポインタを読んで
-#                           EXCEPTION_ACCESS_VIOLATION になる
-#   GuiConsoleEnabled     : 別ウィンドウのコンソール。翻訳には不要
-#   EnableDumping         : オブジェクトダンプ。翻訳には不要
-# ---------------------------------------------------------------------------
-
 $SettingsIni = Join-Path $Win64 "UE4SS-settings.ini"
 if (Test-Path $SettingsIni) {
     $safe = @{
@@ -172,10 +153,6 @@ if (Test-Path $SettingsIni) {
     }
 }
 
-# ---------------------------------------------------------------------------
-# 3. mod のコピー / 削除
-# ---------------------------------------------------------------------------
-
 $Dest = Join-Path $ModsDir $ModName
 $ModsTxt = Join-Path $ModsDir "mods.txt"
 
@@ -194,7 +171,6 @@ if (-not (Test-Path $Src)) { Die "mod フォルダが見つかりません: $Src
 
 if (Test-Path $Dest) {
     Info "既存の $ModName を更新します"
-    # ユーザーが編集した config.lua は退避しておく
     $userCfg = Join-Path $Dest "Scripts\config.lua"
     if (Test-Path $userCfg) {
         Copy-Item $userCfg (Join-Path $env:TEMP "DRGTranslate.config.lua.bak") -Force
@@ -205,16 +181,6 @@ if (Test-Path $Dest) {
 Copy-Item $Src $Dest -Recurse -Force
 Ok "mod をコピーしました: $Dest"
 
-# mods.txt へ登録（UE4SS 3.x はこちらを見る）
-#
-# あわせて UE4SS 同梱のサンプル MOD を無効化する。翻訳には一切不要なうえ、
-# エンジン内部を広く書き換えるのでクラッシュ源になりやすい。
-#
-# UE4SS v3.0.1 の Mods/mods.txt に入っている名前をそのまま並べている
-# （bridge/setup_wizard.py の UE4SS_SAMPLE_MODS と同じもの）。
-# 「残すもの以外を落とす」書き方にすると、利用者が自分で入れた別の MOD まで
-# 無効にしてしまうため、落とすものだけを列挙する。
-# Keybinds は RegisterKeyBind が依存するので入れない。
 if (-not (Test-Path $ModsTxt)) { New-Item -ItemType File -Path $ModsTxt -Force | Out-Null }
 $samples = @(
     "cheatmanagerenablermod",
@@ -250,10 +216,6 @@ Ok "mods.txt に登録しました（$ModName : 1）"
 if ($disabled.Count -gt 0) {
     Ok ("同梱サンプル MOD を無効化しました（" + ($disabled -join ", ") + "）")
 }
-
-# ---------------------------------------------------------------------------
-# 4. bridge 側の準備
-# ---------------------------------------------------------------------------
 
 $IpcDir = Join-Path $env:APPDATA "DRGTranslate"
 New-Item -ItemType Directory -Path $IpcDir -Force | Out-Null

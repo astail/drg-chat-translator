@@ -23,10 +23,6 @@ import urllib.request
 log = logging.getLogger("drgtl.translate")
 
 
-# ---------------------------------------------------------------------------
-# 言語判定（文字種ベース）
-# ---------------------------------------------------------------------------
-
 _RANGES = {
     "hangul": ((0xAC00, 0xD7A3), (0x1100, 0x11FF), (0x3130, 0x318F)),
     "kana": ((0x3040, 0x30FF), (0xFF66, 0xFF9D)),
@@ -48,17 +44,13 @@ def _script_counts(text: str) -> dict[str, int]:
 
 
 def detect_language(text: str) -> str:
-    """ざっくりした言語判定。'ja' / 'ko' / 'zh' / 'ru' / 'en' / 'und' を返す。
-
-    チャットは短文なので統計的な判定器より文字種で見たほうが安定する。
-    """
+    """ざっくりした言語判定。'ja' / 'ko' / 'zh' / 'ru' / 'en' / 'und' を返す。"""
     c = _script_counts(text)
     if c["kana"] > 0:
         return "ja"
     if c["hangul"] > 0:
         return "ko"
     if c["han"] > 0:
-        # かなを伴わない漢字のみ。DRG のチャットでは中国語のことが多い
         return "zh"
     if c["cyrillic"] > 0:
         return "ru"
@@ -68,13 +60,7 @@ def detect_language(text: str) -> str:
 
 
 def is_written_in(text: str, lang: str) -> bool:
-    """発言がその言語で書かれているか。送信で「訳す発言か」を決めるのに使う。
-
-    ja はかなか漢字を含めば当てはまる。detect_language はかなの無い漢字を
-    zh とみなすが、「了解」のような漢字だけの発言も日本語として訳したいため。
-    en は文字種で見るので、ラテン文字の言語（ドイツ語など）にも当てはまる。
-    lang が空なら、言語を問わず文字のある発言すべてが当てはまる。
-    """
+    """発言がその言語で書かれているか。送信で「訳す発言か」を決めるのに使う。"""
     base = (lang or "").split("-")[0].lower()
     if not base:
         return detect_language(text) != "und"
@@ -98,10 +84,6 @@ def is_translatable(text: str) -> bool:
     return True
 
 
-# ---------------------------------------------------------------------------
-# 用語集
-# ---------------------------------------------------------------------------
-
 _NORM_RE = re.compile(r"[\s!?！？。、.,~〜ー\-_*]+")
 
 
@@ -110,19 +92,12 @@ def _normalize(text: str) -> str:
 
 
 def same_phrase(a: str, b: str) -> bool:
-    """記号・空白・大文字小文字の違いを無視して同じ文言か。
-
-    "Rock and Stone!" と "rock and stone" を同じものとして扱いたい場面で使う。
-    """
+    """記号・空白・大文字小文字の違いを無視して同じ文言か。"""
     return _normalize(a) == _normalize(b)
 
 
 class Glossary:
-    """定型句をAPIに投げずに直接置き換えるための対応表。
-
-    DRG のチャットは "Rock and Stone!" のような定型句が非常に多いので、
-    ここで拾えるとレスポンスも翻訳品質も安定する。
-    """
+    """定型句をAPIに投げずに直接置き換えるための対応表。"""
 
     def __init__(self, path: str | None):
         self.incoming: dict[str, str] = {}
@@ -150,18 +125,8 @@ class Glossary:
         return None
 
 
-# ---------------------------------------------------------------------------
-# キャッシュ
-# ---------------------------------------------------------------------------
-
-
 class Cache:
-    """翻訳結果の保存。
-
-    キーには scope（プロバイダ名＋モデル名）を含める。これが無いと
-    プロバイダを変えても前のプロバイダの訳が返ってしまうし、テスト用の
-    --fake の結果が本番のキャッシュに紛れ込む。
-    """
+    """翻訳結果の保存。"""
 
     def __init__(self, path: str, max_entries: int = 5000, enabled: bool = True):
         self.path = path
@@ -194,7 +159,6 @@ class Cache:
             return
         with self._lock:
             if len(self._data) >= self.max_entries:
-                # 単純に古いものから捨てる（dict は挿入順を保つ）
                 for k in list(self._data)[: max(1, self.max_entries // 10)]:
                     del self._data[k]
             self._data[self.key(scope, text, src, tgt)] = value
@@ -219,11 +183,6 @@ class Cache:
             os.replace(tmp, self.path)
         except Exception as exc:  # noqa: BLE001
             log.warning("キャッシュの保存に失敗しました: %s", exc)
-
-
-# ---------------------------------------------------------------------------
-# 翻訳プロバイダ
-# ---------------------------------------------------------------------------
 
 
 class TranslationError(RuntimeError):
@@ -252,16 +211,12 @@ def _http(url: str, *, data: bytes | None = None, headers: dict | None = None,
 
 LANG_NAMES = {
     "ja": "Japanese", "en": "English", "ko": "Korean",
-    # 中国語は字体を書き分ける。ただ "Chinese" とだけ言うと簡体字と繁体字が
-    # 混ざって返ってくることがある。zh = 簡体字（中国大陸）を既定とする
     "zh": "Simplified Chinese (as used in mainland China)",
     "zh-tw": "Traditional Chinese (as used in Taiwan)",
     "ru": "Russian", "de": "German", "fr": "French", "es": "Spanish",
     "pt": "Portuguese", "it": "Italian", "pl": "Polish", "tr": "Turkish",
 }
 
-# 「元言語」として書くときは字体を限定しない。受信側の字体判定はしていないので、
-# 繁体字の発言を「簡体字から訳せ」と指示してしまわないようにする
 SOURCE_LANG_NAMES = {"zh": "Chinese", "zh-tw": "Chinese"}
 
 
@@ -285,12 +240,7 @@ class Provider:
         return self.name
 
     def setup_problem(self) -> str | None:
-        """設定不足があれば案内文を返す。無ければ None。
-
-        起動直後に呼んで警告を出すためのもの。これが無いと、APIキーを
-        入れ忘れたまま起動 → ゲーム内で翻訳が出ない → 原因が分からない、
-        という流れになりやすい。
-        """
+        """設定不足があれば案内文を返す。無ければ None。"""
         return None
 
     def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
@@ -299,11 +249,7 @@ class Provider:
 
     def translate_multi(self, text: str, source: str | None,
                         targets: list[str]) -> dict[str, str]:
-        """複数の言語へまとめて翻訳する。
-
-        既定では 1 言語ずつ呼ぶ。LLM 系のプロバイダは 1 回の呼び出しで
-        全言語を返せるのでオーバーライドしている（料金と待ち時間が半分以下になる）。
-        """
+        """複数の言語へまとめて翻訳する。"""
         out: dict[str, str] = {}
         for target in targets:
             translated, _ = self.translate(text, source, target)
@@ -313,12 +259,7 @@ class Provider:
 
 
 class StubProvider(Provider):
-    """テスト専用。APIを呼ばず目印を付けて返すだけ。
-
-    provider として設定から選ぶことはできない（PROVIDERS に登録していない）。
-    `drg_bridge.py --fake` からのみ使われ、ネットワークもAPIキーも無い環境で
-    ファイルIPCとMODのロジックを確認するためにある。
-    """
+    """テスト専用。APIを呼ばず目印を付けて返すだけ。"""
 
     name = "stub"
 
@@ -331,8 +272,6 @@ class DeepLProvider(Provider):
 
     name = "deepl"
 
-    # DeepL の "ZH" は簡体字。繁体字は "ZH-HANT" を明示する必要がある。
-    # source_lang には字体付きのコードを送れないので、下で "-" 以降を落としている
     _LANG = {"en": "EN-US", "ko": "KO", "ja": "JA", "zh": "ZH", "zh-tw": "ZH-HANT",
              "de": "DE", "fr": "FR", "es": "ES", "ru": "RU", "pt": "PT-BR", "it": "IT"}
 
@@ -369,13 +308,6 @@ class DeepLProvider(Provider):
         tr = data["translations"][0]
         return tr["text"], (tr.get("detected_source_language") or "").lower() or (source or "")
 
-
-# ---------------------------------------------------------------------------
-# LLM 系プロバイダ（Claude / OpenAI）
-#
-# 機械翻訳と違い、ゲーム内スラング・略語・打ち間違いに強い。
-# "gg", "bulk inc", "res me" のような発言を文脈込みで訳せる。
-# ---------------------------------------------------------------------------
 
 GAME_CONTEXT = """\
 You translate in-game text chat for the co-op game Deep Rock Galactic.
@@ -441,12 +373,7 @@ Rules:
 
 
 def _missing_sdk_message(package: str) -> str:
-    """SDK 未導入の案内。
-
-    Windows では Python が複数入っていて「pip install したのに見つからない」が
-    起きやすいので、いま動いている実行ファイルのパスをそのまま案内に出す。
-    このコマンドをコピペすれば確実に同じ Python へ入る。
-    """
+    """SDK 未導入の案内。"""
     return (
         f"{package} パッケージが見つかりません。次のコマンドで入れてください:\n"
         f'    "{sys.executable}" -m pip install {package}'
@@ -467,10 +394,8 @@ class LLMProvider(Provider):
         self._prompts: dict[str, str] = {}
 
     def cache_scope(self) -> str:
-        # モデルを変えれば訳も変わるのでキャッシュも分ける
         return f"{self.name}:{self.model}"
 
-    # 派生クラスで指定する。SDKのパッケージ名と、キーの環境変数名
     sdk_package = ""
     key_env = ""
     key_url = ""
@@ -479,11 +404,7 @@ class LLMProvider(Provider):
         return (self.opts.get("api_key") or os.environ.get(self.key_env) or "").strip()
 
     def _require_key(self) -> None:
-        """キーが無いことを SDK より先に自前で判定する。
-
-        SDK 任せにすると、生成時に投げるもの（openai）と実際のリクエストまで
-        投げないもの（anthropic）があり、案内文が揃わないため。
-        """
+        """キーが無いことを SDK より先に自前で判定する。"""
         if not self.api_key():
             raise TranslationError(
                 f"settings.ini に {self.key_env} を設定してください（{self.key_url}）"
@@ -498,7 +419,6 @@ class LLMProvider(Provider):
             return f"settings.ini に {self.key_env} を設定してください（{self.key_url}）"
         return None
 
-    # -- プロンプト -------------------------------------------------------
 
     def system_prompt(self, source: str | None, targets: list[str],
                       as_json: bool) -> str:
@@ -527,7 +447,6 @@ class LLMProvider(Provider):
     @staticmethod
     def _clean(text: str) -> str:
         text = (text or "").strip()
-        # 稀に前後を引用符で囲んで返してくるので剥がす
         for quote in ('"', "'", "「", "『"):
             if text.startswith(quote):
                 closing = {'"': '"', "'": "'", "「": "」", "『": "』"}[quote]
@@ -551,12 +470,10 @@ class LLMProvider(Provider):
         return {t: self._clean(str(data[t])) for t in targets
                 if isinstance(data.get(t), str) and data[t].strip()}
 
-    # -- 実装側が用意するもの ---------------------------------------------
 
     def _complete(self, system: str, user: str, json_targets: list[str] | None) -> str:
         raise NotImplementedError
 
-    # -- Provider インターフェース ----------------------------------------
 
     def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
         raw = self._complete(self.system_prompt(source, [target], False), text, None)
@@ -575,11 +492,7 @@ class LLMProvider(Provider):
 
 
 class ClaudeProvider(LLMProvider):
-    """Anthropic Claude (Messages API)。`pip install anthropic` が必要。
-
-    既定は Haiku 4.5。チャットは短文なので上位モデルは費用対効果が悪い。
-    訳が物足りなければ config の model を claude-sonnet-5 などに変えられる。
-    """
+    """Anthropic Claude (Messages API)。`pip install anthropic` が必要。"""
 
     name = "claude"
     default_model = "claude-haiku-4-5"
@@ -604,8 +517,6 @@ class ClaudeProvider(LLMProvider):
         kwargs: dict = {"timeout": self.timeout, "max_retries": 1}
         if key:
             kwargs["api_key"] = key
-        # キー未指定なら SDK が ANTHROPIC_API_KEY / ant のプロファイルから解決する。
-        # そこにも無ければ SDK 側が独自の例外を投げるので、包み直して案内にする。
         try:
             self._client = anthropic.Anthropic(**kwargs)
         except Exception as exc:  # noqa: BLE001
@@ -614,15 +525,11 @@ class ClaudeProvider(LLMProvider):
             ) from exc
         return self._client
 
-    # 世代によって受け付けるパラメータが違う。ここに載っていないモデルは
-    # 「古い世代」として扱う（余計なパラメータを送ると 400 になるため、
-    #  送らない方向に倒すのが安全）。
     _MODERN = (
         "claude-opus-5", "claude-fable-5", "claude-mythos-5",
         "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6",
         "claude-sonnet-5", "claude-sonnet-4-6",
     )
-    # 安全性判定で拒否されたとき別モデルへ回せるモデル
     _FALLBACK_CAPABLE = ("claude-opus-5", "claude-fable-5", "claude-mythos-5")
 
     def _is_modern(self) -> bool:
@@ -636,17 +543,11 @@ class ClaudeProvider(LLMProvider):
 
     def _build_params(self, system: str, user: str,
                       json_targets: list[str] | None) -> dict:
-        """messages.create に渡す引数を組み立てる。
-
-        呼び出さずに中身だけ確かめられるよう、送信とは分けてある
-        （--selftest が、同梱の SDK がこの引数を受け付けるかを見る）。
-        """
+        """messages.create に渡す引数を組み立てる。"""
         modern = self._is_modern()
 
         output_config: dict = {}
         if modern:
-            # 4.6 以降は思考の深さを effort で指定する。
-            # チャット翻訳は待ち時間が命なので既定は low。
             effort = self.opts.get("effort") or "auto"
             output_config["effort"] = "low" if effort == "auto" else effort
         elif self.opts.get("effort") not in (None, "", "auto"):
@@ -671,8 +572,6 @@ class ClaudeProvider(LLMProvider):
         params: dict = {
             "model": self.model,
             "max_tokens": self.max_tokens,
-            # システムプロンプトは数百トークンでキャッシュ下限（512〜4096、モデルによる）
-            # に届かないため cache_control は付けていない。
             "system": system,
             "messages": [{"role": "user", "content": user}],
         }
@@ -680,16 +579,9 @@ class ClaudeProvider(LLMProvider):
             params["output_config"] = output_config
 
         if modern:
-            # 4.6 以降は思考が使える。Opus 5 は既定で ON なので明示的に切る。
             params["thinking"] = {"type": "disabled"}
-        # 旧世代は thinking を省略すれば思考しない。
-        # temperature は送らない。API は旧世代なら受け付けるが、anthropic 1.x の
-        # messages.create() から引数が消えているため、送ると TypeError になる
-        # （exe には最新の SDK が同梱されるので、exe だけ翻訳できなくなる）。
 
         if self._use_fallback():
-            # ゲームチャットは暴言を含むことがあり、安全性判定で拒否される場合がある。
-            # そのときは Anthropic 推奨の別モデルへ自動で回してもらう。
             params["betas"] = ["server-side-fallback-2026-07-01"]
             params["fallbacks"] = "default"
         return params
@@ -703,7 +595,7 @@ class ClaudeProvider(LLMProvider):
                 resp = client.beta.messages.create(**params)
             else:
                 resp = client.messages.create(**params)
-        except Exception as exc:  # noqa: BLE001  SDK 固有の例外を包み直す
+        except Exception as exc:  # noqa: BLE001
             raise TranslationError(f"Claude API 呼び出しに失敗: {exc}") from exc
 
         if getattr(resp, "stop_reason", None) == "refusal":
@@ -718,14 +610,8 @@ class ClaudeProvider(LLMProvider):
         )
 
 
-
 def check_claude_params() -> list[str]:
-    """同梱の anthropic SDK が、こちらの送る引数を受け付けるか確かめる。
-
-    SDK の更新で引数が消えると（1.x で temperature が消えた例がある）、
-    最新の SDK を同梱する exe だけ翻訳に失敗する。APIキーもネットワークも
-    要らない確認なので --selftest から呼んでいる。
-    """
+    """同梱の anthropic SDK が、こちらの送る引数を受け付けるか確かめる。"""
     try:
         import anthropic
     except ImportError:
@@ -737,7 +623,6 @@ def check_claude_params() -> list[str]:
         "beta.messages.create": client.beta.messages.create,
     }
     problems: list[str] = []
-    # 旧世代 / 4.6 以降 / 拒否されたとき別モデルへ回すもの、の3通り
     for model in ("claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"):
         params = ClaudeProvider({"model": model})._build_params("system", "user", ["ja"])
         name = "beta.messages.create" if "betas" in params else "messages.create"
@@ -751,10 +636,7 @@ def check_claude_params() -> list[str]:
     return problems
 
 class OpenAIProvider(LLMProvider):
-    """OpenAI (Chat Completions)。`pip install openai` が必要。
-
-    `base_url` を指定すれば OpenAI 互換のエンドポイント（ローカルLLM等）にも向けられる。
-    """
+    """OpenAI (Chat Completions)。`pip install openai` が必要。"""
 
     name = "openai"
     default_model = "gpt-4o-mini"
@@ -777,7 +659,6 @@ class OpenAIProvider(LLMProvider):
             kwargs["api_key"] = key
         if self.opts.get("base_url"):
             kwargs["base_url"] = self.opts["base_url"]
-        # キーがどこにも無いと SDK 側が独自の例外を投げる。包み直して案内にする。
         try:
             self._client = openai.OpenAI(**kwargs)
         except Exception as exc:  # noqa: BLE001
@@ -796,7 +677,6 @@ class OpenAIProvider(LLMProvider):
         if json_targets:
             params["response_format"] = {"type": "json_object"}
 
-        # モデルによって受け付けないパラメータがあるので、弾かれたら外して1回だけ再試行する
         optional = {"max_tokens": self.max_tokens, "temperature": 0}
         try:
             resp = client.chat.completions.create(**params, **optional)
@@ -839,17 +719,11 @@ def build_provider(name: str, opts: dict, timeout: float) -> Provider:
     return cls(opts, timeout)
 
 
-# ---------------------------------------------------------------------------
-# 翻訳器（用語集・キャッシュ・レート制限をまとめたもの）
-# ---------------------------------------------------------------------------
-
-
 class Translator:
     def __init__(self, provider: Provider, cache: Cache, glossary: Glossary,
                  min_interval: float = 0.0):
         self.provider = provider
         self.cache = cache
-        # 訳文はプロバイダ（とモデル）ごとに違うのでキャッシュもそれで分ける
         self.scope = provider.cache_scope()
         self.glossary = glossary
         self.min_interval = min_interval
