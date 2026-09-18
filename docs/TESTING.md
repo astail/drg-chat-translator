@@ -1,36 +1,10 @@
-# テストと動作確認の状況
+# 動作確認の状況
 
-## テストの実行方法
+どこまで確認できていて、どこが未確認かの記録です。正直に書いておきます。
+テストの走らせ方は [DEVELOPMENT.md の「テストを走らせる」](DEVELOPMENT.md#テストを走らせる)
+を参照してください。
 
-### bridge 単体（APIキー不要）
-
-```
-py -3 bridge\drg_bridge.py --selftest --fake
-```
-
-CI（リリース時のビルド）でも同じものが走ります。同梱される `anthropic` が、
-こちらの送る引数を受け付けるかもここで確認します（SDK の更新で引数が消えると、
-最新の SDK を同梱する exe だけ翻訳に失敗するため）。
-
-### MOD のロジック（UE4SS を模したスタブ）
-
-```bash
-# 実行方法（Lua 5.4 が必要。APIキーは不要）
-python3 bridge/drg_bridge.py --fake --dir /tmp/drgtl &
-lua5.4 tools/mock_test.lua /tmp/drgtl client
-lua5.4 tools/mock_test.lua /tmp/drgtl host
-```
-
-`--fake` は翻訳APIを呼ばずに目印を付けて返すテスト専用モードです。
-`provider` として設定から選ぶことはできません。
-
----
-
-## 動作確認の状況
-
-正直に書いておきます。
-
-### 検証済み
+## 検証済み
 
 - **実際のAPIキーを使った翻訳の往復**（Claude / `claude-haiku-4-5`）
   - 英語→日本語: `watch out, swarm incoming from the left` → 左から群れが来るぞ、気をつけろ
@@ -179,7 +153,7 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
     `bulk inc、本当に` となり訳せていない（README の「略語やタイプミスが多いなら
     claude / openai」という説明どおり）
 
-### 未検証
+## 未検証
 
 - 翻訳元を日本語以外にした設定で、**実際にキーボードでチャットを打った**ときの動作。
   実機では `SIMSAY`（チャット欄から送ったときと同じ `Server_NewMessage` を通る）で確認しました

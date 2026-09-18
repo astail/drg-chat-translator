@@ -501,7 +501,7 @@ DRG の頻出フレーズを最初から登録済みです（exe に同梱され
 | | |
 |---|---|
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 仕組み、ソースから使う方法、exe のビルド、リリース、ファイル構成 |
-| [docs/TESTING.md](docs/TESTING.md) | テストの実行方法と、動作確認の状況の詳細 |
+| [docs/TESTING.md](docs/TESTING.md) | 動作確認の状況の詳細（どこが未確認かも） |
 | [docs/INTERNALS.md](docs/INTERNALS.md) | 解析した DRG 側 API のメモ |
 
 ---
