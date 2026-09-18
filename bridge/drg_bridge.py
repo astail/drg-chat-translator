@@ -106,6 +106,7 @@ DEFAULTS: dict = {
     "incoming": {
         "enabled": True,
         "target": "ja",
+        # 実際の既定は build_config が target から作る（下の incoming_target）
         "skip_languages": ["ja"],
         "format": "[訳] {sender}: {text}",
         "max_chars": 400,
@@ -258,6 +259,10 @@ def build_config() -> dict:
     （LOG_LEVEL や MAX_WORKERS のような名前は実際によくぶつかる）。
     """
     d = DEFAULTS
+    # skip_languages の既定に使う。固定の ja にすると、訳す先だけ en に変えた人が
+    # 「日本語の発言に訳が付かないのに、英語の発言は en→en を API に投げる」
+    # という壊れ方をする（DRGT_INCOMING_SKIP_LANGUAGES の書き忘れが起きやすい）
+    incoming_target = _str("DRGT_INCOMING_TARGET", d["incoming"]["target"])
     return {
         "provider": _str("DRGT_PROVIDER", d["provider"]).strip().lower(),
         "providers": {
@@ -282,8 +287,10 @@ def build_config() -> dict:
         },
         "incoming": {
             "enabled": _bool("DRGT_INCOMING_ENABLED", True),
-            "target": _str("DRGT_INCOMING_TARGET", "ja"),
-            "skip_languages": _list("DRGT_INCOMING_SKIP_LANGUAGES", ["ja"]),
+            "target": incoming_target,
+            # 既定は訳す先の言語そのもの。自分が読める言語を増やしたいときだけ
+            # 明示する（日本語話者で英語も読むなら ja,en）
+            "skip_languages": _list("DRGT_INCOMING_SKIP_LANGUAGES", [incoming_target]),
             "format": _str("DRGT_INCOMING_FORMAT", d["incoming"]["format"]),
             "max_chars": _int("DRGT_INCOMING_MAX_CHARS", 400),
         },
@@ -596,7 +603,7 @@ class Bridge:
         日本語訳と中継用をまとめて1回の API 呼び出しで取るので、
         中継を入れても呼び出し回数は増えない。
 
-        skip_languages（既定は日本語）に当たる発言でも、中継用の訳は作る。
+        skip_languages（既定は訳す先の言語）に当たる発言でも、中継用の訳は作る。
         自分は読めるが他の言語の人は読めない、という発言のためで、
         このとき日本語訳は空で返る。
         """

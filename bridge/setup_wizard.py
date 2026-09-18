@@ -5,8 +5,9 @@ exe（PyInstaller）から起動される想定で、次を順に案内する。
   1. Deep Rock Galactic を探す
   2. UE4SS を導入する
   3. MOD をコピーして mods.txt に登録する
-  4. 翻訳サービスを選んで APIキーを入力してもらう
-  5. 実際に1回翻訳して疎通を確認する
+  4. 自分の言語を選んでもらう
+  5. 翻訳サービスを選んで APIキーを入力してもらう
+  6. 実際に1回翻訳して疎通を確認する
 
 ソースから `python bridge/drg_bridge.py --setup` でも同じものが動く。
 """
@@ -26,6 +27,25 @@ UE4SS_URL = (
     f"{UE4SS_VERSION}/UE4SS_{UE4SS_VERSION}.zip"
 )
 MOD_NAME = "DRGTranslate"
+
+# 自分の言語の候補。ラベルはゲームの言語設定の表記に寄せた
+# （そのまま設定してもらうため）。
+#
+# ここに並べるのは translate.detect_language が文字種で見分けられる言語だけ。
+# 一覧に無い言語（ドイツ語など）を選ばせると、受信は訳せても送信が動かない
+# （ラテン文字は en と判定されるので DRGT_OUTGOING_SOURCE=de に一致しない）。
+# そういう設定は README の「言語を変える」を読んで手で書いてもらう。
+LANGUAGES = [
+    ("ja", "日本語"),
+    ("en", "English"),
+    ("ko", "한국어"),
+    ("zh", "简体中文"),
+    ("zh-tw", "繁體中文"),
+    ("ru", "Русский"),
+]
+
+# 送信・中継の既定に使う言語。DRG のチャットの大半がこの4つに収まる
+BASE_LANGUAGES = ["ja", "en", "ko", "zh"]
 
 PROVIDERS = [
     ("deepl", "DeepL", "DEEPL_AUTH_KEY", "https://www.deepl.com/pro-api",
@@ -336,11 +356,59 @@ def install_mod(game: str, mod_source: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# 4. 翻訳サービスの設定
+# 4. 言語 / 5. 翻訳サービスの設定
 # ---------------------------------------------------------------------------
 
+def language_settings(lang: str) -> dict[str, str]:
+    """自分の言語から、言語まわりの設定をまとめて作る。
+
+    1問で済ませたいのでここで全部決める。手で直すなら4か所
+    （受信・送信の元・送信先・中継先）を揃えて書く必要があり、
+    書き忘れると「日本語の発言に訳が付かないのに、自分の言語の発言は
+    同じ言語へ訳させる」という壊れ方をするため。
+
+    DRGT_INCOMING_SKIP_LANGUAGES は書かない。既定が受信の訳す先と同じに
+    なるので、自分が読める言語を増やしたい人だけが足せばよい。
+    """
+    others = [x for x in BASE_LANGUAGES if x != lang]
+    return {
+        # 受信: 他の人の発言を自分の言語にする
+        "DRGT_INCOMING_TARGET": lang,
+        # 送信: 自分の言語で打った発言を訳す
+        "DRGT_OUTGOING_SOURCE": lang,
+        "DRGT_OUTGOING_TARGETS": ",".join(others),
+        # 中継: 自分の言語を先頭に置く。ホスト（マルチ）では自分が読む訳も
+        # この行から読むので、外すと自分の画面に何も出なくなる
+        "DRGT_RELAY_TARGETS": ",".join([lang] + others),
+    }
+
+
+def choose_language(env_path: str, example_path: str) -> str:
+    step(4, "あなたの言語を選んでください")
+    print("      他の人の発言をこの言語に訳し、この言語で打った発言を他の言語に訳します。")
+    for i, (code, label) in enumerate(LANGUAGES, 1):
+        print(f"      {i}) {label} ({code})")
+    print("      一覧に無い言語は、あとで settings.ini で変えられます")
+    print("      （README の「言語を変える」）。")
+
+    while True:
+        answer = ask("番号", "1")
+        if answer.isdigit() and 1 <= int(answer) <= len(LANGUAGES):
+            lang, label = LANGUAGES[int(answer) - 1]
+            break
+        warn(f"1〜{len(LANGUAGES)} の数字を入れてください。")
+
+    values = language_settings(lang)
+    ensure_env_file(env_path, example_path)
+    write_env(env_path, values)
+    # このあとの疎通確認も、書いたものと同じ設定で動かす
+    os.environ.update(values)
+    ok(f"{label} に設定しました（受信→{lang} / 送信→{values['DRGT_OUTGOING_TARGETS']}）")
+    return lang
+
+
 def choose_provider() -> tuple[str, str, str, str]:
-    step(4, "翻訳サービスを選んでください")
+    step(5, "翻訳サービスを選んでください")
     for i, (_, label, _, _, note) in enumerate(PROVIDERS, 1):
         print(f"      {i}) {label:<8} {note}")
     while True:
@@ -351,8 +419,18 @@ def choose_provider() -> tuple[str, str, str, str]:
         warn("1〜3 の数字を入れてください。")
 
 
-def write_env(env_path: str, provider: str, env_name: str, api_key: str) -> None:
-    """既存の設定ファイルを壊さずに2項目だけ書き換える。"""
+def ensure_env_file(env_path: str, example_path: str) -> None:
+    """設定ファイルが無ければ見本から作る。全項目の説明を残したいので上書きはしない。"""
+    if not os.path.exists(env_path) and os.path.exists(example_path):
+        shutil.copyfile(example_path, env_path)
+
+
+def write_env(env_path: str, values: dict[str, str]) -> None:
+    """既存の設定ファイルを壊さずに、渡された項目だけ書き換える。
+
+    見本はすべてコメントアウトされているので、該当行があれば
+    コメントを外した形で置き換える。無ければ末尾に足す。
+    """
     lines: list[str] = []
     if os.path.exists(env_path):
         with open(env_path, encoding="utf-8") as f:
@@ -367,8 +445,8 @@ def write_env(env_path: str, provider: str, env_name: str, api_key: str) -> None
                 return
         lines.append(target)
 
-    upsert("DRGT_PROVIDER", provider)
-    upsert(env_name, api_key)
+    for key, value in values.items():
+        upsert(key, value)
 
     with open(env_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
@@ -399,9 +477,8 @@ def configure(env_path: str, example_path: str) -> tuple[str, str] | None:
             continue
         break
 
-    if not os.path.exists(env_path) and os.path.exists(example_path):
-        shutil.copyfile(example_path, env_path)
-    write_env(env_path, provider, env_name, api_key)
+    ensure_env_file(env_path, example_path)
+    write_env(env_path, {"DRGT_PROVIDER": provider, env_name: api_key})
     os.environ[env_name] = api_key
     os.environ["DRGT_PROVIDER"] = provider
     ok(f"保存しました: {env_path}")
@@ -409,12 +486,14 @@ def configure(env_path: str, example_path: str) -> tuple[str, str] | None:
 
 
 # ---------------------------------------------------------------------------
-# 5. 疎通確認
+# 6. 疎通確認
 # ---------------------------------------------------------------------------
 
-def verify(build_bridge) -> bool:
-    step(5, "翻訳を1回試します")
-    sample = "watch out, swarm incoming"
+def verify(build_bridge, lang: str = "ja") -> bool:
+    step(6, "翻訳を1回試します")
+    # 訳す先と同じ言語の見本だと、訳せたのか見て分からない
+    sample = ("気をつけろ、大群が来るぞ" if lang.startswith("en")
+              else "watch out, swarm incoming")
     try:
         bridge = build_bridge()
         problem = bridge.translator.provider.setup_problem()
@@ -423,7 +502,7 @@ def verify(build_bridge) -> bool:
             for line in problem.splitlines():
                 print(f"      {line}")
             return False
-        translated, _ = bridge.translator.translate(sample, None, "ja")
+        translated, _ = bridge.translator.translate(sample, None, lang)
     except Exception as exc:  # noqa: BLE001
         warn(f"失敗しました: {exc}")
         print("    APIキーが正しいか、ネットワークに繋がっているか確認してください。")
@@ -453,9 +532,10 @@ def run(*, env_path: str, example_path: str, mod_source: str, build_bridge,
         return False
     if not install_mod(game, mod_source):
         return False
+    lang = choose_language(env_path, example_path)
     if not configure(env_path, example_path):
         return False
-    if not verify(build_bridge):
+    if not verify(build_bridge, lang):
         warn("翻訳の確認に失敗しましたが、設定自体は保存されています。")
         print(f"    {env_path} を直してから、もう一度起動してください。")
         return False
@@ -464,7 +544,9 @@ def run(*, env_path: str, example_path: str, mod_source: str, build_bridge,
     print("  このあと翻訳プロセスが起動します。")
     print("  この窓を開いたまま Deep Rock Galactic を起動してください。")
     print()
-    print("  ・ゲームの言語設定を「日本語」にしてください（訳文が □□□ になります）")
+    game_lang = dict(LANGUAGES).get(lang, lang)
+    print(f"  ・ゲームの言語設定を「{game_lang}」にしてください"
+          "（フォントが読み込まれず、訳文が □□□ になります）")
     print("  ・ゲーム中は F9 で翻訳の ON/OFF を切り替えられます")
     print(f"  ・設定は {os.path.basename(env_path)} をメモ帳で開いて変えられます")
     print(f"  ・セットアップからやり直したいときは、{os.path.basename(env_path)} を削除してから")
