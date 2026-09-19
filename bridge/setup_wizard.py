@@ -430,24 +430,29 @@ def configure(env_path: str, example_path: str) -> tuple[str, str] | None:
         print(f"      {t('w.key.bundled', pkg=pkg)}")
 
     existing = os.environ.get(env_name, "").strip()
+    reuse = False
     if existing:
         masked = existing[:6] + "..." + existing[-4:] if len(existing) > 12 else "***"
         print(f"    {t('w.key.existing', masked=masked)}")
-        if not ask_yes(t("w.key.reenter"), default=False):
-            return provider, env_name
+        reuse = not ask_yes(t("w.key.reenter"), default=False)
 
-    while True:
-        api_key = ask(t("w.key.ask"))
-        if not api_key:
-            return None
-        if len(api_key) < 8:
-            warn(t("w.key.short"))
-            continue
-        break
+    values = {"DRGT_PROVIDER": provider}
+    if not reuse:
+        # 入力を空欄で終えたら、設定ファイルを作らずに中止する。
+        # ここから下の書き込みには進まないこと
+        while True:
+            api_key = ask(t("w.key.ask"))
+            if not api_key:
+                return None
+            if len(api_key) < 8:
+                warn(t("w.key.short"))
+                continue
+            break
+        values[env_name] = api_key
+        os.environ[env_name] = api_key
 
     ensure_env_file(env_path, example_path)
-    write_env(env_path, {"DRGT_PROVIDER": provider, env_name: api_key})
-    os.environ[env_name] = api_key
+    write_env(env_path, values)
     os.environ["DRGT_PROVIDER"] = provider
     ok(t("w.saved", path=env_path))
     return provider, env_name
