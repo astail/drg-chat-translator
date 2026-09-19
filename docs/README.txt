@@ -17,7 +17,7 @@ DRGTranslate - automatic chat translation for Deep Rock Galactic
   3. 黒い窓を出したまま Deep Rock Galactic を起動する
 
   最初に言語を聞かれます。そのあとの案内は選んだ言語で出ます。
-  詳しい説明: https://github.com/astail/drg-translation/blob/main/README.ja.md
+  詳しい説明: https://github.com/astail/drg-translation/blob/main/README.md
 
 
 ----------------------------------------------------------------

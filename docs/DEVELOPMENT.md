@@ -1,7 +1,7 @@
 # 開発者向けガイド
 
 exe を使わずにソースから動かす場合や、exe のビルド・リリースを行う場合の手順です。
-ふつうに遊ぶだけなら [README](../README.ja.md) の手順（exe）で足ります。
+ふつうに遊ぶだけなら [README](../README.md) の手順（exe）で足ります。
 
 - [仕組み](#仕組み)
 - [表示言語（多言語対応）](#表示言語多言語対応)
@@ -64,8 +64,7 @@ warn(t("w.failed", err=exc))                   # {name} は kwargs で埋める
 
 1. `i18n.py` の `LANGUAGES` に `("xx", "その言語での表記")` を足す
 2. `_M` の各キーに `"xx"` を足す（足し忘れたキーは英語で出ます）
-3. `README.xx.md` を追加し、全 README 冒頭の言語リンクと `README.md`
-   （言語の入口）に足す
+3. `README.xx.md` を追加し、全 README 冒頭の言語リンクに足す
 4. `i18n.readme()` が返す URL と一致しているか確認する
 5. `docs/README.txt` にその言語の3行を足す
 
@@ -142,7 +141,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -GamePath "G:\SteamLibrar
 `settings.ini` は作られますが**APIキーは空**で、言語は既定（日本語）のままです。
 `install.ps1` はセットアップウィザードを通らないので、
 ウィザードの `[4]`（言語）と `[5]`（翻訳サービス）に当たるぶんを手で書く必要があります。
-日本語以外で使うなら README の[言語を変える](../README.ja.md#言語を変える)を見てください。
+日本語以外で使うなら README の[言語を変える](../README.md#言語を変える)を見てください。
 ウィザードをそのまま使いたい場合は `py -3 bridge\drg_bridge.py --setup` でも動きます。
 
 続けて次の2つを行ってください。
@@ -169,7 +168,7 @@ OPENAI_API_KEY=sk-...
 copy settings.example.ini settings.ini
 ```
 
-`settings.ini` の各項目は README の[設定](../README.ja.md#設定)と `settings.example.ini` を参照してください。
+`settings.ini` の各項目は README の[設定](../README.md#設定)と `settings.example.ini` を参照してください。
 
 ### 翻訳を試す
 
@@ -193,7 +192,7 @@ py -3 bridge\drg_bridge.py --test "watch out, swarm incoming"
 2. **Deep Rock Galactic を起動**
 
 `run_bridge.bat` は exe の `DRGTranslate.exe` と同じ役割です。ゲーム内での使い方は
-README の[使い方](../README.ja.md#使い方)を参照してください。
+README の[使い方](../README.md#使い方)を参照してください。
 
 ### そのほかのコマンド
 
@@ -299,8 +298,8 @@ zip に入るのは `DRGTranslate.exe` / `settings.example.ini` /
 ## ファイル構成
 
 ```
-README.md                    言語の入口（6言語へのリンクだけ）
-README.ja.md ほか            各言語版（ja / en / ko / zh / zh-TW / ru）
+README.md                    日本語版（本体）。冒頭の言語リンクから各言語へ
+README.en.md ほか            各言語版（en / ko / zh / zh-TW / ru）
 settings.example.ini         設定のひな形（初回に settings.ini としてコピーされる。英語）
 DRGTranslate.spec            exe のビルド定義（PyInstaller）
 build.bat                    exe をビルドする

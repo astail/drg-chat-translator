@@ -67,10 +67,12 @@ def readme(code: str | None = None) -> str:
     """その言語の README の場所。
 
     zip には README を同梱していない（手引きの README.txt だけ）ので、
-    ファイル名ではなく GitHub の URL を返す。
+    ファイル名ではなく GitHub の URL を返す。日本語版だけ接尾辞が付かない。
     """
     lang = normalize(code) if code else _lang
-    name = "zh-TW" if lang == "zh-tw" else (lang or "ja")
+    if lang in (None, "ja"):
+        return f"{REPO_URL}/blob/main/README.md"
+    name = "zh-TW" if lang == "zh-tw" else lang
     return f"{REPO_URL}/blob/main/README.{name}.md"
 
 

@@ -1,6 +1,6 @@
 # DRGTranslate
 
-[日本語](README.ja.md) | **English** | [한국어](README.ko.md) | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
+[日本語](README.md) | **English** | [한국어](README.ko.md) | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
 
 A mod that translates Deep Rock Galactic chat for you.
 

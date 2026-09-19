@@ -1,6 +1,6 @@
 # DRGTranslate
 
-[日本語](README.ja.md) | [English](README.en.md) | **한국어** | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
+[日本語](README.md) | [English](README.en.md) | **한국어** | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
 
 Deep Rock Galactic 의 채팅을 자동으로 번역하는 모드입니다.
 

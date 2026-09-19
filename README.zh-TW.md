@@ -1,6 +1,6 @@
 # DRGTranslate
 
-[日本語](README.ja.md) | [English](README.en.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | **繁體中文** | [Русский](README.ru.md)
+[日本語](README.md) | [English](README.en.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | **繁體中文** | [Русский](README.ru.md)
 
 一個自動翻譯 Deep Rock Galactic 聊天的 MOD。
 
