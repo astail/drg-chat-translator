@@ -1,6 +1,6 @@
 # DRGTranslate
 
-[日本語](README.md) | **English** | [한국어](README.ko.md) | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
+[日本語](README.ja.md) | **English** | [한국어](README.ko.md) | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
 
 A mod that translates Deep Rock Galactic chat for you.
 
@@ -73,9 +73,8 @@ It contains:
 ```
 DRGTranslate.exe      everything you need
 settings.example.ini  a sample settings file (every option, explained)
-getting-started.txt   a three-step guide
-はじめに.txt          the same guide in Japanese
-README.md and more    the README in each language / LICENSE
+README.txt            a short guide
+LICENSE               the MIT license
 ```
 
 **Just double-click `DRGTranslate.exe`.** There is nothing else to install. The only

@@ -85,12 +85,10 @@ jobs:
           New-Item -ItemType Directory -Path $dir | Out-Null
           Copy-Item dist\DRGTranslate.exe $dir\
           Copy-Item settings.example.ini   $dir\
-          # 各言語の README（README.md / README.en.md / ...）
-          Copy-Item README*.md             $dir\
+          # 手引きは README.txt の1つだけ。言語ごとの詳しい説明は同梱せず、
+          # GitHub の README（6言語）へ誘導する
+          Copy-Item docs\README.txt        $dir\
           Copy-Item LICENSE                $dir\
-          # 手引き（はじめに.txt / getting-started.txt）。日本語のファイル名を
-          # 直接書くとランナー側の文字コードで壊れることがあるのでワイルドカードで拾う
-          Copy-Item docs\*.txt             $dir\
           Compress-Archive -Path $dir -DestinationPath "$dir.zip"
           "ZIP_NAME=$dir.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 

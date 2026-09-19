@@ -31,6 +31,8 @@ LANGUAGES: list[tuple[str, str]] = [
 LANG_CODES = [code for code, _ in LANGUAGES]
 FALLBACK = "en"
 
+REPO_URL = "https://github.com/astail/drg-translation"
+
 _lang = FALLBACK
 
 
@@ -62,11 +64,14 @@ def label(code: str) -> str:
 
 
 def readme(code: str | None = None) -> str:
-    """その言語の README のファイル名。日本語版だけ接尾辞が付かない。"""
+    """その言語の README の場所。
+
+    zip には README を同梱していない（手引きの README.txt だけ）ので、
+    ファイル名ではなく GitHub の URL を返す。
+    """
     lang = normalize(code) if code else _lang
-    if lang in (None, "ja"):
-        return "README.md"
-    return "README.{}.md".format("zh-TW" if lang == "zh-tw" else lang)
+    name = "zh-TW" if lang == "zh-tw" else (lang or "ja")
+    return f"{REPO_URL}/blob/main/README.{name}.md"
 
 
 def _windows_ui_lang() -> str | None:
@@ -642,12 +647,12 @@ _M.update({
         "ru": "- Чтобы пройти установку заново, удалите {ini} и запустите программу снова.",
     },
     "w.done.readme": {
-        "ja": "・詳しい説明は {readme} にあります",
-        "en": "- The full documentation is in {readme}.",
-        "ko": "- 자세한 설명은 {readme} 에 있습니다.",
-        "zh": "- 详细说明请见 {readme}。",
-        "zh-tw": "- 詳細說明請見 {readme}。",
-        "ru": "- Полное описание — в {readme}.",
+        "ja": "・詳しい説明: {readme}",
+        "en": "- The full documentation is at {readme}",
+        "ko": "- 자세한 설명: {readme}",
+        "zh": "- 详细说明: {readme}",
+        "zh-tw": "- 詳細說明: {readme}",
+        "ru": "- Полное описание: {readme}",
     },
     "w.incomplete": {
         "ja": "セットアップを完了できませんでした。",

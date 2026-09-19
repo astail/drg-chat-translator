@@ -1,6 +1,6 @@
 # DRGTranslate
 
-[日本語](README.md) | [English](README.en.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | **Русский**
+[日本語](README.ja.md) | [English](README.en.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | **Русский**
 
 Мод, который автоматически переводит чат Deep Rock Galactic.
 
@@ -71,9 +71,8 @@ You: 回復お願いします / Please heal me / 회복 부탁드립니다 / 请
 ```
 DRGTranslate.exe      всё, что нужно для работы
 settings.example.ini  образец файла настроек (все параметры с пояснениями, на английском)
-getting-started.txt   краткая инструкция из трёх шагов (на английском)
-はじめに.txt          она же на японском
-README.md и другие    README на каждом языке / LICENSE
+README.txt            краткая инструкция
+LICENSE               лицензия (MIT)
 ```
 
 **Просто запустите `DRGTranslate.exe` двойным щелчком.** Больше ничего устанавливать не

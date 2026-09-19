@@ -195,7 +195,8 @@
     `DRGT_INCOMING_TARGET` / 送信先 / 中継先 / `zh-tw` のときの
     `DRGT_INCOMING_SKIP_LANGUAGES=zh`）、`mods.txt`（利用者の MOD が残り、
     同梱サンプルだけ `: 0` になる）、見本のコメントが消えないこと、
-    完了画面がその言語の README 名（`README.ko.md` など）を出すことを確認
+    完了画面がその言語の README を出すことを確認（このときはファイル名。
+    のちに zip から README を外したので、今は GitHub の URL を出す）
   - **起動後のメッセージ**も6言語で確認。`--selftest --fake` の起動行
     （`provider=... / 受信→...`）と終了行、`--test` での APIキー未設定の警告
     （`翻訳できる状態になっていません:` と `settings.ini に DEEPL_AUTH_KEY を…`）
@@ -239,6 +240,17 @@
     書かない（OS の環境変数のほうが優先されるので二重に持たない）
   - APIキーを空欄で中止: `settings.ini` は作られない（回帰させていないこと）
   - 普通に入力: `DRGT_PROVIDER` とキーの両方が書かれる
+
+- **配布物を `README.txt` 1つに絞った変更**（2026-09-19）
+  - `README.md` を言語の入口（6言語へのリンクだけ）にし、日本語の本体を
+    `README.ja.md` へ移した。README とドキュメント10ファイルの相対リンク・
+    アンカーがすべて実在することをスクリプトで確認
+  - `i18n.readme()` がファイル名ではなく GitHub の URL を返すようにし、
+    6言語ぶんの完了画面の行と、URL が指す README が実在することを確認
+  - zip に入れるのは `DRGTranslate.exe` / `settings.example.ini` /
+    `README.txt` / `LICENSE` の4つだけにした。`release` の手動実行で
+    実際にできた zip の中身がこの4つであることを確認
+  - `--selftest --fake` と `tools/mock_test.lua` の client / host は引き続き PASS
 
 ## 未検証
 

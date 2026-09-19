@@ -1,6 +1,6 @@
 # DRGTranslate
 
-[日本語](README.md) | [English](README.en.md) | [한국어](README.ko.md) | **简体中文** | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
+[日本語](README.ja.md) | [English](README.en.md) | [한국어](README.ko.md) | **简体中文** | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
 
 一个自动翻译 Deep Rock Galactic 聊天的 MOD。
 
@@ -64,9 +64,8 @@ Claude 或 OpenAI。像 `Rock and Stone` 这样的固定说法由术语表处理
 ```
 DRGTranslate.exe      只要这个就能运行
 settings.example.ini  设置文件的样例（含全部项目的说明。英文）
-getting-started.txt   三步指引（英文）
-はじめに.txt          同一份指引的日语版
-README.md 等          各语言的 README / LICENSE
+README.txt            简单的指引
+LICENSE               许可证（MIT）
 ```
 
 **只需双击 `DRGTranslate.exe`。** 没有别的东西需要安装。你要准备的只有**翻译服务的 API
