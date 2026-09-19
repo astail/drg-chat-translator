@@ -4,6 +4,8 @@
 
 A mod that translates Deep Rock Galactic chat for you.
 
+*An unofficial fan project. Not affiliated with Ghost Ship Games.*
+
 | What it does | Host (multiplayer) | Host (solo) | Client |
 |---|:---:|:---:|:---:|
 | **Incoming** — translate what your fellow dwarves say into your language and show it in chat | Yes | Yes | Yes |

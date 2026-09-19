@@ -19,3 +19,4 @@ __pycache__/
 
 # エディタ支援ツールが作る設定
 .serena/
+.claude/
