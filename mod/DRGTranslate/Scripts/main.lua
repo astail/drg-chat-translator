@@ -16,7 +16,7 @@ local Cfg = require("config")
 local U   = require("util")
 local IPC = require("ipc")
 
-local MOD_VERSION = "0.6.1"
+local MOD_VERSION = "0.6.2"
 local LOCAL_SEND_WINDOW_MS = 5000
 local SEEN_SENDER_TTL_MS = 120000
 
