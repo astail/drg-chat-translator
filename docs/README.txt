@@ -1,8 +1,8 @@
-DRGTranslate - automatic chat translation for Deep Rock Galactic
-================================================================
+DRG Chat Translator (DCT) - automatic chat translation for Deep Rock Galactic
+=============================================================================
 
   Full documentation, in 6 languages:
-  https://github.com/astail/drg-translation
+  https://github.com/astail/drg-chat-translator
 
   MIT License - see the LICENSE file.
   An unofficial fan project, not affiliated with Ghost Ship Games.
@@ -17,7 +17,7 @@ DRGTranslate - automatic chat translation for Deep Rock Galactic
   3. 黒い窓を出したまま Deep Rock Galactic を起動する
 
   最初に言語を聞かれます。そのあとの案内は選んだ言語で出ます。
-  詳しい説明: https://github.com/astail/drg-translation/blob/main/README.md
+  詳しい説明: https://github.com/astail/drg-chat-translator/blob/main/README.md
 
 
 ----------------------------------------------------------------
@@ -29,7 +29,7 @@ DRGTranslate - automatic chat translation for Deep Rock Galactic
   3. Leave the console window open and start Deep Rock Galactic
 
   Setup asks for your language first, so the rest is in your language.
-  Details: https://github.com/astail/drg-translation/blob/main/README.en.md
+  Details: https://github.com/astail/drg-chat-translator/blob/main/README.en.md
 
 
 ----------------------------------------------------------------
@@ -41,7 +41,7 @@ DRGTranslate - automatic chat translation for Deep Rock Galactic
   3. 콘솔 창을 켜 둔 채 Deep Rock Galactic 을 시작합니다
 
   처음에 언어를 묻습니다. 이후 안내는 선택한 언어로 표시됩니다.
-  자세한 설명: https://github.com/astail/drg-translation/blob/main/README.ko.md
+  자세한 설명: https://github.com/astail/drg-chat-translator/blob/main/README.ko.md
 
 
 ----------------------------------------------------------------
@@ -53,7 +53,7 @@ DRGTranslate - automatic chat translation for Deep Rock Galactic
   3. 保持黑色窗口开着，然后启动 Deep Rock Galactic
 
   最先会问你的语言，之后的说明都用你选的语言显示。
-  详细说明: https://github.com/astail/drg-translation/blob/main/README.zh.md
+  详细说明: https://github.com/astail/drg-chat-translator/blob/main/README.zh.md
 
 
 ----------------------------------------------------------------
@@ -65,7 +65,7 @@ DRGTranslate - automatic chat translation for Deep Rock Galactic
   3. 保持黑色視窗開著，然後啟動 Deep Rock Galactic
 
   最先會問你的語言，之後的說明都用你選的語言顯示。
-  詳細說明: https://github.com/astail/drg-translation/blob/main/README.zh-TW.md
+  詳細說明: https://github.com/astail/drg-chat-translator/blob/main/README.zh-TW.md
 
 
 ----------------------------------------------------------------
@@ -77,4 +77,4 @@ DRGTranslate - automatic chat translation for Deep Rock Galactic
   3. Оставьте окно открытым и запустите Deep Rock Galactic
 
   Сначала спросят ваш язык, дальше всё будет на нём.
-  Подробности: https://github.com/astail/drg-translation/blob/main/README.ru.md
+  Подробности: https://github.com/astail/drg-chat-translator/blob/main/README.ru.md

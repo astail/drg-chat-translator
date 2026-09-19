@@ -1,4 +1,4 @@
-# DRGTranslate
+# DRG Chat Translator (DCT)
 
 **日本語** | [English](README.en.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
 
@@ -60,7 +60,7 @@ Claude か OpenAI を選んでください。`Rock and Stone` のような定型
 
 ## 導入
 
-[**Releases**](https://github.com/astail/drg-translation/releases) から
+[**Releases**](https://github.com/astail/drg-chat-translator/releases) から
 `DRGTranslate-vX.Y.Z-win64.zip` をダウンロードして展開してください。
 中身は次の4つです。
 

@@ -1,4 +1,4 @@
-# DRGTranslate
+# DRG Chat Translator (DCT)
 
 [日本語](README.md) | **English** | [한국어](README.ko.md) | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
 
@@ -67,7 +67,7 @@ service you use.
 ## Install
 
 Download `DRGTranslate-vX.Y.Z-win64.zip` from
-[**Releases**](https://github.com/astail/drg-translation/releases) and unzip it.
+[**Releases**](https://github.com/astail/drg-chat-translator/releases) and unzip it.
 It contains:
 
 ```

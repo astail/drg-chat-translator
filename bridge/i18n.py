@@ -31,7 +31,7 @@ LANGUAGES: list[tuple[str, str]] = [
 LANG_CODES = [code for code, _ in LANGUAGES]
 FALLBACK = "en"
 
-REPO_URL = "https://github.com/astail/drg-translation"
+REPO_URL = "https://github.com/astail/drg-chat-translator"
 
 _lang = FALLBACK
 

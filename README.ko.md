@@ -1,4 +1,4 @@
-# DRGTranslate
+# DRG Chat Translator (DCT)
 
 [日本語](README.md) | [English](README.en.md) | **한국어** | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
 
@@ -62,7 +62,7 @@ You: 回復お願いします / Please heal me / 请帮我治疗一下
 
 ## 설치
 
-[**Releases**](https://github.com/astail/drg-translation/releases) 에서
+[**Releases**](https://github.com/astail/drg-chat-translator/releases) 에서
 `DRGTranslate-vX.Y.Z-win64.zip` 을 받아 압축을 푸세요. 내용물은 다음과 같습니다.
 
 ```

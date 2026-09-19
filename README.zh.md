@@ -1,4 +1,4 @@
-# DRGTranslate
+# DRG Chat Translator (DCT)
 
 [日本語](README.md) | [English](README.en.md) | [한국어](README.ko.md) | **简体中文** | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md)
 
@@ -58,7 +58,7 @@ Claude 或 OpenAI。像 `Rock and Stone` 这样的固定说法由术语表处理
 
 ## 安装
 
-从 [**Releases**](https://github.com/astail/drg-translation/releases) 下载
+从 [**Releases**](https://github.com/astail/drg-chat-translator/releases) 下载
 `DRGTranslate-vX.Y.Z-win64.zip` 并解压。里面有：
 
 ```

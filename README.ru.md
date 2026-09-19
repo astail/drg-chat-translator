@@ -1,4 +1,4 @@
-# DRGTranslate
+# DRG Chat Translator (DCT)
 
 [日本語](README.md) | [English](README.en.md) | [한국어](README.ko.md) | [简体中文](README.zh.md) | [繁體中文](README.zh-TW.md) | **Русский**
 
@@ -66,7 +66,7 @@ You: 回復お願いします / Please heal me / 회복 부탁드립니다 / 请
 ## Установка
 
 Скачайте `DRGTranslate-vX.Y.Z-win64.zip` со страницы
-[**Releases**](https://github.com/astail/drg-translation/releases) и распакуйте. Внутри:
+[**Releases**](https://github.com/astail/drg-chat-translator/releases) и распакуйте. Внутри:
 
 ```
 DRGTranslate.exe      всё, что нужно для работы
