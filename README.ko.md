@@ -477,11 +477,11 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
   UE4SS 의 별도 콘솔 창은 안정성을 위해 기본적으로 꺼 두었습니다. 보고 싶다면
   `UE4SS-settings.ini` 의 `GuiConsoleEnabled` 를 `1` 로 하세요.
 
-**"bridge 와의 연결이 끊겼습니다" 라고 나온다**
+**UE4SS 로그에 `Lost the bridge` 라고 나온다**
 : `DRGTranslate.exe` 가 동작하고 있지 않습니다. 게임보다 먼저 실행하세요.
 
 **번역이 표시되지 않는다**
-: `FSD\Binaries\Win64\UE4SS.log` 에 `hook 登録: ...` 이 두 줄 나오는지 확인하세요.
+: `FSD\Binaries\Win64\UE4SS.log` 에 `hook registered: ...` 이 두 줄 나오는지 확인하세요.
   나오지 않는다면 게임 업데이트로 함수 이름이 바뀌었을 가능성이 있습니다.
   더 자세히 보려면 `config.lua` 의 `debug = true` 로 하세요.
   표시만 안 되는 경우에는 `settings.ini` 의 `DRGT_OVERLAY_ENABLED=true` 로 하면 작은 창에

@@ -497,11 +497,11 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
   стабильности; чтобы его увидеть, поставьте `GuiConsoleEnabled` в `1` в
   `UE4SS-settings.ini`.
 
-**Пишет, что связь с bridge потеряна**
+**В логе UE4SS написано `Lost the bridge`**
 : `DRGTranslate.exe` не запущен. Запускайте его до игры.
 
 **Переводы не появляются**
-: Проверьте, есть ли в `FSD\Binaries\Win64\UE4SS.log` две строки `hook 登録: ...`. Если их
+: Проверьте, есть ли в `FSD\Binaries\Win64\UE4SS.log` две строки `hook registered: ...`. Если их
   нет, возможно, обновление игры переименовало функции. Чтобы посмотреть подробнее,
   поставьте `debug = true` в `config.lua`.
   Если не работает только показ, поставьте `DRGT_OVERLAY_ENABLED=true` в `settings.ini` —

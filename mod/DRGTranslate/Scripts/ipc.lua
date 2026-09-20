@@ -96,7 +96,7 @@ function M.flush()
     local payload = table.concat(outbox)
     local f = io.open(path_to_bridge, "ab")
     if not f then
-        U.dbg("to_bridge.txt を開けませんでした（次回に再試行）")
+        U.dbg("could not open to_bridge.txt (retrying next tick)")
         return
     end
     f:write(payload)
@@ -211,7 +211,7 @@ function M.check_alive()
         alive_miss = 0
         if not M.connected then
             M.connected = true
-            U.log("bridge に接続しました")
+            U.log("Connected to the bridge")
         end
         return true
     end
@@ -219,7 +219,7 @@ function M.check_alive()
     alive_miss = alive_miss + 1
     if M.connected and alive_miss > 3 then
         M.connected = false
-        U.log("bridge との接続が切れました（run_bridge.bat は動いていますか？）")
+        U.log("Lost the bridge (is run_bridge.bat still running?)")
     end
     return false
 end
