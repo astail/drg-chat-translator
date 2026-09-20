@@ -624,8 +624,8 @@ def check_claude_params() -> list[str]:
         for key in params:
             if key not in accepted:
                 problems.append(
-                    f"{model}: anthropic {anthropic.__version__} の {name}() は "
-                    f"{key} を受け付けません"
+                    f"{model}: {name}() in anthropic {anthropic.__version__} "
+                    f"does not accept {key}"
                 )
     return problems
 

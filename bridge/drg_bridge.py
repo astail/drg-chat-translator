@@ -745,24 +745,24 @@ def setup_logging(level: str) -> None:
 
 
 def run_test(bridge: Bridge, text: str) -> int:
-    print(f"入力      : {text}")
-    print(f"言語判定  : {detect_language(text)}")
+    print(f"input       : {text}")
+    print(f"detected    : {detect_language(text)}")
     try:
         if is_written_in(text, bridge.cfg["outgoing"]["source"]):
-            print(f"送信用翻訳: {bridge.translate_outgoing(text)}")
+            print(f"outgoing    : {bridge.translate_outgoing(text)}")
             _, _, relayed = bridge.translate_incoming(text, relay=True)
             for line in bridge.relay_lines("Karl", text, relayed):
-                print(f"中継(ホスト): {line}")
+                print(f"relay (host): {line}")
         else:
             detected, translated, relayed = bridge.translate_incoming(text, relay=True)
             if translated:
-                print(f"受信用翻訳: {translated}  (元言語: {detected or '不明'})")
+                print(f"incoming    : {translated}  (source: {detected or 'unknown'})")
             else:
-                print(f"受信用翻訳: (翻訳しません。元言語: {detected or '判定不能'})")
+                print(f"incoming    : (not translated. source: {detected or 'undetermined'})")
             for line in bridge.relay_lines("Karl", text, relayed):
-                print(f"中継(ホスト): {line}")
+                print(f"relay (host): {line}")
     except TranslationError as exc:
-        print(f"失敗: {exc}")
+        print(f"failed: {exc}")
         return 1
     bridge.cache.maybe_save(force=True)
     return 0
@@ -809,32 +809,32 @@ def run_selftest(bridge: Bridge) -> int:
 
     bridge.stop()
     ok = True
-    print("\n--- selftest 結果 ---")
+    print("\n--- selftest results ---")
     for key in ("HELLO", "1", "2", "3", "4", "5", "6", "7", "8", "9"):
         fields = seen.get(key)
         if fields is None:
-            print(f"  {key}: 応答なし")
+            print(f"  {key}: no response")
             ok = False
             continue
         print(f"  {key}: {fields}")
     relay = seen.get("6") or []
     if len(relay) < 6:
-        print("  !! 中継行が返っていません")
+        print("  !! no relay lines came back")
         ok = False
     ja_relay = seen.get("7") or []
     if len(ja_relay) < 6:
-        print("  !! 日本語の発言の中継行が返っていません")
+        print("  !! no relay lines came back for the Japanese message")
         ok = False
     elif ja_relay[4] != "":
-        print("  !! 日本語の発言に日本語訳が付いています")
+        print("  !! the Japanese message got a Japanese translation")
         ok = False
     en_out = seen.get("8") or []
     if len(en_out) > 4 and en_out[4] != "":
-        print("  !! 翻訳元でない言語の発言が訳されています")
+        print("  !! a message not in the source language was translated")
         ok = False
     kanji_out = seen.get("9") or []
     if len(kanji_out) > 4 and kanji_out[4] == "":
-        print("  !! 漢字だけの発言が訳されていません")
+        print("  !! a kanji-only message was not translated")
         ok = False
     for problem in check_claude_params():
         print(f"  !! {problem}")
@@ -873,17 +873,17 @@ def main(argv: list[str] | None = None) -> int:
             pass
 
     ap = argparse.ArgumentParser(description="DRGTranslate bridge")
-    ap.add_argument("--config", metavar="FILE", help=f"設定ファイル (既定: {SETTINGS_FILE})")
-    ap.add_argument("--dir", help="IPC フォルダ (既定: %%APPDATA%%\\DRGTranslate)")
-    ap.add_argument("--test", metavar="TEXT", help="翻訳だけ試す（ゲーム不要）")
-    ap.add_argument("--selftest", action="store_true", help="ファイルIPCの疎通確認")
-    ap.add_argument("--provider", help="PROVIDER を上書き (deepl/claude/openai)")
+    ap.add_argument("--config", metavar="FILE", help=f"settings file (default: {SETTINGS_FILE})")
+    ap.add_argument("--dir", help="IPC folder (default: %%APPDATA%%\\DRGTranslate)")
+    ap.add_argument("--test", metavar="TEXT", help="try a translation only (no game needed)")
+    ap.add_argument("--selftest", action="store_true", help="check the file IPC end to end")
+    ap.add_argument("--provider", help="override PROVIDER (deepl/claude/openai)")
     ap.add_argument("--fake", action="store_true",
-                    help="テスト用: 翻訳APIを呼ばず目印を付けて返す（APIキー不要）")
-    ap.add_argument("--no-overlay", action="store_true", help="オーバーレイを使わない")
-    ap.add_argument("--setup", action="store_true", help="セットアップをやり直す")
+                    help="for testing: tag the text instead of calling the API (no API key needed)")
+    ap.add_argument("--no-overlay", action="store_true", help="do not use the overlay")
+    ap.add_argument("--setup", action="store_true", help="run the setup wizard again")
     ap.add_argument("--no-setup", action="store_true",
-                    help="未設定でもウィザードを出さずに起動する")
+                    help="start without the wizard even if it is not configured yet")
     args = ap.parse_args(argv)
 
     env_path = args.config or os.path.join(APP_DIR, SETTINGS_FILE)
