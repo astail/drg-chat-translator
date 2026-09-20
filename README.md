@@ -472,11 +472,11 @@ DRG の頻出フレーズを最初から登録済みです（exe に同梱され
   なお UE4SS の別窓コンソールは安定性のため既定で切ってあります。見たいときは
   `UE4SS-settings.ini` の `GuiConsoleEnabled` を `1` にしてください。
 
-**「bridge との接続が切れました」と出る**
+**UE4SS のログに `Lost the bridge` と出る**
 : `DRGTranslate.exe` が動いていません。ゲームより先に起動してください。
 
 **翻訳が表示されない**
-: `FSD\Binaries\Win64\UE4SS.log` に `hook 登録: ...` が2行出ているか確認してください。
+: `FSD\Binaries\Win64\UE4SS.log` に `hook registered: ...` が2行出ているか確認してください。
   出ていない場合、ゲームのアップデートで関数名が変わった可能性があります。
   もっと詳しく見たいときは `config.lua` の `debug = true` にしてください。
   表示だけができない場合は `settings.ini` の `DRGT_OVERLAY_ENABLED=true` にすると

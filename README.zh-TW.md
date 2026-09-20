@@ -455,11 +455,11 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
   UE4SS 的獨立主控台視窗為了穩定性預設是關閉的。想看的話，把
   `UE4SS-settings.ini` 的 `GuiConsoleEnabled` 設為 `1`。
 
-**出現「與 bridge 的連線中斷了」**
+**UE4SS 記錄檔中出現 `Lost the bridge`**
 : `DRGTranslate.exe` 沒有在執行。請比遊戲先啟動它。
 
 **譯文沒有顯示**
-: 請確認 `FSD\Binaries\Win64\UE4SS.log` 中有兩行 `hook 登録: ...`。
+: 請確認 `FSD\Binaries\Win64\UE4SS.log` 中有兩行 `hook registered: ...`。
   如果沒有，可能是遊戲更新導致函式名稱變了。
   想看得更詳細，把 `config.lua` 的 `debug = true`。
   如果只是顯示不出來，把 `settings.ini` 的 `DRGT_OVERLAY_ENABLED=true`，就可以顯示在小

@@ -502,11 +502,11 @@ See [docs/TESTING.md](docs/TESTING.md) (Japanese) for details.
   launch). The separate UE4SS console window is off by default for stability; set
   `GuiConsoleEnabled` to `1` in `UE4SS-settings.ini` if you want to see it.
 
-**It says the connection to the bridge was lost**
+**The UE4SS log says `Lost the bridge`**
 : `DRGTranslate.exe` is not running. Start it before the game.
 
 **Translations do not show up**
-: Check that `FSD\Binaries\Win64\UE4SS.log` has two `hook 登録: ...` lines. If they are
+: Check that `FSD\Binaries\Win64\UE4SS.log` has two `hook registered: ...` lines. If they are
   missing, a game update may have renamed the functions. For more detail, set
   `debug = true` in `config.lua`.
   If only the display is broken, set `DRGT_OVERLAY_ENABLED=true` in `settings.ini` to get

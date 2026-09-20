@@ -160,7 +160,7 @@ local function display_via_gamestate(text)
     if not gs then return false end
     U.dbg("PostGameMessage: %s", text)
     local ok, err = pcall(function() gs:PostGameMessage(text) end)
-    if not ok then U.dbg("PostGameMessage 失敗: %s", tostring(err)) end
+    if not ok then U.dbg("PostGameMessage failed: %s", tostring(err)) end
     return ok
 end
 
@@ -168,7 +168,7 @@ end
 local function display_via_widget(text)
     local hud = get_hud_chat()
     if not hud then return false end
-    U.dbg("widget 表示を試みます（構造体引数のため危険）")
+    U.dbg("trying the widget path (risky: it passes a struct argument)")
     local payload = { MsgType = 1, Sender = "", SenderType = 0, Msg = text }
     for _, fname in ipairs({ "Add Chat Message", "NewMesssage", "NewMessage" }) do
         local ok = pcall(function()
@@ -177,11 +177,11 @@ local function display_via_widget(text)
             fn(hud, payload)
         end)
         if ok then
-            U.dbg("widget 表示に成功: %s", fname)
+            U.dbg("widget display worked: %s", fname)
             return true
         end
     end
-    U.dbg("HUD_Chat への直接表示に失敗")
+    U.dbg("could not drive HUD_Chat directly")
     return false
 end
 
@@ -240,12 +240,13 @@ local function display_line(text)
     report_display(false)
     if host and not State.warned_display then
         State.warned_display = true
-        U.log("ホストで他の隊員がいるので、受信の訳は受信用の書式では出しません"
-              .. "（ホストのチャット欄に出したものは全員に届くので、訳は中継の行として"
-              .. "まとめて流しています）。既定では中継の言語に日本語が含まれるので、"
-              .. "その行で読めます。中継を切っている場合や DRGT_RELAY_TARGETS から"
-              .. "日本語を外した場合は、settings.ini の DRGT_OVERLAY_ENABLED=true "
-              .. "で小窓に出せます")
+        U.log("You are hosting with other dwarves around, so incoming translations are "
+              .. "not shown in the incoming format (anything a host puts in the chat box "
+              .. "reaches everyone, so the translations go out together as relay lines "
+              .. "instead). Your own language is among the relay targets by default, so "
+              .. "you can read them there. If you turned the relay off, or dropped your "
+              .. "language from DRGT_RELAY_TARGETS, set DRGT_OVERLAY_ENABLED=true in "
+              .. "settings.ini to show them in the small overlay window")
     end
     return false
 end
@@ -260,30 +261,30 @@ local function send_chat(sender, text, sender_type)
     if text == nil or text == "" then return false end
     local pc = get_pc()
     if not pc then
-        U.log("PlayerController が見つからず送信できませんでした")
+        U.log("Could not send: no PlayerController found")
         return false
     end
     if sender == nil or sender == "" then sender = get_player_name() end
 
-    U.dbg("send: Server_NewMessage を呼びます sender=%s text=%s", sender, text)
+    U.dbg("send: calling Server_NewMessage sender=%s text=%s", sender, text)
     remember_own(text)
     State.sending = true
     local ok, err = pcall(function()
         pc:Server_NewMessage(sender, text, sender_type or 0)
     end)
     State.sending = false
-    U.dbg("send: 呼び出しから戻りました")
+    U.dbg("send: returned from the call")
 
     if not ok then
-        U.log("Server_NewMessage 呼び出し失敗 (err type=%s): %s", type(err), tostring(err))
+        U.log("Server_NewMessage call failed (err type=%s): %s", type(err), tostring(err))
         local okc, cls = pcall(function() return pc:GetClass():GetFullName() end)
-        U.log("  呼び出した相手: %s", okc and U.tostr(cls) or "クラス不明")
-        U.log("  引数: sender=%q text=%q type=%s",
+        U.log("  called on: %s", okc and U.tostr(cls) or "unknown class")
+        U.log("  arguments: sender=%q text=%q type=%s",
               tostring(sender), tostring(text), tostring(sender_type or 0))
         State.own_sent[text] = nil
         return false
     end
-    U.dbg("送信: %s", text)
+    U.dbg("sent: %s", text)
     return true
 end
 
@@ -376,7 +377,7 @@ local function on_incoming(Context, MsgParam)
         if expires_at and expires_at > State.now then return end
 
         if is_relay_line(sender, text) then
-            U.dbg("中継行なので翻訳しません: %s", text)
+            U.dbg("relay line, not translating: %s", text)
             return
         end
         if sender ~= "" then
@@ -393,7 +394,7 @@ local function on_incoming(Context, MsgParam)
             if mine and sender ~= "" then
                 State.player_name = sender
                 IPC.send("NAME", sender)
-                U.dbg("自分の名前: %s", sender)
+                U.dbg("your name: %s", sender)
             end
         end
         if mine then State.local_sent_at = 0 end
@@ -401,7 +402,7 @@ local function on_incoming(Context, MsgParam)
         if mine then
             if not Cfg.outgoing.enabled then return end
             if not should_translate_outgoing(text) then return end
-            U.dbg("送信を検出: %s", text)
+            U.dbg("outgoing detected: %s", text)
             IPC.request("out", sender, text, function(_, outtext)
                 if outtext == "" then return end
                 U.in_game_thread(function() send_chat(sender, outtext, 0) end)
@@ -413,10 +414,10 @@ local function on_incoming(Context, MsgParam)
         local relay = Cfg.host_relay.enabled and is_host() and player_count() ~= 1
         if relay and not State.warned_relay then
             State.warned_relay = true
-            U.log("ホストとして中継します（他人の発言の訳を全員のチャットに流します）。"
-                  .. "止めるときは settings.ini の DRGT_RELAY_ENABLED=false")
+            U.log("Relaying as host (translations of what others say go to everyone's chat). "
+                  .. "To stop, set DRGT_RELAY_ENABLED=false in settings.ini")
         end
-        U.dbg("受信: [%s] %s (中継=%s)", sender, text, tostring(relay))
+        U.dbg("incoming: [%s] %s (relay=%s)", sender, text, tostring(relay))
         IPC.request("in", sender, text, function(_, outtext, relay_lines)
             U.in_game_thread(function()
                 if outtext ~= "" then display_line(outtext) end
@@ -493,29 +494,29 @@ IPC.on("SIMSAY", function(fields)
     U.in_game_thread(function()
         local pc = get_pc()
         if not pc then
-            U.log("SIMSAY: PlayerController が見つかりません")
+            U.log("SIMSAY: no PlayerController found")
             return
         end
         U.log("SIMSAY: sender=%q text=%q", sender, text)
         local ok, err = pcall(function()
             pc:Server_NewMessage(sender, text, 0)
         end)
-        if not ok then U.log("SIMSAY 失敗: %s", tostring(err)) end
+        if not ok then U.log("SIMSAY failed: %s", tostring(err)) end
     end)
 end)
 
 local function safe_hook(path, pre_cb, post_cb)
     local ok, a = pcall(RegisterHook, path, pre_cb, post_cb)
     if ok then
-        U.log("hook 登録: %s", path)
+        U.log("hook registered: %s", path)
         return true
     end
-    U.log("!! hook 登録失敗: %s (%s)", path, tostring(a))
+    U.log("!! hook registration failed: %s (%s)", path, tostring(a))
     return false
 end
 
 local function init()
-    U.log("DRGTranslate v%s 起動", MOD_VERSION)
+    U.log("DRGTranslate v%s started", MOD_VERSION)
 
     IPC.init(Cfg.ipc.dir)
     IPC.send("HELLO", MOD_VERSION)
@@ -527,13 +528,13 @@ local function init()
         RegisterKeyBind(Key[Cfg.hotkey.toggle], function()
             State.enabled = not State.enabled
             local s = State.enabled and "ON" or "OFF"
-            U.log("翻訳 %s", s)
+            U.log("Translation %s", s)
             IPC.send("TOGGLE", s)
             U.in_game_thread(function()
                 display_line("[DRGTranslate] Translation " .. s)
             end)
         end)
-        U.log("%s キーで翻訳のON/OFFを切り替えられます", Cfg.hotkey.toggle)
+        U.log("Press %s to toggle translation on and off", Cfg.hotkey.toggle)
     end
 
     local poll_ms = Cfg.ipc.poll_ms or 100

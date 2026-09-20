@@ -100,7 +100,7 @@ function M.loop(interval_ms, fn)
         return true
     end
 
-    M.log("!! LoopAsync も ExecuteInGameThreadWithDelay も見つかりません。UE4SS のバージョンを確認してください")
+    M.log("!! Neither LoopAsync nor ExecuteInGameThreadWithDelay is available. Check your UE4SS version")
     return false
 end
 
