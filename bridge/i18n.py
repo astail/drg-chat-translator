@@ -949,6 +949,18 @@ _M.update({
         "zh-tw": "轉發的譯文（%s）與原文不相稱，已捨棄，未送出",
         "ru": "Перевод для пересылки (%s) не похож на перевод сообщения, поэтому он не отправлен",
     },
+    "p.unknown_model": {
+        "ja": "%s は知らないモデルなので、旧世代のモデルとして送ります（effort は送りません）。"
+              "新しいモデルなら translate.py の表に足してください",
+        "en": "%s is not a model this version knows, so it is treated as an older model "
+              "(effort is not sent). If it is a new model, add it to the table in translate.py",
+        "ko": "%s 은(는) 알 수 없는 모델이라 이전 세대 모델로 취급합니다(effort 를 보내지 않음). "
+              "새 모델이면 translate.py 의 표에 추가하세요",
+        "zh": "%s 是未知的模型，按旧一代模型处理（不发送 effort）。如果是新模型，请加入 translate.py 的表中",
+        "zh-tw": "%s 是未知的模型，按舊一代模型處理（不送出 effort）。如果是新模型，請加入 translate.py 的表中",
+        "ru": "%s — неизвестная модель, она обрабатывается как модель предыдущего поколения "
+              "(effort не отправляется). Если это новая модель, добавьте её в таблицу в translate.py",
+    },
     "b.overlay.failed": {
         "ja": "オーバーレイを起動できません (%s)。ログのみで続行します",
         "en": "Cannot start the overlay (%s). Continuing with the log only",
