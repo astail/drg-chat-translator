@@ -23,6 +23,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# 配布 zip の SHA-256。上流がファイルを差し替えても気づけるように、展開する前に照合する。
+# 版を上げるときは bridge/setup_wizard.py の UE4SS_SHA256 と一緒に更新する
+$KnownUE4SSSha256 = @{
+    "v3.0.1" = "4b47d4bceddd2f561a4e395bfa00924ccfc945af576a2d0c613e6537846c57ec"
+}
 $ModName = "DRGTranslate"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
@@ -104,6 +110,17 @@ if (-not $ue4ssDll) {
         Info "UE4SS $UE4SSVersion を取得します"
         Write-Host "      $url"
         Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+        $want = $KnownUE4SSSha256[$UE4SSVersion]
+        if ($want) {
+            $got = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLower()
+            if ($got -ne $want) {
+                Remove-Item $zip -Force
+                Die "ダウンロードした UE4SS の zip が想定のものと違います（SHA-256 が一致しません）。展開せずに止めました。"
+            }
+            Ok "SHA-256 を確認しました"
+        } else {
+            Warn "UE4SS $UE4SSVersion の SHA-256 は登録されていないので、照合せずに展開します"
+        }
         Info "展開先: $Win64"
         Expand-Archive -Path $zip -DestinationPath $Win64 -Force
         Remove-Item $zip -Force

@@ -914,6 +914,17 @@ _M.update({
         "ru": "%s в settings.ini (%s) нельзя использовать (%s). Допустимые подстановки: %s. "
               "Используется значение по умолчанию «%s»",
     },
+    "w.ue4ss.checksum": {
+        "ja": "ダウンロードした UE4SS の zip が想定のものと違います（SHA-256 が一致しません）。"
+              "展開せずに止めました",
+        "en": "The downloaded UE4SS zip is not the expected file (SHA-256 does not match). "
+              "Stopped without extracting it",
+        "ko": "다운로드한 UE4SS zip이 예상한 파일이 아닙니다(SHA-256 불일치). 압축을 풀지 않고 중단했습니다",
+        "zh": "下载的 UE4SS zip 与预期的文件不同（SHA-256 不一致）。已停止，未解压",
+        "zh-tw": "下載的 UE4SS zip 與預期的檔案不同（SHA-256 不一致）。已停止，未解壓縮",
+        "ru": "Загруженный zip UE4SS не совпадает с ожидаемым (SHA-256 не совпадает). "
+              "Остановлено без распаковки",
+    },
     "b.overlay.failed": {
         "ja": "オーバーレイを起動できません (%s)。ログのみで続行します",
         "en": "Cannot start the overlay (%s). Continuing with the log only",
