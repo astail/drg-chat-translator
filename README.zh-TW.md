@@ -254,7 +254,7 @@ OPENAI_API_KEY=sk-...
 | `DRGT_OUTGOING_TARGETS` | 送出時的翻譯目標。例如 `ja,en,ko,zh`。只要英語就寫 `en`。與原文相同的語言會自動排除 |
 | `DRGT_RELAY_ENABLED` | 作為房主時是否把同伴發言的譯文送給所有人。預設 `true` |
 | `DRGT_RELAY_TARGETS` | 轉發的目標語言（發言者的語言會自動排除） |
-| `DRGT_RELAY_MAX_LANGS` | 每則發言最多轉發成幾種語言。繁體中文的設定會寫成 `5`（超出的部分不會送出） |
+| `DRGT_RELAY_MAX_LANGS` | 每則發言最多轉發成幾種語言。預設為 `DRGT_RELAY_TARGETS` 的數量；設得比它小時，末尾的語言可能不會被轉發，啟動時會發出警告 |
 | `DRGT_RELAY_MAX_LINE_CHARS` | 轉發單行的字數上限。預設 `0`（全部合併成一行） |
 | `DRGT_INCOMING_FORMAT` | 顯示格式。可以使用 `{sender}` `{text}` `{lang}` `{original}` |
 | `DRGT_INCOMING_SKIP_LANGUAGES` | 這些語言不在你的聊天裡顯示譯文。繁體中文的設定會寫成 `zh`（房主轉發不受這個設定影響） |

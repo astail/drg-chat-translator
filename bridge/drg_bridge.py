@@ -225,6 +225,7 @@ def build_config() -> dict:
     """環境変数（settings.ini 読み込み済み）から設定を組み立てる。"""
     d = DEFAULTS
     incoming_target = _str("DRGT_INCOMING_TARGET", d["incoming"]["target"])
+    relay_targets = _list("DRGT_RELAY_TARGETS", d["relay"]["targets"])
     return {
         "provider": _str("DRGT_PROVIDER", d["provider"]).strip().lower(),
         "providers": {
@@ -263,13 +264,15 @@ def build_config() -> dict:
         },
         "relay": {
             "enabled": _bool("DRGT_RELAY_ENABLED", d["relay"]["enabled"]),
-            "targets": _list("DRGT_RELAY_TARGETS", d["relay"]["targets"]),
+            "targets": relay_targets,
             "format": _str("DRGT_RELAY_FORMAT", d["relay"]["format"]),
             "item_format": _str("DRGT_RELAY_ITEM_FORMAT", d["relay"]["item_format"]),
             "separator": os.environ.get("DRGT_RELAY_SEPARATOR") or d["relay"]["separator"],
             "max_chars": _int("DRGT_RELAY_MAX_CHARS", d["relay"]["max_chars"]),
+            # 書いていなければ中継先の数にする。固定の既定（4）だと、中継先を5言語に
+            # したときに黙って末尾が落ちていた
             "max_langs": _int("DRGT_RELAY_MAX_LANGS",
-                              _int("DRGT_RELAY_MAX_LINES", d["relay"]["max_langs"])),
+                              _int("DRGT_RELAY_MAX_LINES", len(relay_targets))),
             "max_line_chars": _int("DRGT_RELAY_MAX_LINE_CHARS",
                                    d["relay"]["max_line_chars"]),
         },
@@ -331,6 +334,15 @@ def check_formats(cfg: dict) -> None:
             log.warning(t("b.config.bad_format"), env, fmt, exc,
                         ", ".join("{%s}" % n for n in FORMAT_FIELDS), default)
             cfg[section][key] = default
+
+
+def check_relay_limit(cfg: dict) -> None:
+    """中継の上限が中継先の数より小さいと、末尾の言語が黙って落ちる。起動時に知らせる。"""
+    rel = cfg["relay"]
+    limit, targets = int(rel["max_langs"]), list(rel["targets"])
+    if rel["enabled"] and limit < len(targets):
+        log.warning(t("b.config.relay_limit"), limit, len(targets),
+                    ", ".join(targets[max(0, limit):]))
 
 
 def resolve_path(cfg_path: str) -> str:
@@ -488,6 +500,7 @@ class Ipc:
 class Bridge:
     def __init__(self, cfg: dict, directory: str, fake: bool = False):
         check_formats(cfg)
+        check_relay_limit(cfg)
         self.cfg = cfg
         self.ipc = Ipc(directory)
         self.stop_event = threading.Event()

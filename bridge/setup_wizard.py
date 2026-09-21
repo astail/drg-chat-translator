@@ -385,8 +385,23 @@ def install_mod(game: str, mod_source: str) -> bool:
     return True
 
 
+# 言語を選ぶと決まる設定。write_env() は渡した項目だけを書き換えるので、ここに挙げた
+# 項目は言語によらず必ず全部返すこと。1つでも条件つきで省くと、セットアップを別の言語で
+# やり直したときに前の言語の値が残る（b0a2ea7 の不具合）。test_wizard_rerun.py で縛っている
+LANGUAGE_SETTING_KEYS = (
+    "DRGT_UI_LANG",
+    "DRGT_INCOMING_TARGET",
+    "DRGT_INCOMING_FORMAT",
+    "DRGT_OUTGOING_SOURCE",
+    "DRGT_OUTGOING_TARGETS",
+    "DRGT_RELAY_TARGETS",
+    "DRGT_RELAY_MAX_LANGS",
+    "DRGT_INCOMING_SKIP_LANGUAGES",
+)
+
+
 def language_settings(lang: str) -> dict[str, str]:
-    """自分の言語から、言語まわりの設定をまとめて作る。"""
+    """自分の言語から、言語まわりの設定をまとめて作る（LANGUAGE_SETTING_KEYS を全部）。"""
     others = [x for x in BASE_LANGUAGES if x != lang]
     relay = [lang] + others
     values = {
@@ -472,6 +487,26 @@ def write_env(env_path: str, values: dict[str, str]) -> None:
     write_text_atomic(env_path, "\n".join(lines) + "\n")
 
 
+def read_env_value(env_path: str, key: str) -> str:
+    """設定ファイルに書いてある値を読む。コメント行は見ない。無ければ空文字。"""
+    if not os.path.exists(env_path):
+        return ""
+    with open(env_path, encoding="utf-8") as f:
+        for raw in f:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.lower().startswith("export "):
+                line = line[7:].lstrip()
+            name, sep, value = line.partition("=")
+            if sep and name.strip() == key:
+                value = value.strip()
+                if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                    value = value[1:-1]
+                return value
+    return ""
+
+
 def configure(env_path: str, example_path: str) -> tuple[str, str] | None:
     provider, label, env_name, url = choose_provider()
 
@@ -481,7 +516,9 @@ def configure(env_path: str, example_path: str) -> tuple[str, str] | None:
         pkg = "openai" if provider == "openai" else "anthropic"
         print(f"      {t('w.key.bundled', pkg=pkg)}")
 
-    existing = os.environ.get(env_name, "").strip()
+    # OS の環境変数に加え、やり直しのときは settings.ini に保存済みのキーも使い回せる
+    # （ウィザードは settings.ini を読み込む前に動くので、ここで直接読む）
+    existing = (os.environ.get(env_name, "") or read_env_value(env_path, env_name)).strip()
     reuse = False
     if existing:
         masked = existing[:6] + "..." + existing[-4:] if len(existing) > 12 else "***"
