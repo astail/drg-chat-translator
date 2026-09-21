@@ -276,6 +276,8 @@ The main options are below. Every option is explained inside `settings.ini` itse
 | `DRGT_INCOMING_TARGET` | Which language incoming messages are translated into |
 | `DRGT_OUTGOING_SOURCE` | Which language you type in (messages in any other language are sent as is) |
 | `DRGT_OUTGOING_TARGETS` | Languages your messages are translated into, for example `ja,ko,zh`. Use `en` for English only, `zh-tw` for traditional Chinese. The source language is dropped automatically |
+| `DRGT_OUTGOING_MIN_LENGTH` | Messages shorter than this many characters are not translated. Default `2` |
+| `DRGT_OUTGOING_IGNORE_PREFIXES` | Messages starting with one of these are not translated (commands and such). Comma separated. Default `/,!,.` |
 | `DRGT_RELAY_ENABLED` | Whether to push translations of other people's messages to everyone while you host. Default `true` |
 | `DRGT_RELAY_TARGETS` | Languages to relay into (the speaker's own language is dropped automatically) |
 | `DRGT_RELAY_MAX_LANGS` | How many languages one message may be relayed into. Defaults to the number of `DRGT_RELAY_TARGETS`; if you set it lower, DRGTranslate warns at startup because the last languages can be dropped |
@@ -436,11 +438,6 @@ It lives in the game folder, at
 
 | Option | What it does |
 |---|---|
-| `outgoing.enabled` | Whether your own messages are translated before they are sent |
-| `outgoing.ignore_prefixes` | Messages starting with these are not translated |
-| `outgoing.min_length` | Messages shorter than this are not translated |
-| `incoming.skip_own` | Do not translate your own messages |
-| `host_relay.enabled` | Whether to push translations to everyone while you host |
 | `host_relay.interval_ms` | Delay between relayed lines, so they do not pile up. Default `700` |
 | `host_relay.sender` | Name a relayed line is sent under. `self` (you) / `original` (the speaker) |
 | `display.strategy` | How translations are displayed. `auto` / `gamestate` / `widget` / `off` |
@@ -516,7 +513,7 @@ See [docs/TESTING.md](docs/TESTING.md) (Japanese) for details.
 : Set the game language to the language you read.
 
 **I want to stop translating only my own messages**
-: Set `outgoing.enabled` to `false` in `config.lua`. Incoming translation stays on.
+: Set `DRGT_OUTGOING_ENABLED=false` in `settings.ini`. Incoming translation stays on.
 
 **While hosting multiplayer, incoming translations do not use the usual format, or do not
 appear at all**

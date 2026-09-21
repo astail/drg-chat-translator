@@ -260,6 +260,8 @@ OPENAI_API_KEY=sk-...
 | `DRGT_INCOMING_TARGET` | 受信した発言を何語に訳すか。既定 `ja` |
 | `DRGT_OUTGOING_SOURCE` | 何語で打った発言を翻訳するか。既定 `ja`（それ以外の言語の発言はそのまま送る） |
 | `DRGT_OUTGOING_TARGETS` | 送信時の翻訳先。既定 `en,ko,zh`（英語・韓国語・簡体字中国語）。英語だけなら `en`、繁体字は `zh-tw`。翻訳元と同じ言語は自動で除く |
+| `DRGT_OUTGOING_MIN_LENGTH` | この文字数未満の発言は翻訳しない。既定 `2` |
+| `DRGT_OUTGOING_IGNORE_PREFIXES` | この文字で始まる発言は翻訳しない（コマンドなど）。カンマ区切り。既定 `/,!,.` |
 | `DRGT_RELAY_ENABLED` | ホストのとき、同僚ドワーフの発言の訳を全員に流すか。既定 `true` |
 | `DRGT_RELAY_TARGETS` | 中継先の言語。既定 `ja,en,ko,zh`（発言者の言語は自動で除外） |
 | `DRGT_RELAY_MAX_LANGS` | 1つの発言につき中継する言語数の上限。既定は `DRGT_RELAY_TARGETS` の数。それより小さくすると、末尾の言語が中継されないことがあるので起動時に警告します |
@@ -410,11 +412,6 @@ DRG の頻出フレーズを最初から登録済みです（exe に同梱され
 
 | 項目 | 説明 |
 |---|---|
-| `outgoing.enabled` | 自分の日本語発言を翻訳して送るか |
-| `outgoing.ignore_prefixes` | この文字で始まる発言は翻訳しない |
-| `outgoing.min_length` | この文字数未満は翻訳しない |
-| `incoming.skip_own` | 自分の発言は翻訳しない |
-| `host_relay.enabled` | ホストのとき同僚ドワーフの発言の訳を全員に流すか |
 | `host_relay.interval_ms` | 中継を送る間隔。発言が重なったときの詰まり防止。既定 `700` |
 | `host_relay.sender` | 中継行の送信者名。`self`（自分）/ `original`（元の発言者） |
 | `display.strategy` | 翻訳の表示方法。`auto` / `gamestate` / `widget` / `off` |
@@ -486,7 +483,7 @@ DRG の頻出フレーズを最初から登録済みです（exe に同梱され
 : ゲームの言語設定を日本語にしてください。
 
 **自分の発言だけ翻訳を止めたい**
-: `config.lua` の `outgoing.enabled` を `false` にしてください。受信の翻訳だけが残ります。
+: `settings.ini` で `DRGT_OUTGOING_ENABLED=false` にしてください。受信の翻訳だけが残ります。
 
 **ホスト（マルチ）のとき、受信の訳がいつもの書式で出ない／何も出ない**
 : 仕様です。ホストのチャット欄に出したものは全員に届くので、受信の訳は中継の行として

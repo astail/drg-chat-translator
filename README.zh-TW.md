@@ -252,6 +252,8 @@ OPENAI_API_KEY=sk-...
 | `DRGT_INCOMING_TARGET` | 把收到的發言翻成哪種語言 |
 | `DRGT_OUTGOING_SOURCE` | 翻譯你用哪種語言打的發言（其他語言的發言原樣送出） |
 | `DRGT_OUTGOING_TARGETS` | 送出時的翻譯目標。例如 `ja,en,ko,zh`。只要英語就寫 `en`。與原文相同的語言會自動排除 |
+| `DRGT_OUTGOING_MIN_LENGTH` | 短於這個字數的發言不翻譯。預設 `2` |
+| `DRGT_OUTGOING_IGNORE_PREFIXES` | 以這些字元開頭的發言不翻譯（指令等）。以逗號分隔。預設 `/,!,.` |
 | `DRGT_RELAY_ENABLED` | 作為房主時是否把同伴發言的譯文送給所有人。預設 `true` |
 | `DRGT_RELAY_TARGETS` | 轉發的目標語言（發言者的語言會自動排除） |
 | `DRGT_RELAY_MAX_LANGS` | 每則發言最多轉發成幾種語言。預設為 `DRGT_RELAY_TARGETS` 的數量；設得比它小時，末尾的語言可能不會被轉發，啟動時會發出警告 |
@@ -396,11 +398,6 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 | 項目 | 說明 |
 |---|---|
-| `outgoing.enabled` | 是否翻譯並送出自己的發言 |
-| `outgoing.ignore_prefixes` | 以這些字元開頭的發言不翻譯 |
-| `outgoing.min_length` | 短於這個字數的發言不翻譯 |
-| `incoming.skip_own` | 不翻譯自己的發言 |
-| `host_relay.enabled` | 作為房主時是否把同伴發言的譯文送給所有人 |
 | `host_relay.interval_ms` | 送出轉發的間隔。防止發言重疊時塞車。預設 `700` |
 | `host_relay.sender` | 轉發行的送出者名稱。`self`（自己）/ `original`（原發言者） |
 | `display.strategy` | 譯文的顯示方式。`auto` / `gamestate` / `widget` / `off` |
@@ -469,7 +466,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 : 請把遊戲語言設為你閱讀的語言。
 
 **只想停止翻譯自己的發言**
-: 把 `config.lua` 的 `outgoing.enabled` 設為 `false`，只留下接收翻譯。
+: 在 `settings.ini` 中設定 `DRGT_OUTGOING_ENABLED=false`，只留下接收翻譯。
 
 **作為房主（連線）時，接收的譯文不是平常的格式／什麼都沒有顯示**
 : 這是設計如此。放進房主聊天欄的內容會送給所有人，所以接收的譯文是以轉發行合併成一行送出
