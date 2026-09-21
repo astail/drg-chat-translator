@@ -940,6 +940,15 @@ _M.update({
         "ru": "DRGT_RELAY_MAX_LANGS (%s) меньше числа DRGT_RELAY_TARGETS (%s), поэтому "
               "последние языки (%s) не пересылаются, если языка говорящего нет среди целей",
     },
+    "b.relay.dropped": {
+        "ja": "中継する訳（%s）が原文と釣り合わないので、流さずに捨てました",
+        "en": "The relay translation (%s) did not look like a translation of the message, "
+              "so it was not sent",
+        "ko": "중계할 번역(%s)이 원문과 맞지 않아 보내지 않고 버렸습니다",
+        "zh": "转发的译文（%s）与原文不相称，已丢弃，未发送",
+        "zh-tw": "轉發的譯文（%s）與原文不相稱，已捨棄，未送出",
+        "ru": "Перевод для пересылки (%s) не похож на перевод сообщения, поэтому он не отправлен",
+    },
     "b.overlay.failed": {
         "ja": "オーバーレイを起動できません (%s)。ログのみで続行します",
         "en": "Cannot start the overlay (%s). Continuing with the log only",

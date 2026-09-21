@@ -44,6 +44,7 @@ from translate import (  # noqa: E402
     build_provider,
     check_claude_params,
     detect_language,
+    has_script_of,
     is_translatable,
     is_written_in,
     same_phrase,
@@ -336,6 +337,28 @@ def check_formats(cfg: dict) -> None:
             cfg[section][key] = default
 
 
+# 中継する訳の長さの上限。原文のこの倍数か、下の文字数の大きいほうまで
+RELAY_MAX_RATIO = 3
+RELAY_MIN_LIMIT = 80
+
+
+def relay_text_ok(value: str, original: str, target: str, check_script: bool) -> str | None:
+    """中継に流す前に訳文を確かめる。流してよければ整えた文を、だめなら None を返す。
+
+    中継の訳はホストの名前で全員のチャットに流れる。他の隊員の発言で翻訳の指示を
+    乗っ取られ、訳とは別物が返ってきたときに、そのまま流さないための安い確かめ。
+    check_script は LLM のときだけ真にする（発言で出力を操れるのは LLM だけ）。
+    """
+    text = "".join(ch for ch in " ".join(value.split()) if ch.isprintable())
+    if not text or text.startswith("/"):
+        return None
+    if len(text) > max(RELAY_MIN_LIMIT, RELAY_MAX_RATIO * len(original)):
+        return None
+    if check_script and not has_script_of(text, target):
+        return None
+    return text
+
+
 def check_relay_limit(cfg: dict) -> None:
     """中継の上限が中継先の数より小さいと、末尾の言語が黙って落ちる。起動時に知らせる。"""
     rel = cfg["relay"]
@@ -526,6 +549,8 @@ class Bridge:
             resolve_glossary(cfg["glossary"]["path"]) if cfg["glossary"]["enabled"] else None
         )
         self.translator = Translator(provider, cache, glossary, float(net["min_interval_sec"]))
+        # 中継する訳が本当にその言語で書かれているかは、LLM のときだけ確かめる
+        self.check_relay_script = provider_name in LLM_PROVIDERS
         self.cache = cache
         self.glossary = glossary
         self.pool = ThreadPoolExecutor(max_workers=int(net["max_workers"]),
@@ -611,8 +636,16 @@ class Bridge:
         results = self.translator.translate_multi(text, None, pending)
         if not skip_self and hit is not None:
             results.setdefault(target, hit)
-        relayed = {t: results[t] for t in targets
-                   if results.get(t) and not same_phrase(results[t], text)}
+        relayed: dict[str, str] = {}
+        for code in targets:
+            value = results.get(code)
+            if not value or same_phrase(value, text):
+                continue
+            checked = relay_text_ok(value, text, code, self.check_relay_script)
+            if checked is None:
+                log.warning(t("b.relay.dropped"), code)
+                continue
+            relayed[code] = checked
         return lang, "" if skip_self else results.get(target, ""), relayed
 
     def relay_lines(self, sender: str, text: str, relayed: dict[str, str]) -> list[str]:

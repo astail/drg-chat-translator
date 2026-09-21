@@ -73,6 +73,19 @@ def is_written_in(text: str, lang: str) -> bool:
     return detect_language(text) == base
 
 
+# その言語で書かれた訳なら必ず含むはずの文字の種類（ラテン文字の言語は見分けられないので無い）
+_TARGET_SCRIPTS = {"ja": ("kana", "han"), "ko": ("hangul",), "zh": ("han",), "ru": ("cyrillic",)}
+
+
+def has_script_of(text: str, lang: str) -> bool:
+    """訳文にその言語の文字が含まれているか。文字で見分けられない言語は常に True。"""
+    scripts = _TARGET_SCRIPTS.get((lang or "").split("-")[0].lower())
+    if not scripts:
+        return True
+    counts = _script_counts(text)
+    return any(counts[name] > 0 for name in scripts)
+
+
 _URL_RE = re.compile(r"https?://\S+")
 _EMOTE_RE = re.compile(r"^[\W\d_]+$", re.UNICODE)
 
