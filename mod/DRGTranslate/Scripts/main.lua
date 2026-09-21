@@ -16,7 +16,7 @@ local Cfg = require("config")
 local U   = require("util")
 local IPC = require("ipc")
 
-local MOD_VERSION = "0.6.3"
+local MOD_VERSION = "0.7.0"
 local LOCAL_SEND_WINDOW_MS = 5000
 local OWN_ECHO_TTL_MS = 30000
 -- 中継行で訳と訳の間に入る区切り。bridge の DRGT_RELAY_SEPARATOR の既定値と同じ

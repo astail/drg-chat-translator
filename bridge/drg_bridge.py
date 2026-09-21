@@ -50,7 +50,7 @@ from translate import (  # noqa: E402
     same_phrase,
 )
 
-VERSION = "0.6.3"
+VERSION = "0.7.0"
 log = logging.getLogger("drgtl")
 
 LLM_PROVIDERS = {"claude", "openai"}
