@@ -194,6 +194,20 @@ else
           "コロンを含む発言も翻訳する（中継行と誤判定しない）", last_display())
 end
 
+-- 直前に喋った人（Karl）の名前で始まる普通の返事は、中継行と誤判定しない
+relay_before = #mock.sent
+before = #mock.displayed
+mock.receive("Scout", "Karl: roger, on my way")
+if role == "host" and players >= 2 then
+    wait_until(function() return #mock.sent > relay_before end)
+    check(#mock.sent > relay_before,
+          "直前に喋った人の名前で始まる返事も中継する（中継行と誤判定しない）")
+else
+    wait_until(function() return #mock.displayed > before end)
+    check(#mock.displayed > before,
+          "直前に喋った人の名前で始まる返事も翻訳する（中継行と誤判定しない）", last_display())
+end
+
 before = #mock.displayed
 mock.receive("Someone", "こんにちは")
 settle()
