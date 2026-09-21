@@ -223,88 +223,98 @@ def _list(key: str, default: list[str]) -> list[str]:
 
 
 def build_config() -> dict:
-    """環境変数（settings.ini 読み込み済み）から設定を組み立てる。"""
+    """環境変数（settings.ini 読み込み済み）から設定を組み立てる。
+
+    既定値は必ず DEFAULTS から引くこと（ここに数値や文字列を直接書かない）。
+    環境変数が何も無いときに DEFAULTS と一致することを test_config_defaults.py で縛っている。
+    """
     d = DEFAULTS
-    incoming_target = _str("DRGT_INCOMING_TARGET", d["incoming"]["target"])
-    relay_targets = _list("DRGT_RELAY_TARGETS", d["relay"]["targets"])
+    pr, inc, out, rel = d["providers"], d["incoming"], d["outgoing"], d["relay"]
+    ov, net = d["overlay"], d["network"]
+    incoming_target = _str("DRGT_INCOMING_TARGET", inc["target"])
+    relay_targets = _list("DRGT_RELAY_TARGETS", rel["targets"])
+    source = _str("DRGT_OUTGOING_SOURCE", out["source"])
     return {
         "provider": _str("DRGT_PROVIDER", d["provider"]).strip().lower(),
         "providers": {
             "deepl": {
-                "api_key": _str("DEEPL_AUTH_KEY", ""),
-                "api_url": _str("DRGT_DEEPL_API_URL", ""),
+                "api_key": _str("DEEPL_AUTH_KEY", pr["deepl"]["api_key"]),
+                "api_url": _str("DRGT_DEEPL_API_URL", pr["deepl"]["api_url"]),
             },
             "claude": {
-                "api_key": _str("ANTHROPIC_API_KEY", ""),
-                "model": _str("DRGT_CLAUDE_MODEL", d["providers"]["claude"]["model"]),
-                "max_tokens": _int("DRGT_CLAUDE_MAX_TOKENS", 1024),
-                "effort": _str("DRGT_CLAUDE_EFFORT", "auto"),
-                "refusal_fallback": _str("DRGT_CLAUDE_REFUSAL_FALLBACK", "auto"),
+                "api_key": _str("ANTHROPIC_API_KEY", pr["claude"]["api_key"]),
+                "model": _str("DRGT_CLAUDE_MODEL", pr["claude"]["model"]),
+                "max_tokens": _int("DRGT_CLAUDE_MAX_TOKENS", pr["claude"]["max_tokens"]),
+                "effort": _str("DRGT_CLAUDE_EFFORT", pr["claude"]["effort"]),
+                "refusal_fallback": _str("DRGT_CLAUDE_REFUSAL_FALLBACK",
+                                         pr["claude"]["refusal_fallback"]),
             },
             "openai": {
-                "api_key": _str("OPENAI_API_KEY", ""),
-                "model": _str("DRGT_OPENAI_MODEL", d["providers"]["openai"]["model"]),
-                "base_url": _str("DRGT_OPENAI_BASE_URL", ""),
-                "max_tokens": _int("DRGT_OPENAI_MAX_TOKENS", 1024),
+                "api_key": _str("OPENAI_API_KEY", pr["openai"]["api_key"]),
+                "model": _str("DRGT_OPENAI_MODEL", pr["openai"]["model"]),
+                "base_url": _str("DRGT_OPENAI_BASE_URL", pr["openai"]["base_url"]),
+                "max_tokens": _int("DRGT_OPENAI_MAX_TOKENS", pr["openai"]["max_tokens"]),
             },
         },
         "incoming": {
-            "enabled": _bool("DRGT_INCOMING_ENABLED", True),
+            "enabled": _bool("DRGT_INCOMING_ENABLED", inc["enabled"]),
             "target": incoming_target,
+            # 書いていなければ受信の訳す先に追従する（自分の言語の発言は訳さない）
             "skip_languages": _list("DRGT_INCOMING_SKIP_LANGUAGES", [incoming_target]),
-            "format": _str("DRGT_INCOMING_FORMAT", d["incoming"]["format"]),
-            "max_chars": _int("DRGT_INCOMING_MAX_CHARS", 400),
+            "format": _str("DRGT_INCOMING_FORMAT", inc["format"]),
+            "max_chars": _int("DRGT_INCOMING_MAX_CHARS", inc["max_chars"]),
         },
         "outgoing": {
-            "enabled": _bool("DRGT_OUTGOING_ENABLED", True),
-            "source": _str("DRGT_OUTGOING_SOURCE", "ja"),
-            "targets": _list("DRGT_OUTGOING_TARGETS", d["outgoing"]["targets"]),
-            "separator": os.environ.get("DRGT_OUTGOING_SEPARATOR") or " / ",
-            "include_source": _bool("DRGT_OUTGOING_INCLUDE_SOURCE", False),
-            "max_chars": _int("DRGT_OUTGOING_MAX_CHARS", 200),
+            "enabled": _bool("DRGT_OUTGOING_ENABLED", out["enabled"]),
+            # auto なら翻訳元を決めず、打った発言の言語を判定して訳す
+            "source": "" if source.strip().lower() == "auto" else source,
+            "targets": _list("DRGT_OUTGOING_TARGETS", out["targets"]),
+            "separator": os.environ.get("DRGT_OUTGOING_SEPARATOR") or out["separator"],
+            "include_source": _bool("DRGT_OUTGOING_INCLUDE_SOURCE", out["include_source"]),
+            "max_chars": _int("DRGT_OUTGOING_MAX_CHARS", out["max_chars"]),
         },
         "relay": {
-            "enabled": _bool("DRGT_RELAY_ENABLED", d["relay"]["enabled"]),
+            "enabled": _bool("DRGT_RELAY_ENABLED", rel["enabled"]),
             "targets": relay_targets,
-            "format": _str("DRGT_RELAY_FORMAT", d["relay"]["format"]),
-            "item_format": _str("DRGT_RELAY_ITEM_FORMAT", d["relay"]["item_format"]),
-            "separator": os.environ.get("DRGT_RELAY_SEPARATOR") or d["relay"]["separator"],
-            "max_chars": _int("DRGT_RELAY_MAX_CHARS", d["relay"]["max_chars"]),
+            "format": _str("DRGT_RELAY_FORMAT", rel["format"]),
+            "item_format": _str("DRGT_RELAY_ITEM_FORMAT", rel["item_format"]),
+            "separator": os.environ.get("DRGT_RELAY_SEPARATOR") or rel["separator"],
+            "max_chars": _int("DRGT_RELAY_MAX_CHARS", rel["max_chars"]),
             # 書いていなければ中継先の数にする。固定の既定（4）だと、中継先を5言語に
-            # したときに黙って末尾が落ちていた
+            # したときに黙って末尾が落ちていた。DRGT_RELAY_MAX_LINES は 0.5.0〜0.5.3 での
+            # 旧名（0.5.4 で改名）。古い settings.ini のために読む
             "max_langs": _int("DRGT_RELAY_MAX_LANGS",
                               _int("DRGT_RELAY_MAX_LINES", len(relay_targets))),
-            "max_line_chars": _int("DRGT_RELAY_MAX_LINE_CHARS",
-                                   d["relay"]["max_line_chars"]),
+            "max_line_chars": _int("DRGT_RELAY_MAX_LINE_CHARS", rel["max_line_chars"]),
         },
         "cache": {
-            "enabled": _bool("DRGT_CACHE_ENABLED", True),
-            "max_entries": _int("DRGT_CACHE_MAX_ENTRIES", 5000),
+            "enabled": _bool("DRGT_CACHE_ENABLED", d["cache"]["enabled"]),
+            "max_entries": _int("DRGT_CACHE_MAX_ENTRIES", d["cache"]["max_entries"]),
             "path": _str("DRGT_CACHE_PATH", d["cache"]["path"]),
         },
         "glossary": {
-            "enabled": _bool("DRGT_GLOSSARY_ENABLED", True),
+            "enabled": _bool("DRGT_GLOSSARY_ENABLED", d["glossary"]["enabled"]),
             "path": _str("DRGT_GLOSSARY_PATH", d["glossary"]["path"]),
         },
         "overlay": {
-            "enabled": _bool("DRGT_OVERLAY_ENABLED", False),
-            "mode": _str("DRGT_OVERLAY_MODE", "auto"),
-            "hide_after": _float("DRGT_OVERLAY_HIDE_AFTER", 12.0),
-            "lines": _int("DRGT_OVERLAY_LINES", 8),
-            "font_size": _int("DRGT_OVERLAY_FONT_SIZE", 13),
-            "opacity": _float("DRGT_OVERLAY_OPACITY", 0.85),
-            "x": _int("DRGT_OVERLAY_X", 40),
-            "y": _int("DRGT_OVERLAY_Y", 40),
-            "width": _int("DRGT_OVERLAY_WIDTH", 520),
-            "composer": _bool("DRGT_OVERLAY_COMPOSER", True),
+            "enabled": _bool("DRGT_OVERLAY_ENABLED", ov["enabled"]),
+            "mode": _str("DRGT_OVERLAY_MODE", ov["mode"]),
+            "hide_after": _float("DRGT_OVERLAY_HIDE_AFTER", ov["hide_after"]),
+            "lines": _int("DRGT_OVERLAY_LINES", ov["lines"]),
+            "font_size": _int("DRGT_OVERLAY_FONT_SIZE", ov["font_size"]),
+            "opacity": _float("DRGT_OVERLAY_OPACITY", ov["opacity"]),
+            "x": _int("DRGT_OVERLAY_X", ov["x"]),
+            "y": _int("DRGT_OVERLAY_Y", ov["y"]),
+            "width": _int("DRGT_OVERLAY_WIDTH", ov["width"]),
+            "composer": _bool("DRGT_OVERLAY_COMPOSER", ov["composer"]),
         },
         "network": {
-            "timeout_sec": _float("DRGT_TIMEOUT_SEC", 6.0),
-            "llm_timeout_sec": _float("DRGT_LLM_TIMEOUT_SEC", 20.0),
-            "max_workers": _int("DRGT_MAX_WORKERS", 4),
-            "min_interval_sec": _float("DRGT_MIN_INTERVAL_SEC", 0.0),
+            "timeout_sec": _float("DRGT_TIMEOUT_SEC", net["timeout_sec"]),
+            "llm_timeout_sec": _float("DRGT_LLM_TIMEOUT_SEC", net["llm_timeout_sec"]),
+            "max_workers": _int("DRGT_MAX_WORKERS", net["max_workers"]),
+            "min_interval_sec": _float("DRGT_MIN_INTERVAL_SEC", net["min_interval_sec"]),
         },
-        "log_level": _str("DRGT_LOG_LEVEL", "info"),
+        "log_level": _str("DRGT_LOG_LEVEL", d["log_level"]),
     }
 
 
