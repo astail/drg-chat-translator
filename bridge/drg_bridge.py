@@ -700,6 +700,11 @@ class Bridge:
             else:
                 self.ipc.write("ERR", req_id, t("b.ipc.unknown_kind", kind=req_kind))
 
+        elif kind == "REQ":
+            # 形が合わなくても返事はする（しないと MOD 側が返事を待ち続ける）
+            req_id = fields[1] if len(fields) > 1 else ""
+            self.ipc.write("ERR", req_id, t("b.ipc.bad_req", n=len(fields)))
+
         elif kind == "HELLO":
             log.info("mod version = %s", fields[1] if len(fields) > 1 else "?")
             self.ipc.write("HELLO", VERSION)
