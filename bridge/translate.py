@@ -528,6 +528,7 @@ class ClaudeProvider(LLMProvider):
     def __init__(self, opts: dict, timeout: float = 6.0):
         super().__init__(opts, timeout)
         self._warned_effort = False
+        self._warned_model = False
 
     def _get_client(self):
         if self._client is not None:
@@ -550,15 +551,31 @@ class ClaudeProvider(LLMProvider):
             ) from exc
         return self._client
 
-    _MODERN = (
-        "claude-opus-5", "claude-fable-5", "claude-mythos-5",
-        "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6",
+    # モデルの世代ごとに、送れる引数が違う。新しいモデルが出たら、ここに足す。
+    # どの表にも当てはまらないモデルは旧世代として扱い、最初の1回だけ警告する。
+    #
+    # 思考が常に有効で、thinking を送ると（disabled でも）400 になる。省いて送る
+    _THINKING_ALWAYS_ON = ("claude-fable-5", "claude-mythos-5")
+    # effort を受け付ける（上の2つ以外は thinking を disabled にできる）
+    _EFFORT_CAPABLE = (
+        "claude-opus-5", "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6",
         "claude-sonnet-5", "claude-sonnet-4-6",
+    ) + _THINKING_ALWAYS_ON
+    # effort も thinking も送らない旧世代（知っているもの）
+    _LEGACY = (
+        "claude-haiku-4-5", "claude-sonnet-4-5", "claude-opus-4-5", "claude-opus-4-1",
+        "claude-opus-4-0", "claude-sonnet-4-0", "claude-3",
     )
     _FALLBACK_CAPABLE = ("claude-opus-5", "claude-fable-5", "claude-mythos-5")
 
     def _is_modern(self) -> bool:
-        return self.model.startswith(self._MODERN)
+        return self.model.startswith(self._EFFORT_CAPABLE)
+
+    def _warn_if_unknown(self) -> None:
+        if self._warned_model or self.model.startswith(self._EFFORT_CAPABLE + self._LEGACY):
+            return
+        self._warned_model = True
+        log.warning(t("p.unknown_model"), self.model)
 
     def _use_fallback(self) -> bool:
         setting = self.opts.get("refusal_fallback", "auto")
@@ -569,6 +586,7 @@ class ClaudeProvider(LLMProvider):
     def _build_params(self, system: str, user: str,
                       json_targets: list[str] | None) -> dict:
         """messages.create に渡す引数を組み立てる。"""
+        self._warn_if_unknown()
         modern = self._is_modern()
 
         output_config: dict = {}
@@ -600,7 +618,7 @@ class ClaudeProvider(LLMProvider):
         if output_config:
             params["output_config"] = output_config
 
-        if modern:
+        if modern and not self.model.startswith(self._THINKING_ALWAYS_ON):
             params["thinking"] = {"type": "disabled"}
 
         if self._use_fallback():
@@ -645,7 +663,7 @@ def check_claude_params() -> list[str]:
         "beta.messages.create": client.beta.messages.create,
     }
     problems: list[str] = []
-    for model in ("claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"):
+    for model in ("claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5", "claude-fable-5-1"):
         params = ClaudeProvider({"model": model})._build_params("system", "user", ["ja"])
         name = "beta.messages.create" if "betas" in params else "messages.create"
         accepted = inspect.signature(methods[name]).parameters
@@ -665,6 +683,24 @@ class OpenAIProvider(LLMProvider):
     sdk_package = "openai"
     key_env = "OPENAI_API_KEY"
     key_url = "https://platform.openai.com/api-keys"
+
+    def __init__(self, opts: dict, timeout: float = 6.0):
+        super().__init__(opts, timeout)
+        # モデルによって受け付けない引数がある（max_tokens / temperature）。
+        # 一度通った組み合わせを覚えておき、次からは最初からそれで送る
+        self._optional: dict | None = None
+
+    def _adjusted(self, exc: Exception, optional: dict) -> dict | None:
+        """引数を理由に断られたら、差し替えた組み合わせを返す。直しようがなければ None。"""
+        if getattr(exc, "status_code", None) != 400:
+            return None
+        msg = str(exc)
+        fixed = dict(optional)
+        if "max_tokens" in fixed and "max_completion_tokens" in msg:
+            fixed["max_completion_tokens"] = fixed.pop("max_tokens")
+        if "temperature" in fixed and "temperature" in msg:
+            fixed.pop("temperature")
+        return fixed if fixed != optional else None
 
     def _get_client(self):
         if self._client is not None:
@@ -699,25 +735,21 @@ class OpenAIProvider(LLMProvider):
         if json_targets:
             params["response_format"] = {"type": "json_object"}
 
-        optional = {"max_tokens": self.max_tokens, "temperature": 0}
-        try:
-            resp = client.chat.completions.create(**params, **optional)
-        except Exception as exc:  # noqa: BLE001
-            msg = str(exc)
-            retried = False
-            if "max_tokens" in msg and "max_completion_tokens" in msg:
-                optional.pop("max_tokens", None)
-                optional["max_completion_tokens"] = self.max_tokens
-                retried = True
-            if "temperature" in msg:
-                optional.pop("temperature", None)
-                retried = True
-            if not retried:
-                raise TranslationError(t("p.api_failed", name="OpenAI", err=exc)) from exc
+        optional = (dict(self._optional) if self._optional is not None
+                    else {"max_tokens": self.max_tokens, "temperature": 0})
+        # 断られた理由の引数を差し替えて送り直す。差し替えは2種類なので最大3回
+        for _ in range(3):
             try:
                 resp = client.chat.completions.create(**params, **optional)
-            except Exception as exc2:  # noqa: BLE001
-                raise TranslationError(t("p.api_failed", name="OpenAI", err=exc2)) from exc2
+                break
+            except Exception as exc:  # noqa: BLE001
+                fixed = self._adjusted(exc, optional)
+                if fixed is None:
+                    raise TranslationError(t("p.api_failed", name="OpenAI", err=exc)) from exc
+                optional = fixed
+        else:
+            raise TranslationError(t("p.api_failed", name="OpenAI", err="parameters rejected"))
+        self._optional = optional
 
         choice = resp.choices[0]
         if getattr(choice, "finish_reason", None) == "content_filter":
@@ -750,6 +782,8 @@ class Translator:
         self.glossary = glossary
         self.min_interval = min_interval
         self._rate_lock = threading.Lock()
+        # 失敗の数え上げは複数のワーカから同時に触るので、ロックの中で行う
+        self._state_lock = threading.Lock()
         self._last_call = 0.0
         self._fail_streak = 0
         self._cooldown_until = 0.0
@@ -768,10 +802,17 @@ class Translator:
             raise TranslationError(t("p.cooldown"))
 
     def _note_failure(self) -> None:
-        self._fail_streak += 1
-        if self._fail_streak >= 5:
-            self._cooldown_until = time.monotonic() + 30.0
+        with self._state_lock:
+            self._fail_streak += 1
+            cooling = self._fail_streak >= 5
+            if cooling:
+                self._cooldown_until = time.monotonic() + 30.0
+        if cooling:
             log.warning(t("p.cooldown_start"))
+
+    def _note_success(self) -> None:
+        with self._state_lock:
+            self._fail_streak = 0
 
     def translate(self, text: str, source: str | None, target: str) -> tuple[str, str]:
         src_key = source or "auto"
@@ -786,7 +827,7 @@ class Translator:
         except TranslationError:
             self._note_failure()
             raise
-        self._fail_streak = 0
+        self._note_success()
         out = out.strip()
         self.cache.put(self.scope, text, src_key, target, out)
         return out, (detected or source or detect_language(text)).lower()
@@ -813,7 +854,7 @@ class Translator:
         except TranslationError:
             self._note_failure()
             raise
-        self._fail_streak = 0
+        self._note_success()
         for target, value in fresh.items():
             value = (value or "").strip()
             if value:
