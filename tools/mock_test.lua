@@ -248,6 +248,19 @@ mock.receive("Kiyo", "please heal me")
 settle()
 check(#mock.displayed == before, "自分の名前の発言は翻訳しない")
 
+-- MOD が送った2通目（翻訳文）は、実機と同じくサーバを経由して自分にも戻ってくる。
+-- その戻りを、また訳したり表示したり中継したりしないこと。
+sent_before, before = #mock.sent, #mock.displayed
+mock.send("Kiyo", "こっちに来て")
+wait_until(function() return #mock.sent > sent_before end)
+check(#mock.echo_queue > 0, "MOD が送った2通目は自分にも戻ってくる（モックが実機どおりに返す）",
+      #mock.echo_queue)
+settle()
+check(#mock.echo_queue == 0, "戻りが届いた")
+check(#mock.sent == sent_before + 1, "自分の2通目の戻りを、もう一度訳して送らない",
+      #mock.sent - sent_before)
+check(#mock.displayed == before, "自分の2通目の戻りを表示しない", last_display())
+
 print("-- F9 切り替え --")
 
 check(mock.keybinds["F9"] ~= nil, "F9 が登録されている")
