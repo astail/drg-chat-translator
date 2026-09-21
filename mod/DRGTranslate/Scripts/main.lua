@@ -18,6 +18,7 @@ local IPC = require("ipc")
 
 local MOD_VERSION = "0.6.3"
 local LOCAL_SEND_WINDOW_MS = 5000
+local OWN_ECHO_TTL_MS = 30000
 local SEEN_SENDER_TTL_MS = 120000
 
 local UEHelpers = nil
@@ -34,7 +35,7 @@ local State = {
     own_sent       = {},
     seen_senders   = {},
     last_alive_at  = 0,
-    local_sent_at  = 0,
+    local_sends    = {},
     display_ok     = nil,
     warned_display = false,
     relay_queue    = {},
@@ -251,10 +252,47 @@ local function display_line(text)
     return false
 end
 
-local function remember_own(text)
-    if text and text ~= "" then
-        State.own_sent[text] = State.now + 30000
+--- MOD が送った発言を覚えておく。サーバを経由して自分にも戻ってくるので、それを弾くため。
+--- 同じ文面を何度送っても区別できるよう、1回の送信ごとに1件ずつ持つ。
+local function remember_own(text, sender)
+    if text == nil or text == "" then return end
+    local list = State.own_sent[text] or {}
+    list[#list + 1] = { sender = sender or "", expires_at = State.now + OWN_ECHO_TTL_MS }
+    State.own_sent[text] = list
+end
+
+--- 送信に失敗したので、直前に覚えた1件を取り消す。
+local function forget_own(text)
+    local list = State.own_sent[text]
+    if not list then return end
+    table.remove(list)
+    if #list == 0 then State.own_sent[text] = nil end
+end
+
+--- MOD が送った発言の戻りか。当たったら1件を消費する（1回の送信で戻りは1回だけ）。
+--- 文面が同じでも、送信者が別の隊員なら戻りではない（その人の発言として扱う）。
+local function take_own_echo(sender, text)
+    local list = State.own_sent[text]
+    if not list then return false end
+    local me = get_player_name()
+    for i, e in ipairs(list) do
+        if e.expires_at > State.now
+                and (e.sender == "" or e.sender == sender or (me ~= "" and sender == me)) then
+            table.remove(list, i)
+            if #list == 0 then State.own_sent[text] = nil end
+            return true
+        end
     end
+    return false
+end
+
+--- 自分が打った合図（on_outgoing）が残っていれば、古いものから1つ消費して true を返す。
+local function take_local_send()
+    while #State.local_sends > 0 do
+        local at = table.remove(State.local_sends, 1)
+        if (State.now - at) <= LOCAL_SEND_WINDOW_MS then return true end
+    end
+    return false
 end
 
 local function send_chat(sender, text, sender_type)
@@ -267,7 +305,7 @@ local function send_chat(sender, text, sender_type)
     if sender == nil or sender == "" then sender = get_player_name() end
 
     U.dbg("send: calling Server_NewMessage sender=%s text=%s", sender, text)
-    remember_own(text)
+    remember_own(text, sender)
     State.sending = true
     local ok, err = pcall(function()
         pc:Server_NewMessage(sender, text, sender_type or 0)
@@ -281,7 +319,7 @@ local function send_chat(sender, text, sender_type)
         U.log("  called on: %s", okc and U.tostr(cls) or "unknown class")
         U.log("  arguments: sender=%q text=%q type=%s",
               tostring(sender), tostring(text), tostring(sender_type or 0))
-        State.own_sent[text] = nil
+        forget_own(text)
         return false
     end
     U.dbg("sent: %s", text)
@@ -302,7 +340,7 @@ local function broadcast_relay(text)
     if text == nil or text == "" then return false end
 
     if Cfg.host_relay.method == "gamemsg" then
-        remember_own(text)
+        remember_own(text, "")
         return display_via_gamestate(text)
     end
 
@@ -373,8 +411,7 @@ local function on_incoming(Context, MsgParam)
         if text == "" then return end
         if mtype ~= 0 and not Cfg.incoming.translate_game_messages then return end
 
-        local expires_at = State.own_sent[text]
-        if expires_at and expires_at > State.now then return end
+        if take_own_echo(sender, text) then return end
 
         if is_relay_line(sender, text) then
             U.dbg("relay line, not translating: %s", text)
@@ -384,20 +421,24 @@ local function on_incoming(Context, MsgParam)
             State.seen_senders[sender] = State.now + SEEN_SENDER_TTL_MS
         end
 
+        -- 自分の発言かどうかは、実際に自分が打った合図（on_outgoing）が残っているかで決める。
+        -- 名前だけで決めると、同じ名前の隊員の発言まで自分の発言として訳して送ってしまう。
         local me = get_player_name()
-        local mine
-        if me ~= "" then
-            mine = (sender == me)
-        else
-            mine = State.local_sent_at > 0
-                and (State.now - State.local_sent_at) <= LOCAL_SEND_WINDOW_MS
-            if mine and sender ~= "" then
-                State.player_name = sender
-                IPC.send("NAME", sender)
-                U.dbg("your name: %s", sender)
+        local mine = false
+        if me == "" or sender == me then
+            mine = take_local_send()
+            if not mine and sender == me then
+                -- 自分の名前なのに合図が無い: 同じ名前の隊員か、合図の期限を過ぎて届いた
+                -- 自分の発言。どちらか決められないので何もしない
+                U.dbg("same name as you but you did not just send, ignoring: %s", text)
+                return
             end
         end
-        if mine then State.local_sent_at = 0 end
+        if mine and me == "" and sender ~= "" then
+            State.player_name = sender
+            IPC.send("NAME", sender)
+            U.dbg("your name: %s", sender)
+        end
 
         if mine then
             if not Cfg.outgoing.enabled then return end
@@ -438,7 +479,7 @@ local function on_outgoing(Context)
         local pc = Context:get()
         if not is_local_controller(pc) then return end
         State.pc = pc
-        State.local_sent_at = State.now
+        State.local_sends[#State.local_sends + 1] = State.now
     end)
 
     if not ok then U.dbg("on_outgoing error: %s", tostring(err)) end
@@ -446,8 +487,15 @@ end
 
 --- 期限切れの「自分が送った文」と「最近見かけた発言者」を捨てる
 local function gc_own_sent()
-    for text, expires_at in pairs(State.own_sent) do
-        if State.now > expires_at then State.own_sent[text] = nil end
+    for text, list in pairs(State.own_sent) do
+        for i = #list, 1, -1 do
+            if State.now > list[i].expires_at then table.remove(list, i) end
+        end
+        if #list == 0 then State.own_sent[text] = nil end
+    end
+    while #State.local_sends > 0
+            and (State.now - State.local_sends[1]) > LOCAL_SEND_WINDOW_MS do
+        table.remove(State.local_sends, 1)
     end
     for name, expires_at in pairs(State.seen_senders) do
         if State.now > expires_at then State.seen_senders[name] = nil end

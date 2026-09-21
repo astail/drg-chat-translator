@@ -248,6 +248,33 @@ mock.receive("Kiyo", "please heal me")
 settle()
 check(#mock.displayed == before, "自分の名前の発言は翻訳しない")
 
+-- 同じ名前の隊員が喋っても、自分が打っていないなら自分の発言として訳して送らない
+sent_before = #mock.sent
+mock.receive("Kiyo", "こっちに回復ある？")
+settle()
+check(#mock.sent == sent_before, "同じ名前の隊員の発言を、自分の発言として訳して送らない",
+      #mock.sent - sent_before)
+
+-- MOD が送った訳文と同じ文面を別の隊員が言っても、その人の発言は捨てない
+sent_before = #mock.sent
+mock.send("Kiyo", "弾がない")
+wait_until(function() return #mock.sent > sent_before end)
+local own_text = mock.sent[#mock.sent].text
+local disp_mid, sent_mid = #mock.displayed, #mock.sent
+mock.receive("Karl", own_text)
+if role == "client" or players == 1 then
+    wait_until(function() return #mock.displayed > disp_mid end)
+    check(#mock.displayed > disp_mid, "MOD が送ったのと同じ文面でも、他の隊員の発言は訳して表示する",
+          own_text)
+else
+    wait_until(function() return #mock.sent > sent_mid end)
+    check(#mock.sent > sent_mid, "MOD が送ったのと同じ文面でも、他の隊員の発言は中継する", own_text)
+end
+settle()
+local relayed_count = (role == "client" or players == 1) and 0 or 1
+check(#mock.sent == sent_mid + relayed_count, "そのあと届く自分の2通目の戻りは、引き続き弾く",
+      #mock.sent - sent_mid)
+
 -- MOD が送った2通目（翻訳文）は、実機と同じくサーバを経由して自分にも戻ってくる。
 -- その戻りを、また訳したり表示したり中継したりしないこと。
 sent_before, before = #mock.sent, #mock.displayed
