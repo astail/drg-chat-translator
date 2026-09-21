@@ -294,6 +294,31 @@ def mods_dir(game: str) -> str:
     return path
 
 
+def park_backup(dest: str, backup: str) -> None:
+    """既存の MOD を .bak に退避する（利用者が編集した config.lua を残すため）。
+
+    UE4SS は enabled.txt のあるフォルダを MOD として読み込むので、そのままだと退避した
+    ものが「DRGTranslate.bak」という2つ目の MOD として動き、フックが二重になる。
+    enabled.txt を enabled.txt.off にして無効にしておく。
+    """
+    shutil.rmtree(backup, ignore_errors=True)
+    shutil.move(dest, backup)
+    flag = os.path.join(backup, "enabled.txt")
+    if os.path.exists(flag):
+        os.replace(flag, flag + ".off")
+
+
+def restore_backup(dest: str, backup: str) -> None:
+    """コピーに失敗したとき、退避しておいた MOD を元の場所と状態に戻す。"""
+    if not os.path.isdir(backup):
+        return
+    shutil.rmtree(dest, ignore_errors=True)
+    shutil.move(backup, dest)
+    flag = os.path.join(dest, "enabled.txt")
+    if os.path.exists(flag + ".off"):
+        os.replace(flag + ".off", flag)
+
+
 def install_mod(game: str, mod_source: str) -> bool:
     step(4, t("w.step.mod"))
     if not os.path.isdir(mod_source):
@@ -302,14 +327,20 @@ def install_mod(game: str, mod_source: str) -> bool:
 
     mods = mods_dir(game)
     dest = os.path.join(mods, MOD_NAME)
+    backup = os.path.join(mods, f"{MOD_NAME}.bak")
+    parked = False
     try:
         if os.path.exists(dest):
-            backup = os.path.join(mods, f"{MOD_NAME}.bak")
-            shutil.rmtree(backup, ignore_errors=True)
-            shutil.move(dest, backup)
+            park_backup(dest, backup)
+            parked = True
             print(f"    {t('w.mod.backup', name=MOD_NAME)}")
         shutil.copytree(mod_source, dest)
     except OSError as exc:
+        if parked:
+            try:
+                restore_backup(dest, backup)
+            except OSError:
+                pass
         warn(t("w.mod.copy_failed", err=exc))
         print(f"    {t('w.mod.close_game')}")
         return False
