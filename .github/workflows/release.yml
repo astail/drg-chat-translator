@@ -118,13 +118,19 @@ jobs:
           Copy-Item docs\README.txt        $dir\
           Copy-Item LICENSE                $dir\
           Compress-Archive -Path $dir -DestinationPath "$dir.zip"
+          # 落とした人が本物か確かめられるよう、SHA-256 を sha256sum と同じ書式で添える
+          $hash = (Get-FileHash "$dir.zip" -Algorithm SHA256).Hash.ToLower()
+          [System.IO.File]::WriteAllText("$PWD/$dir.zip.sha256", "$hash  $dir.zip`n")
+          Write-Host "SHA-256: $hash"
           "ZIP_NAME=$dir.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: 成果物として残す（手動実行の確認用）
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ZIP_NAME }}
-          path: ${{ env.ZIP_NAME }}
+          path: |
+            ${{ env.ZIP_NAME }}
+            ${{ env.ZIP_NAME }}.sha256
 
       - name: リリースを作って zip を添付
         if: startsWith(github.ref, 'refs/tags/')
@@ -132,4 +138,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
-        run: gh release create "$env:TAG_NAME" "$env:ZIP_NAME" --generate-notes --title "$env:TAG_NAME"
+        run: gh release create "$env:TAG_NAME" "$env:ZIP_NAME" "$env:ZIP_NAME.sha256" --generate-notes --title "$env:TAG_NAME"
