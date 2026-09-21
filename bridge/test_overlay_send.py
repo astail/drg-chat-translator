@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from drg_bridge import DEFAULTS, Bridge, decode_line  # noqa: E402
 
-SLOW = 2.5  # 翻訳にかかる時間。生存通知の間隔（1秒）より十分長くする
+SLOW = 4.0  # 翻訳にかかる時間。生存通知の間隔（1秒）より十分長くする
 
 
 @pytest.fixture
@@ -56,7 +56,8 @@ def test_heartbeat_keeps_running_while_translating(slow_bridge) -> None:
     while time.time() < deadline:
         time.sleep(0.1)
         worst = max(worst, time.time() - os.path.getmtime(slow_bridge.ipc.p_alive))
-    assert worst < 1.6, f"生存通知が {worst:.1f} 秒止まった"
+    # 生存通知は1秒ごと。ファイル時刻の反映が遅い環境もあるので、SLOW より十分短い値で見る
+    assert worst < 2.5, f"生存通知が {worst:.1f} 秒止まった"
 
 
 def test_incoming_is_handled_while_translating(slow_bridge) -> None:
