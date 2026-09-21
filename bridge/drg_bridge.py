@@ -489,6 +489,8 @@ class Bridge:
         self.glossary = glossary
         self.pool = ThreadPoolExecutor(max_workers=int(net["max_workers"]),
                                        thread_name_prefix="tr")
+        # オーバーレイから打った文は、打った順に送りたいので1本で順に処理する
+        self.overlay_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ov")
 
         self.player_name = ""
         self.game_connected = False
@@ -671,6 +673,16 @@ class Bridge:
             log.exception(t("b.out.error"))
             self.ipc.write("ERR", req_id, str(exc))
 
+    def _do_overlay_outgoing(self, text: str) -> None:
+        """オーバーレイの入力欄から打った文を訳してチャットへ送る。"""
+        try:
+            translated = self.translate_outgoing(text)
+            if translated:
+                self.ipc.write("SAY", translated)
+                self.show_on_overlay("out", translated)
+        except Exception:  # noqa: BLE001
+            log.exception(t("b.out.error"))
+
     def handle(self, fields: list[str]) -> None:
         kind = fields[0] if fields else ""
         self.last_game_msg = time.time()
@@ -722,10 +734,9 @@ class Bridge:
                         text = self.outbound_from_overlay.get_nowait()
                     except queue.Empty:
                         break
-                    translated = self.translate_outgoing(text) if text else ""
-                    if translated:
-                        self.ipc.write("SAY", translated)
-                        self.show_on_overlay("out", translated)
+                    # 翻訳は数十秒かかりうるので、ここで待つと生存通知も受信も止まる
+                    if text:
+                        self.overlay_pool.submit(self._do_overlay_outgoing, text)
 
                 now = time.time()
                 if now - last_beat >= 1.0:
@@ -750,6 +761,7 @@ class Bridge:
         self.cache.maybe_save(force=True)
         self.ipc.cleanup()
         self.pool.shutdown(wait=False)
+        self.overlay_pool.shutdown(wait=False)
         log.info(t("b.stopped"))
 
     def stop(self) -> None:
