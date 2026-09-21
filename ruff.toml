@@ -1,0 +1,3 @@
+# bridge/ の lint。コードに書いてある noqa（BLE001 / E402）が意味を持つ規則だけを有効にする。
+[lint]
+select = ["E4", "E7", "E9", "F", "BLE"]
