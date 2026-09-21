@@ -278,7 +278,7 @@ The main options are below. Every option is explained inside `settings.ini` itse
 | `DRGT_OUTGOING_TARGETS` | Languages your messages are translated into, for example `ja,ko,zh`. Use `en` for English only, `zh-tw` for traditional Chinese. The source language is dropped automatically |
 | `DRGT_RELAY_ENABLED` | Whether to push translations of other people's messages to everyone while you host. Default `true` |
 | `DRGT_RELAY_TARGETS` | Languages to relay into (the speaker's own language is dropped automatically) |
-| `DRGT_RELAY_MAX_LANGS` | How many languages one message may be relayed into. Default `4` (raise it to `5` if you relay into five languages, or the rest is silently dropped) |
+| `DRGT_RELAY_MAX_LANGS` | How many languages one message may be relayed into. Defaults to the number of `DRGT_RELAY_TARGETS`; if you set it lower, DRGTranslate warns at startup because the last languages can be dropped |
 | `DRGT_RELAY_MAX_LINE_CHARS` | Character limit for one relayed line. Default `0` (everything on one line) |
 | `DRGT_INCOMING_FORMAT` | How a translation is shown. `{sender}` `{text}` `{lang}` `{original}` work |
 | `DRGT_INCOMING_SKIP_LANGUAGES` | Languages that get no translation in your own chat. Defaults to the same as `DRGT_INCOMING_TARGET` (host relay works regardless of this) |

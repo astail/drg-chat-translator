@@ -250,7 +250,7 @@ OPENAI_API_KEY=sk-...
 | `DRGT_OUTGOING_TARGETS` | 发送时的翻译目标。例如 `ja,en,ko`。只要英语就写 `en`，繁体字是 `zh-tw`。与原文相同的语言会自动排除 |
 | `DRGT_RELAY_ENABLED` | 作为房主时是否把同伴发言的译文推给所有人。默认 `true` |
 | `DRGT_RELAY_TARGETS` | 转发的目标语言（发言者的语言会自动排除） |
-| `DRGT_RELAY_MAX_LANGS` | 每条发言最多转发成几种语言。默认 `4`（把目标增加到 5 种语言时请改成 `5`，超出的部分不会发出） |
+| `DRGT_RELAY_MAX_LANGS` | 每条发言最多转发成几种语言。默认为 `DRGT_RELAY_TARGETS` 的数量；设得比它小时，末尾的语言可能不会被转发，启动时会发出警告 |
 | `DRGT_RELAY_MAX_LINE_CHARS` | 转发单行的字数上限。默认 `0`（全部合并成一行） |
 | `DRGT_INCOMING_FORMAT` | 显示格式。可以使用 `{sender}` `{text}` `{lang}` `{original}` |
 | `DRGT_INCOMING_SKIP_LANGUAGES` | 这些语言不在你的聊天里显示译文。默认与 `DRGT_INCOMING_TARGET` 相同（房主转发不受此设置影响） |

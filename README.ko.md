@@ -264,7 +264,7 @@ OPENAI_API_KEY=sk-...
 | `DRGT_OUTGOING_TARGETS` | 전송할 때의 번역 대상. 예: `ja,en,zh`. 영어만이면 `en`, 번체자는 `zh-tw`. 원문과 같은 언어는 자동으로 제외 |
 | `DRGT_RELAY_ENABLED` | 호스트일 때 동료의 말의 번역을 모두에게 흘려보낼지. 기본값 `true` |
 | `DRGT_RELAY_TARGETS` | 중계 대상 언어(말한 사람의 언어는 자동 제외) |
-| `DRGT_RELAY_MAX_LANGS` | 한 발언당 중계할 언어 수 상한. 기본값 `4`(대상을 5개 언어로 늘리면 `5` 로 올리세요. 넘친 만큼은 나가지 않습니다) |
+| `DRGT_RELAY_MAX_LANGS` | 한 발언당 중계할 언어 수 상한. 기본값은 `DRGT_RELAY_TARGETS` 의 개수입니다. 그보다 작게 하면 마지막 언어가 중계되지 않을 수 있어 시작할 때 경고합니다 |
 | `DRGT_RELAY_MAX_LINE_CHARS` | 중계 한 줄의 글자 수 상한. 기본값 `0`(전부 한 줄) |
 | `DRGT_INCOMING_FORMAT` | 표시 형식. `{sender}` `{text}` `{lang}` `{original}` 을 쓸 수 있습니다 |
 | `DRGT_INCOMING_SKIP_LANGUAGES` | 이 언어는 내 채팅에 번역을 내보내지 않음. 기본값은 `DRGT_INCOMING_TARGET` 과 동일(호스트 중계는 이 설정과 무관하게 동작합니다) |

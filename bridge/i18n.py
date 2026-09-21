@@ -925,6 +925,21 @@ _M.update({
         "ru": "Загруженный zip UE4SS не совпадает с ожидаемым (SHA-256 не совпадает). "
               "Остановлено без распаковки",
     },
+    "b.config.relay_limit": {
+        "ja": "DRGT_RELAY_MAX_LANGS（%s）が DRGT_RELAY_TARGETS の数（%s）より小さいので、"
+              "発言者の言語が中継先に無いときは末尾の言語（%s）が中継されません",
+        "en": "DRGT_RELAY_MAX_LANGS (%s) is smaller than the number of DRGT_RELAY_TARGETS (%s), "
+              "so the last languages (%s) are not relayed when the speaker's language is not "
+              "among the targets",
+        "ko": "DRGT_RELAY_MAX_LANGS(%s)가 DRGT_RELAY_TARGETS의 개수(%s)보다 작아서, "
+              "발언자의 언어가 중계 대상에 없으면 마지막 언어(%s)는 중계되지 않습니다",
+        "zh": "DRGT_RELAY_MAX_LANGS（%s）小于 DRGT_RELAY_TARGETS 的数量（%s），"
+              "发言者的语言不在转发目标中时，末尾的语言（%s）不会被转发",
+        "zh-tw": "DRGT_RELAY_MAX_LANGS（%s）小於 DRGT_RELAY_TARGETS 的數量（%s），"
+                 "發言者的語言不在轉發目標中時，末尾的語言（%s）不會被轉發",
+        "ru": "DRGT_RELAY_MAX_LANGS (%s) меньше числа DRGT_RELAY_TARGETS (%s), поэтому "
+              "последние языки (%s) не пересылаются, если языка говорящего нет среди целей",
+    },
     "b.overlay.failed": {
         "ja": "オーバーレイを起動できません (%s)。ログのみで続行します",
         "en": "Cannot start the overlay (%s). Continuing with the log only",
