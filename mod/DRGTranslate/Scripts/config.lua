@@ -14,29 +14,15 @@ M.enabled = true
 -- Write verbose logs to the UE4SS console
 M.debug = false
 
--- Translating incoming chat
+-- Whether to translate incoming or outgoing chat, which languages, and which
+-- messages are skipped (too short, starting with / ! . and so on) are all set
+-- in settings.ini next to DRGTranslate.exe (DRGT_INCOMING_* / DRGT_OUTGOING_*).
+-- This file only covers how the mod behaves inside the game.
+
+-- Incoming chat
 M.incoming = {
-    enabled = true,
-    -- Do not translate your own messages
-    skip_own = true,
     -- Also translate system messages (EChatMessageType::ES_Game)
     translate_game_messages = false,
-}
-
--- Translating what you send
---
--- What you typed is sent as is, and the translation follows as a second
--- message once it arrives.
---   You: 回復お願いします
---   You: Please heal me / 회복 부탁드립니다
-M.outgoing = {
-    enabled = true,
-
-    -- Messages starting with these are not translated (commands and such)
-    ignore_prefixes = { "/", "!", "." },
-
-    -- Messages shorter than this are not translated
-    min_length = 2,
 }
 
 -- Relay (only while you host: push translations of others to everyone)
@@ -47,9 +33,8 @@ M.outgoing = {
 --
 -- Which languages, and the format of the line, are decided on the bridge side
 -- (DRGT_RELAY_* in settings.ini).
+-- (Turn the relay on or off with DRGT_RELAY_ENABLED in settings.ini.)
 M.host_relay = {
-    enabled = true,
-
     -- Delay between relayed lines (ms). Sending them all at once would flood
     -- the chat in an instant
     interval_ms = 700,

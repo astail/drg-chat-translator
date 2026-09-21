@@ -109,6 +109,8 @@ DEFAULTS: dict = {
         "separator": " / ",
         "include_source": False,
         "max_chars": 200,
+        "min_length": 2,
+        "ignore_prefixes": ["/", "!", "."],
     },
     "relay": {
         "enabled": True,
@@ -272,6 +274,8 @@ def build_config() -> dict:
             "separator": os.environ.get("DRGT_OUTGOING_SEPARATOR") or out["separator"],
             "include_source": _bool("DRGT_OUTGOING_INCLUDE_SOURCE", out["include_source"]),
             "max_chars": _int("DRGT_OUTGOING_MAX_CHARS", out["max_chars"]),
+            "min_length": _int("DRGT_OUTGOING_MIN_LENGTH", out["min_length"]),
+            "ignore_prefixes": _list("DRGT_OUTGOING_IGNORE_PREFIXES", out["ignore_prefixes"]),
         },
         "relay": {
             "enabled": _bool("DRGT_RELAY_ENABLED", rel["enabled"]),
@@ -741,11 +745,22 @@ class Bridge:
         pieces += [results[t] for t in targets if results.get(t)]
         return out["separator"].join(p for p in pieces if p)
 
+    def outgoing_wanted(self, text: str) -> bool:
+        """自分の発言を訳すかどうか。翻訳の方針はすべてここ（settings.ini）で決める。"""
+        out = self.cfg["outgoing"]
+        body = text.strip()
+        if not out["enabled"] or not body:
+            return False
+        if len(body) < int(out["min_length"]) or len(body) > int(out["max_chars"]):
+            return False
+        if any(p and body.startswith(p) for p in out["ignore_prefixes"]):
+            return False
+        return is_written_in(body, out["source"])
+
     def _do_outgoing(self, req_id: str, text: str) -> None:
         out = self.cfg["outgoing"]
         try:
-            if (not out["enabled"] or len(text) > int(out["max_chars"])
-                    or not is_written_in(text, out["source"])):
+            if not self.outgoing_wanted(text):
                 self.ipc.write("RES", req_id, "out", "", "")
                 return
             joined = self.translate_outgoing(text)

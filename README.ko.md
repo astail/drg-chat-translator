@@ -262,6 +262,8 @@ OPENAI_API_KEY=sk-...
 | `DRGT_INCOMING_TARGET` | 받은 말을 어느 언어로 번역할지 |
 | `DRGT_OUTGOING_SOURCE` | 어느 언어로 친 말을 번역할지(그 외 언어의 말은 그대로 전송) |
 | `DRGT_OUTGOING_TARGETS` | 전송할 때의 번역 대상. 예: `ja,en,zh`. 영어만이면 `en`, 번체자는 `zh-tw`. 원문과 같은 언어는 자동으로 제외 |
+| `DRGT_OUTGOING_MIN_LENGTH` | 이 글자 수 미만의 발언은 번역하지 않음. 기본값 `2` |
+| `DRGT_OUTGOING_IGNORE_PREFIXES` | 이 문자로 시작하는 발언은 번역하지 않음(명령어 등). 쉼표로 구분. 기본값 `/,!,.` |
 | `DRGT_RELAY_ENABLED` | 호스트일 때 동료의 말의 번역을 모두에게 흘려보낼지. 기본값 `true` |
 | `DRGT_RELAY_TARGETS` | 중계 대상 언어(말한 사람의 언어는 자동 제외) |
 | `DRGT_RELAY_MAX_LANGS` | 한 발언당 중계할 언어 수 상한. 기본값은 `DRGT_RELAY_TARGETS` 의 개수입니다. 그보다 작게 하면 마지막 언어가 중계되지 않을 수 있어 시작할 때 경고합니다 |
@@ -414,11 +416,6 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 | 항목 | 설명 |
 |---|---|
-| `outgoing.enabled` | 내 발언을 번역해서 보낼지 |
-| `outgoing.ignore_prefixes` | 이 문자로 시작하는 발언은 번역하지 않음 |
-| `outgoing.min_length` | 이 글자 수 미만은 번역하지 않음 |
-| `incoming.skip_own` | 내 발언은 번역하지 않음 |
-| `host_relay.enabled` | 호스트일 때 동료의 말의 번역을 모두에게 흘려보낼지 |
 | `host_relay.interval_ms` | 중계를 보내는 간격. 발언이 겹쳤을 때의 밀림 방지. 기본값 `700` |
 | `host_relay.sender` | 중계 줄의 발신자 이름. `self`(나) / `original`(원래 발언자) |
 | `display.strategy` | 번역 표시 방법. `auto` / `gamestate` / `widget` / `off` |
@@ -491,7 +488,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 : 게임 언어 설정을 자신이 읽는 언어로 맞추세요.
 
 **내 발언만 번역을 멈추고 싶다**
-: `config.lua` 의 `outgoing.enabled` 를 `false` 로 하세요. 수신 번역만 남습니다.
+: `settings.ini` 에서 `DRGT_OUTGOING_ENABLED=false` 로 하세요. 수신 번역만 남습니다.
 
 **호스트(멀티)일 때 수신 번역이 평소 서식으로 나오지 않는다 / 아무것도 나오지 않는다**
 : 사양입니다. 호스트의 채팅창에 내보낸 것은 모두에게 전달되므로, 수신 번역은 중계 줄로

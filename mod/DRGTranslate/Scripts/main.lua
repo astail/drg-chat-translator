@@ -364,7 +364,9 @@ end
 
 --- 中継行を順番待ちに入れる。1行ずつ間隔を空けて送るため、ここでは送らない。
 local function queue_relay(lines)
-    if not Cfg.host_relay.enabled or not State.enabled then return end
+    if not State.enabled then return end
+    U.log_once("relay", "Relaying as host (translations of what others say go to everyone's chat). "
+          .. "To stop, set DRGT_RELAY_ENABLED=false in settings.ini")
     local max_queue = Cfg.host_relay.max_queue or 12
     for _, line in ipairs(lines) do
         if line ~= "" then
@@ -387,16 +389,6 @@ local function pump_relay()
     State.last_relay_at = State.now
     local line = table.remove(State.relay_queue, 1)
     U.in_game_thread(function() broadcast_relay(line) end)
-end
-
-local function should_translate_outgoing(text)
-    text = U.trim(text)
-    if text == "" then return false end
-    if U.utf8_len(text) < (Cfg.outgoing.min_length or 2) then return false end
-    for _, p in ipairs(Cfg.outgoing.ignore_prefixes or {}) do
-        if p ~= "" and U.starts_with(text, p) then return false end
-    end
-    return true
 end
 
 local function on_incoming(Context, MsgParam)
@@ -442,8 +434,8 @@ local function on_incoming(Context, MsgParam)
         end
 
         if mine then
-            if not Cfg.outgoing.enabled then return end
-            if not should_translate_outgoing(text) then return end
+            -- 訳すかどうか（ON/OFF・翻訳元の言語・短すぎる発言・/ などで始まる発言）は
+            -- bridge が settings.ini に従って決める。訳さないときは空の結果が返る
             U.dbg("outgoing detected: %s", text)
             IPC.request("out", sender, text, function(_, outtext)
                 if outtext == "" then return end
@@ -452,12 +444,9 @@ local function on_incoming(Context, MsgParam)
             return
         end
 
-        if not Cfg.incoming.enabled then return end
-        local relay = Cfg.host_relay.enabled and is_host() and player_count() ~= 1
-        if relay then
-            U.log_once("relay", "Relaying as host (translations of what others say go to everyone's chat). "
-                  .. "To stop, set DRGT_RELAY_ENABLED=false in settings.ini")
-        end
+        -- 受信を訳すか・中継するかは bridge が settings.ini に従って決める
+        -- （DRGT_INCOMING_ENABLED / DRGT_RELAY_ENABLED）。ここでは「ホストか」だけを伝える
+        local relay = is_host() and player_count() ~= 1
         U.dbg("incoming: [%s] %s (relay=%s)", sender, text, tostring(relay))
         IPC.request("in", sender, text, function(_, outtext, relay_lines)
             U.in_game_thread(function()
@@ -473,7 +462,7 @@ end
 --- ⚠ このフックでは FString 引数(Sender/Text)に絶対に触らないこと。
 local function on_outgoing(Context)
     if State.sending then return end
-    if not State.enabled or not Cfg.outgoing.enabled then return end
+    if not State.enabled then return end
 
     local ok, err = pcall(function()
         local pc = Context:get()
