@@ -495,6 +495,9 @@ class Bridge:
         self.last_game_msg = 0.0
         self.ingame_display_ok: bool | None = None
 
+        # overlay_queue を読むのはオーバーレイだけ。既定ではオーバーレイを使わない
+        # （= 誰も読まない）ので、繋がっていない間は積まずに捨てる。
+        self.overlay_attached = False
         self.overlay_queue: queue.Queue[tuple[str, str]] = queue.Queue()
         self.outbound_from_overlay: queue.Queue[str] = queue.Queue()
 
@@ -510,6 +513,14 @@ class Bridge:
             for line in problem.splitlines():
                 log.warning("  %s", line)
             log.warning("=" * 62)
+
+    def show_on_overlay(self, kind: str, line: str) -> None:
+        """オーバーレイに 1 行渡す。繋がっていなければ何もしない。
+
+        表示用なので、読み手がいないときに溜め込む意味はない。
+        """
+        if self.overlay_attached:
+            self.overlay_queue.put((kind, line))
 
     def relay_targets(self, source_lang: str) -> list[str]:
         """中継先の言語。発言者の言語は除く。"""
@@ -606,7 +617,7 @@ class Bridge:
             relay_lines = self.relay_lines(sender, text, relayed)
             self.ipc.write("RES", req_id, "in", detected, line, *relay_lines)
             if line:
-                self.overlay_queue.put(("in", line))
+                self.show_on_overlay("in", line)
             if translated:
                 log.info(t("b.in"), sender, text, translated)
             if relay_lines:
@@ -655,7 +666,7 @@ class Bridge:
             self.ipc.write("RES", req_id, "out", out["source"], joined)
             if joined:
                 log.info(t("b.out"), text, joined)
-                self.overlay_queue.put(("out", joined))
+                self.show_on_overlay("out", joined)
         except Exception as exc:  # noqa: BLE001
             log.exception(t("b.out.error"))
             self.ipc.write("ERR", req_id, str(exc))
@@ -693,7 +704,7 @@ class Bridge:
         elif kind == "TOGGLE":
             state = fields[1] if len(fields) > 1 else "?"
             log.info(t("b.toggle"), state)
-            self.overlay_queue.put(("in", t("o.toggle", state=state)))
+            self.show_on_overlay("in", t("o.toggle", state=state))
 
         elif kind == "PING":
             self.ipc.write("NOTE", "[DRGTranslate] bridge is running")
@@ -714,7 +725,7 @@ class Bridge:
                     translated = self.translate_outgoing(text) if text else ""
                     if translated:
                         self.ipc.write("SAY", translated)
-                        self.overlay_queue.put(("out", translated))
+                        self.show_on_overlay("out", translated)
 
                 now = time.time()
                 if now - last_beat >= 1.0:
@@ -942,6 +953,8 @@ def main(argv: list[str] | None = None) -> int:
             use_overlay = False
 
     if use_overlay:
+        # ここから overlay_queue に読み手がつく（import 失敗や --no-overlay では付かない）。
+        bridge.overlay_attached = True
         worker = threading.Thread(target=bridge.run_loop, name="ipc", daemon=True)
         worker.start()
         overlay_mod.run(bridge)
