@@ -116,13 +116,14 @@ class Glossary:
     """定型句をAPIに投げずに直接置き換えるための対応表。"""
 
     def __init__(self, path: str | None):
-        self.incoming: dict[str, str] = {}
+        self.incoming: dict[str, dict[str, str]] = {}
         self.outgoing: dict[str, dict[str, str]] = {}
         if path and os.path.exists(path):
             try:
                 with open(path, encoding="utf-8") as f:
                     data = json.load(f)
-                self.incoming = {_normalize(k): v for k, v in data.get("incoming", {}).items()}
+                self.incoming = {_normalize(k): self._by_language(k, v)
+                                 for k, v in data.get("incoming", {}).items()}
                 self.outgoing = {
                     _normalize(k): v for k, v in data.get("outgoing", {}).items()
                 }
@@ -131,8 +132,24 @@ class Glossary:
             except Exception as exc:  # noqa: BLE001
                 log.warning(t("p.glossary.failed"), path, exc)
 
-    def lookup_incoming(self, text: str) -> str | None:
-        return self.incoming.get(_normalize(text))
+    @staticmethod
+    def _by_language(phrase: str, value) -> dict[str, str]:
+        """受信の対訳を「言語 → 訳」の形にそろえる。
+
+        いまの形は {"ja": "...", "ko": "..."}、どの言語でも同じなら {"*": "..."}。
+        以前の形（値が文字列）の用語集も読めるよう、文字列なら、自分自身への対応
+        （掛け声など）はどの言語でも、それ以外は日本語の訳として扱う（以前と同じ意味）。
+        """
+        if isinstance(value, dict):
+            return {str(k): str(v) for k, v in value.items()}
+        return {"*" if same_phrase(phrase, str(value)) else "ja": str(value)}
+
+    def lookup_incoming(self, text: str, target: str) -> str | None:
+        """受信した発言の、target の言語での対訳。無ければ None。"""
+        entry = self.incoming.get(_normalize(text))
+        if not entry:
+            return None
+        return entry.get(target) or entry.get("*")
 
     def lookup_outgoing(self, text: str, target: str) -> str | None:
         entry = self.outgoing.get(_normalize(text))

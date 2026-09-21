@@ -301,8 +301,8 @@ DRGT_RELAY_TARGETS=en,ja,ko
   讀的，拿掉的話你的畫面上什麼都不會顯示。
 - 語言是按文字種類區分的。所以 `en` 不只指英語，還包括德語、西班牙語等所有用拉丁字母書寫
   的語言。設成 `DRGT_INCOMING_SKIP_LANGUAGES=en` 後，這些語言的發言也不會被翻譯。
-- 術語表（`glossary.json`）的譯文是日文，所以把接收的翻譯目標設為日文以外時不會被使用
-  （`Rock and Stone!` 之類的口號會原樣顯示）。
+- 附帶的術語表（`glossary.json`）目前只有日文譯文。接收的翻譯目標不是日文時，
+  如果術語表中有該語言的譯文就會使用（`Rock and Stone!` 這樣的口號在任何語言下都原樣顯示）。
 
 ### 翻譯服務的設定
 
@@ -383,10 +383,12 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 ```json
 {
-  "incoming": { "leaf lover": "リーフラバー（軟弱者）" },
+  "incoming": { "leaf lover": { "ja": "リーフラバー（軟弱者）", "ko": "리프 러버(겁쟁이)" } },
   "outgoing": { "ありがとう": { "en": "Thanks!", "ko": "고마워요!", "zh": "谢谢！" } }
 }
 ```
+
+`incoming` 的值是依語言區分的譯文。寫成 `"*"` 時，任何語言都原樣使用該字串。
 
 比對鍵時會忽略空格、符號和大小寫，所以 `rock and stone` 和 `Rock and Stone!!` 視為同一
 筆。

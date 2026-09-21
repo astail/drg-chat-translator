@@ -316,8 +316,8 @@ DRGT_RELAY_TARGETS=en,ja,ko
 - 언어는 문자의 종류로 구분합니다. 그래서 `en` 은 영어뿐 아니라 독일어나 스페인어 등
   라틴 문자를 쓰는 모든 언어를 가리킵니다. `DRGT_INCOMING_SKIP_LANGUAGES=en` 으로 하면
   그 언어들의 발언도 번역하지 않게 됩니다.
-- 용어집(`glossary.json`)의 번역은 일본어이므로, 수신 번역 대상을 일본어 외로 하면
-  쓰이지 않습니다(`Rock and Stone!` 같은 구호는 그대로 나옵니다).
+- 동봉된 용어집(`glossary.json`)의 번역은 아직 일본어뿐입니다. 수신 번역 대상이 일본어 외일 때는
+  용어집에 그 언어의 번역이 있으면 사용됩니다(`Rock and Stone!` 같은 구호는 어느 언어든 그대로 나옵니다).
 
 ### 번역 서비스 설정
 
@@ -401,10 +401,12 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 ```json
 {
-  "incoming": { "leaf lover": "リーフラバー（軟弱者）" },
+  "incoming": { "leaf lover": { "ja": "リーフラバー（軟弱者）", "ko": "리프 러버(겁쟁이)" } },
   "outgoing": { "ありがとう": { "en": "Thanks!", "ko": "고마워요!", "zh": "谢谢！" } }
 }
 ```
+
+`incoming` 의 값은 언어별 번역입니다. `"*"` 로 하면 어느 언어에서든 그 문자열을 그대로 사용합니다.
 
 키는 공백 · 기호 · 대소문자를 무시하고 대조하므로 `rock and stone` 과
 `Rock and Stone!!` 은 같은 것으로 취급됩니다.

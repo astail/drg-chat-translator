@@ -41,6 +41,10 @@ LANGUAGES = i18n.LANGUAGES
 
 BASE_LANGUAGES = ["ja", "en", "ko", "zh"]
 
+# 受信の訳の行頭に付ける目印。ゲーム内に出るので、その言語の人が読めるもの。
+# ここに無い言語は [TL]（77e34d8 で、読めない [訳] が毎行付くのをやめた）
+INCOMING_LABELS = {"ja": "[訳]"}
+
 PROVIDERS = [
     ("deepl", "DeepL", "DEEPL_AUTH_KEY", "https://www.deepl.com/pro-api",
      "w.provider.deepl"),
@@ -407,8 +411,7 @@ def language_settings(lang: str) -> dict[str, str]:
     values = {
         "DRGT_UI_LANG": lang,
         "DRGT_INCOMING_TARGET": lang,
-        "DRGT_INCOMING_FORMAT": ("[訳] {sender}: {text}" if lang == "ja"
-                                 else "[TL] {sender}: {text}"),
+        "DRGT_INCOMING_FORMAT": INCOMING_LABELS.get(lang, "[TL]") + " {sender}: {text}",
         "DRGT_OUTGOING_SOURCE": lang,
         "DRGT_OUTGOING_TARGETS": ",".join(others),
         "DRGT_RELAY_TARGETS": ",".join(relay),

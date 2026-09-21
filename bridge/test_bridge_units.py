@@ -20,10 +20,10 @@ GLOSSARY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "glossary.js
 
 def test_glossary_lookups_ignore_case_and_punctuation() -> None:
     g = Glossary(GLOSSARY)
-    assert g.lookup_incoming("Rock and Stone!!") == "Rock and Stone!"
+    assert g.lookup_incoming("Rock and Stone!!", "ko") == "Rock and Stone!"
     assert g.lookup_outgoing("弾がない", "en") == "I'm out of ammo"
     assert g.lookup_outgoing("弾がない", "xx") is None
-    assert g.lookup_incoming("no such phrase here") is None
+    assert g.lookup_incoming("no such phrase here", "ja") is None
 
 
 def test_broken_glossary_does_not_crash(tmp_path) -> None:
@@ -35,7 +35,7 @@ def test_broken_glossary_does_not_crash(tmp_path) -> None:
 
 
 def test_missing_glossary_is_empty() -> None:
-    assert Glossary(None).lookup_incoming("gg") is None
+    assert Glossary(None).lookup_incoming("gg", "ja") is None
 
 
 def _bridge(tmp_path, **relay) -> Bridge:
