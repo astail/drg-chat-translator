@@ -508,6 +508,8 @@ IPC.on("SAY", function(fields)
     U.in_game_thread(function() send_chat(get_player_name(), text, 0) end)
 end)
 
+-- NOTE の本文はそのままゲーム内に出る。ゲームの言語によっては日本語などのフォントが
+-- 無いので、送る側（bridge）は英数字で書くこと
 IPC.on("NOTE", function(fields)
     local text = fields[2] or ""
     if text ~= "" then
@@ -516,7 +518,12 @@ IPC.on("NOTE", function(fields)
 end)
 
 IPC.on("HELLO", function(fields)
-    U.log("bridge version = %s", fields[2] or "?")
+    local bridge_version = fields[2] or "?"
+    U.log("bridge version = %s", bridge_version)
+    if bridge_version ~= MOD_VERSION then
+        U.log("!! Version mismatch: bridge %s / MOD %s. Run the setup again to update the MOD",
+              bridge_version, MOD_VERSION)
+    end
 end)
 
 -- 診断用のハンドラ。config.lua の debug が真のときだけ登録する（配布した状態では存在しない）。
