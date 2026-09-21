@@ -475,10 +475,11 @@ class Bridge:
             provider = build_provider(
                 provider_name, cfg["providers"].get(provider_name, {}), timeout
             )
+        # --fake の目印つきの訳を、本物のキャッシュ（利用者の cache.json）に混ぜない
         cache = Cache(
             resolve_path(cfg["cache"]["path"]),
             int(cfg["cache"]["max_entries"]),
-            bool(cfg["cache"]["enabled"]),
+            bool(cfg["cache"]["enabled"]) and not fake,
         )
         glossary = Glossary(
             resolve_glossary(cfg["glossary"]["path"]) if cfg["glossary"]["enabled"] else None
@@ -881,9 +882,16 @@ def run_selftest(bridge: Bridge) -> int:
     if len(kanji_out) > 4 and kanji_out[4] == "":
         print("  !! a kanji-only message was not translated")
         ok = False
-    for problem in check_claude_params():
-        print(f"  !! {problem}")
-        ok = False
+    try:
+        import anthropic  # noqa: F401
+    except ImportError:
+        # 入っていなければ確かめようがない。FAIL にはしないが、確かめていないことは出す
+        print("  -- anthropic is not installed: skipped checking that it accepts "
+              "the parameters we send")
+    else:
+        for problem in check_claude_params():
+            print(f"  !! {problem}")
+            ok = False
     print("--- " + ("PASS" if ok else "FAIL") + " ---")
     return 0 if ok else 1
 
