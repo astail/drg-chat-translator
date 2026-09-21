@@ -19,6 +19,8 @@ local IPC = require("ipc")
 local MOD_VERSION = "0.6.3"
 local LOCAL_SEND_WINDOW_MS = 5000
 local OWN_ECHO_TTL_MS = 30000
+-- 中継行で訳と訳の間に入る区切り。bridge の DRGT_RELAY_SEPARATOR の既定値と同じ
+local RELAY_SEPARATOR = " / "
 local SEEN_SENDER_TTL_MS = 120000
 
 local UEHelpers = nil
@@ -354,11 +356,15 @@ local function broadcast_relay(text)
 end
 
 --- 他人（別のホスト）が流した中継行か。
+--- 中継行は「発言者名: 訳 / 訳 / 訳」の形でホストの名前で届く。行頭の名前が少し前に
+--- 喋った人で、かつ本文が複数の訳を区切りでつないだものだけを中継行とみなす。
+--- 区切りを見ないと「Karl: 了解」のような普通の返事まで捨ててしまう。
 local function is_relay_line(sender, text)
     local original = quoted_sender(text)
     if original == nil or original == sender then return false end
     local expires_at = State.seen_senders[original]
-    return expires_at ~= nil and expires_at > State.now
+    if expires_at == nil or expires_at <= State.now then return false end
+    return text:find(RELAY_SEPARATOR, 1, true) ~= nil
 end
 
 --- 中継行を順番待ちに入れる。1行ずつ間隔を空けて送るため、ここでは送らない。
