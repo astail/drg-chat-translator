@@ -21,9 +21,15 @@ on:
 permissions:
   contents: write # リリースの作成に必要
 
+# 同じタグで二重に走らせない（途中で止めると半端なリリースが残るので、後から来た方を待たせる）
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 30
 
     env:
       # Windows の Python は既定の標準出力が cp1252 なので、
@@ -39,7 +45,11 @@ jobs:
           python-version: "3.11"
 
       - name: 依存を入れる
-        run: python -m pip install --upgrade pip pyinstaller anthropic openai
+        # 版は requirements.txt / requirements-dev.txt で固定している。
+        # 同じタグからは同じ SDK を同梱した exe ができる
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
 
       - name: タグとソースのバージョンが一致するか確認
         # v0.5.0 のタグなのに中身が 0.4.1、という取り違えを防ぐ。
@@ -79,7 +89,9 @@ jobs:
           PY
 
       - name: テスト（APIキー不要）
-        run: python bridge/drg_bridge.py --selftest --fake
+        run: |
+          python -m pytest bridge -q
+          python bridge/drg_bridge.py --selftest --fake
 
       - name: exe をビルド
         run: python -m PyInstaller DRGTranslate.spec --noconfirm

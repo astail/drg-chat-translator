@@ -209,17 +209,32 @@ py -3 bridge\drg_bridge.py --config other.ini            # 別の設定ファイ
 
 ### テストを走らせる
 
-どちらも APIキーは要りません。
+どれも APIキーは要りません。push と pull request のたびに CI（`.github/workflows/ci.yml`）で
+同じものが走ります。テストに使うものは `requirements-dev.txt` にまとめてあります。
 
-**bridge 単体**
+```
+py -3 -m pip install -r requirements-dev.txt
+```
+
+**bridge の単体テストと lint**
+
+```
+py -3 -m pytest bridge
+py -3 -m ruff check bridge
+```
+
+**bridge の通し確認**
 
 ```
 py -3 bridge\drg_bridge.py --selftest --fake
 ```
 
-CI（リリース時のビルド）でも同じものが走ります。同梱される `anthropic` が、
-こちらの送る引数を受け付けるかもここで確認します（SDK の更新で引数が消えると、
-最新の SDK を同梱する exe だけ翻訳に失敗するため）。
+同梱される `anthropic` が、こちらの送る引数を受け付けるかもここで確認します（SDK の
+更新で引数が消えると、その SDK を同梱した exe だけ翻訳に失敗するため）。
+`anthropic` が入っていないと、この確認は省かれます。
+
+同梱する SDK の版は `requirements.txt` で固定しています。上げるときは、上の確認が
+通ることを確かめてから上げてください。
 
 **MOD のロジック**（UE4SS を模したスタブ。Lua 5.4 が必要）
 

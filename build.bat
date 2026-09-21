@@ -19,7 +19,7 @@ if "%PY%"=="" (
 )
 
 echo [1/3] ビルドに必要なものを入れます
-%PY% -m pip install --upgrade pyinstaller anthropic openai
+%PY% -m pip install -r requirements-dev.txt
 if errorlevel 1 (
     echo.
     echo pip install に失敗しました。
