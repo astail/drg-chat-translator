@@ -232,6 +232,21 @@ UE4SS_SAMPLE_MODS = {
 }
 
 
+def write_text_atomic(path: str, text: str) -> None:
+    """一時ファイルに書いてから置き換える。途中で止まっても元のファイルは壊れない。"""
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def harden_ue4ss(game: str) -> None:
     """UE4SS-settings.ini を安全側に倒す。"""
     path = os.path.join(win64_dir(game), "UE4SS-settings.ini")
@@ -256,8 +271,7 @@ def harden_ue4ss(game: str) -> None:
     if not changed:
         return
     try:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines) + "\n")
+        write_text_atomic(path, "\n".join(lines) + "\n")
         ok(t("w.ue4ss.hardened", changed=", ".join(changed)))
     except OSError as exc:  # noqa: BLE001
         warn(t("w.ue4ss.write_failed", err=exc))
@@ -321,8 +335,10 @@ def install_mod(game: str, mod_source: str) -> bool:
     if not replaced:
         lines.append(entry)
     try:
-        with open(mods_txt, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines) + "\n")
+        # 利用者が入れている他の MOD の一覧でもあるので、書き換える前に控えを取る
+        if os.path.exists(mods_txt):
+            shutil.copyfile(mods_txt, mods_txt + ".bak")
+        write_text_atomic(mods_txt, "\n".join(lines) + "\n")
         ok(t("w.mod.registered", entry=entry))
         if disabled:
             ok(t("w.mod.samples_off", names=", ".join(disabled)))
@@ -416,8 +432,7 @@ def write_env(env_path: str, values: dict[str, str]) -> None:
     for key, value in values.items():
         upsert(key, value)
 
-    with open(env_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
+    write_text_atomic(env_path, "\n".join(lines) + "\n")
 
 
 def configure(env_path: str, example_path: str) -> tuple[str, str] | None:
