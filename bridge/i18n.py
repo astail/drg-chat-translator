@@ -882,6 +882,26 @@ _M.update({
         "zh-tw": "請求格式不正確（欄位數 {n}）",
         "ru": "неверный формат запроса (полей: {n})",
     },
+    "b.mod_version": {
+        "ja": "MOD のバージョン: %s",
+        "en": "MOD version: %s",
+        "ko": "MOD 버전: %s",
+        "zh": "MOD 版本: %s",
+        "zh-tw": "MOD 版本: %s",
+        "ru": "версия MOD: %s",
+    },
+    "b.version_mismatch": {
+        "ja": "exe（%s）とゲームフォルダの MOD（%s）のバージョンが違います。"
+              "セットアップをやり直して MOD を入れ直してください",
+        "en": "The exe (%s) and the MOD in the game folder (%s) are different versions. "
+              "Run the setup again to update the MOD",
+        "ko": "exe(%s)와 게임 폴더의 MOD(%s) 버전이 다릅니다. "
+              "설정을 다시 실행해 MOD를 다시 설치하세요",
+        "zh": "exe（%s）与游戏文件夹中的 MOD（%s）版本不一致。请重新运行设置以更新 MOD",
+        "zh-tw": "exe（%s）與遊戲資料夾中的 MOD（%s）版本不一致。請重新執行設定以更新 MOD",
+        "ru": "Версии exe (%s) и MOD в папке игры (%s) различаются. "
+              "Запустите настройку заново, чтобы обновить MOD",
+    },
     "b.overlay.failed": {
         "ja": "オーバーレイを起動できません (%s)。ログのみで続行します",
         "en": "Cannot start the overlay (%s). Continuing with the log only",

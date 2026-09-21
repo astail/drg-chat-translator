@@ -706,8 +706,15 @@ class Bridge:
             self.ipc.write("ERR", req_id, t("b.ipc.bad_req", n=len(fields)))
 
         elif kind == "HELLO":
-            log.info("mod version = %s", fields[1] if len(fields) > 1 else "?")
+            mod_version = fields[1] if len(fields) > 1 else "?"
+            log.info(t("b.mod_version"), mod_version)
             self.ipc.write("HELLO", VERSION)
+            if mod_version != VERSION:
+                # MOD はゲームフォルダにあるので、exe だけ更新して MOD が古いままになりやすい
+                log.warning(t("b.version_mismatch"), VERSION, mod_version)
+                # ゲーム内の表示は、どの言語設定でもフォントがある英数字で書く
+                self.ipc.write("NOTE", f"[DRGTranslate] Version mismatch: exe {VERSION} / "
+                                       f"MOD {mod_version}. Run the setup again to update the MOD")
 
         elif kind == "NAME":
             self.player_name = fields[1] if len(fields) > 1 else ""
@@ -815,7 +822,7 @@ def run_selftest(bridge: Bridge) -> int:
 
     p_in = bridge.ipc.p_in
     with open(p_in, "w", encoding="utf-8", newline="") as f:
-        f.write(encode_line("HELLO", "selftest"))
+        f.write(encode_line("HELLO", VERSION))
         f.write(encode_line("REQ", "1", "in", "Karl", "Rock and Stone!"))
         f.write(encode_line("REQ", "2", "in", "Karl", "watch out, swarm incoming"))
         f.write(encode_line("REQ", "3", "in", "민수", "안녕하세요"))
