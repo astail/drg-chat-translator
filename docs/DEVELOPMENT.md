@@ -285,6 +285,12 @@ git push origin v0.5.5
 
 2か所の番号とタグ名のどれかが食い違っているとビルドを止めます。
 `--selftest --fake` も CI で走るので、壊れたものは出ていきません。
+
+UE4SS のバージョンも同じステップで照合します。上げるときは
+`bridge/setup_wizard.py` の `UE4SS_VERSION` と `install.ps1` の `$UE4SSVersion` を
+両方そろえてください（片方だけ上げると、exe で入れた人と `install.ps1` で
+入れた人に別の版の UE4SS が入ります）。
+
 公開前に中身を確認したいときは、Actions から `release` を手動実行すると
 リリースを作らずに zip だけが成果物として残ります。
 
