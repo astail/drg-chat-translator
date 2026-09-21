@@ -18,7 +18,7 @@
 ### 自動で再現できるもの
 
 - bridge のファイルIPC 一式（`python3 bridge/drg_bridge.py --selftest --fake`）。翻訳元でない言語の自分の発言が
-  訳されないこと、漢字だけの発言が日本語として訳されることも含む
+  訳されないこと、漢字だけの発言が日本語として訳されることも含む。
   同梱の `anthropic` がこちらの送る引数を受け付けることも見る（SDK が入っているときだけ）
 - **UE4SS を模したスタブによる MOD ロジックの通し確認**（`tools/mock_test.lua`）
   受信フックからの翻訳表示、送信フックからの2通目送信、翻訳元の言語以外・`/` コマンド・
@@ -29,15 +29,21 @@
   コロンつきの普通の発言を中継行と誤判定しない／中継行の送信者名）。
   モックは実機と同じく、MOD が送った発言をサーバ経由で自分にも戻すので、
   その戻りをもう一度訳さないこと（ループ防止）も通しで確かめている
-- **bridge の単体テスト**（`python3 -m pytest bridge/`。pytest が必要）
-  - IPC の行フレーミング：どの位置で分割して届いてもマルチバイト文字が壊れないこと、
-    タブ・改行・`\` を含むフィールドのエスケープ往復（`bridge/test_ipc_framing.py`）
-  - オーバーレイが無いときに表示用のキューを溜めないこと（`bridge/test_overlay_queue.py`）
-  - 翻訳キャッシュ：プロンプトを変えるとスコープが分かれること、保存に失敗した分を
-    次の機会に書き直すこと、上限で古いものから捨てること（`bridge/test_cache.py`）
-  - ウィザードのファイル書き込み：途中で止まっても `settings.ini` / `mods.txt` が
-    壊れないこと、`mods.txt` の控えを取り利用者の MOD の行を残すこと
-    （`bridge/test_setup_wizard_io.py`）
+- **bridge の単体テスト**（`python3 -m pytest bridge/`。pytest が必要。push と PR のたびに CI でも走る）
+
+  | 確かめていること | ファイル |
+  |---|---|
+  | 言語判定（かな・ハングル・漢字・キリル・ラテン、漢字だけの日本語、zh と zh-tw）、訳す発言か、同じ文言か | `test_language.py` |
+  | 用語集の引き当てと壊れた用語集、中継行のまとめ方と折り返し、設定の読み込み（型の変換・既定への戻り・受信の言語への追従） | `test_bridge_units.py` |
+  | LLM の応答：多言語を1回の呼び出しにまとめる、` ```json ` フェンス、引用符の除去、無い言語と空の値、壊れた応答、翻訳の拒否 | `test_llm_logic.py` |
+  | キャッシュ済みの言語は問い合わせず足りない言語だけ頼む、プロンプトでスコープが分かれる、保存の失敗、上限 | `test_llm_logic.py` / `test_cache.py` |
+  | Claude にモデル世代ごとに送る引数（`temperature` はどのモデルにも送らない、Fable / Mythos に `thinking` を送らない）、OpenAI の引数の差し替え、失敗の数え上げ | `test_provider_params.py` |
+  | 表示文言のカタログ：全キー × 6言語に抜けが無い、差し込みが言語間で一致、コードから呼ぶキーが全部ある、使われていないキーが無い | `test_i18n_catalog.py` |
+  | IPC の行フレーミング（文字の途中で届いても壊れない、エスケープの往復）、どの要求にも返事をする、版の食い違いを知らせる | `test_ipc_framing.py` / `test_ipc_protocol.py` / `test_version_check.py` |
+  | オーバーレイ：読み手がいないとき溜めない、送信の翻訳で IPC のループを止めない | `test_overlay_queue.py` / `test_overlay_send.py` |
+  | 書式指定の検証、中継に流す訳の確認、ログファイル（本文を残さない・APIキーを伏せる） | `test_formats.py` / `test_relay_output.py` / `test_log_file.py` |
+  | `--fake` が本物のキャッシュを汚さない、SDK の引数確認を省いたら知らせる | `test_selftest_isolation.py` |
+  | ウィザード：ファイル書き込みが途中で止まっても壊れない、MOD の退避と復元、UE4SS の zip の SHA-256、やり直しで前の言語が残らない、保存済みの APIキーの使い回し | `test_setup_wizard_io.py` / `test_install_mod_backup.py` / `test_ue4ss_download.py` / `test_wizard_rerun.py` |
 
 ### 人が確かめた記録
 
@@ -61,9 +67,9 @@
   多言語を1回の呼び出しにまとめる、` ```json ` フェンス付き応答の解析、
   引用符の除去、キャッシュ済み言語のスキップ、不足分だけの再問い合わせ、
   壊れた応答と翻訳拒否のエラー化 — 8項目すべて PASS
-  （使い捨てのスクリプトで確かめた。#29 で自動テストに移す）
+  （いまは `bridge/test_llm_logic.py` で自動で確かめている）
 - Claude のモデル世代ごとのパラメータ送り分け（Haiku 4.5 等には `effort`/`thinking` を
-  送らない／Opus 5 等には送る）を、送信内容を捕捉して検証（#29 で自動テストに移す）。
+  送らない／Opus 5 等には送る）を、送信内容を捕捉して検証（いまは `bridge/test_provider_params.py` で自動で確かめている）。
   `temperature` はどのモデルにも送らない。以前は Haiku 4.5 等に送っていたが、
   同梱した SDK が受け付けず exe で翻訳に失敗したため 0.5.7 でやめた
   （下の「リリースした exe での通し確認」を参照）
@@ -217,7 +223,7 @@
   - カタログの機械的な検査：112キー × 6言語（ja/en/ko/zh/zh-tw/ru）に抜けが無いこと、
     差し込み（`{name}` と logging の `%s` `%d`）の並びが言語間で一致すること、
     コードから呼ばれるキーとカタログが過不足なく一致すること
-    （使い捨てのスクリプトで確かめた。#29 で自動テストに移す）
+    （いまは `bridge/test_i18n_catalog.py` で自動で確かめている。キーは今は 120）
   - 表示言語の決まり方：`DRGT_UI_LANG` → `DRGT_INCOMING_TARGET` → OS の言語 →
     英語 の順。`zh_TW` → `zh-tw`、`zh_CN` → `zh`、対応していない `de` → 英語、
     どれも無ければ英語になることを確認。`DRGT_UI_LANG` を持たない古い
