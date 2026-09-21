@@ -18,6 +18,15 @@ function M.dbg(fmt, ...)
     if debug_enabled then M.log("(dbg) " .. fmt, ...) end
 end
 
+local logged_once = {}
+
+--- key ごとに最初の1回だけログに出す。同じ案内を毎回出さないため。
+function M.log_once(key, fmt, ...)
+    if logged_once[key] then return end
+    logged_once[key] = true
+    M.log(fmt, ...)
+end
+
 --- UE4SS が返す FString / FText / RemoteUnrealParam / 素の string をすべて Lua の string に落とす。
 function M.tostr(v)
     if v == nil then return "" end

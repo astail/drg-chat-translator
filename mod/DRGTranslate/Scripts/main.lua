@@ -39,15 +39,11 @@ local State = {
     last_alive_at  = 0,
     local_sends    = {},
     display_ok     = nil,
-    warned_display = false,
     relay_queue    = {},
     last_relay_at  = 0,
-    warned_relay   = false,
 }
 
 U.set_debug(Cfg.debug)
-
-Cfg.host_relay = Cfg.host_relay or { enabled = true }
 
 local function is_valid(obj)
     if obj == nil then return false end
@@ -241,9 +237,8 @@ local function display_line(text)
     end
 
     report_display(false)
-    if host and not State.warned_display then
-        State.warned_display = true
-        U.log("You are hosting with other dwarves around, so incoming translations are "
+    if host then
+        U.log_once("display", "You are hosting with other dwarves around, so incoming translations are "
               .. "not shown in the incoming format (anything a host puts in the chat box "
               .. "reaches everyone, so the translations go out together as relay lines "
               .. "instead). Your own language is among the relay targets by default, so "
@@ -459,9 +454,8 @@ local function on_incoming(Context, MsgParam)
 
         if not Cfg.incoming.enabled then return end
         local relay = Cfg.host_relay.enabled and is_host() and player_count() ~= 1
-        if relay and not State.warned_relay then
-            State.warned_relay = true
-            U.log("Relaying as host (translations of what others say go to everyone's chat). "
+        if relay then
+            U.log_once("relay", "Relaying as host (translations of what others say go to everyone's chat). "
                   .. "To stop, set DRGT_RELAY_ENABLED=false in settings.ini")
         end
         U.dbg("incoming: [%s] %s (relay=%s)", sender, text, tostring(relay))
@@ -525,9 +519,13 @@ IPC.on("HELLO", function(fields)
     U.log("bridge version = %s", fields[2] or "?")
 end)
 
---- 診断用。いまの状態をログに出す。config.lua の debug が真のときだけ動く。
+-- 診断用のハンドラ。config.lua の debug が真のときだけ登録する（配布した状態では存在しない）。
+-- SIMSAY は IPC の行から拾った送信者名と本文で実際に Server_NewMessage を呼ぶので、
+-- 登録そのものを debug の中に閉じ込めておく。
+if Cfg.debug then
+
+--- いまの状態をログに出す。
 IPC.on("DIAG", function()
-    if not Cfg.debug then return end
     U.in_game_thread(function()
         local gs = get_gamestate()
         local pc = get_pc()
@@ -540,7 +538,6 @@ end)
 
 --- 診断用。Server_NewMessage を「自分で呼んだ」印を付けずに叩くので、実際にチャットを打ったときと同じ経路(on_outgoing)を通る。
 IPC.on("SIMSAY", function(fields)
-    if not Cfg.debug then return end
     local text = fields[2] or ""
     if text == "" then return end
     local sender = fields[3]
@@ -558,6 +555,8 @@ IPC.on("SIMSAY", function(fields)
         if not ok then U.log("SIMSAY failed: %s", tostring(err)) end
     end)
 end)
+
+end
 
 local function safe_hook(path, pre_cb, post_cb)
     local ok, a = pcall(RegisterHook, path, pre_cb, post_cb)
