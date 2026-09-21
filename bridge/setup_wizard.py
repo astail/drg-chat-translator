@@ -17,6 +17,7 @@ settings.ini の DRGT_UI_LANG に残るので、2回目以降の起動でも同�
 
 from __future__ import annotations
 
+import hashlib
 import io
 import os
 import shutil
@@ -27,6 +28,9 @@ import i18n
 from i18n import t
 
 UE4SS_VERSION = "v3.0.1"
+# 上の版の配布 zip の SHA-256。上流がファイルを差し替えても気づけるように、展開する前に
+# 照合する。版を上げるときは install.ps1 の $KnownUE4SSSha256 と一緒に更新する
+UE4SS_SHA256 = "4b47d4bceddd2f561a4e395bfa00924ccfc945af576a2d0c613e6537846c57ec"
 UE4SS_URL = (
     "https://github.com/UE4SS-RE/RE-UE4SS/releases/download/"
     f"{UE4SS_VERSION}/UE4SS_{UE4SS_VERSION}.zip"
@@ -198,6 +202,8 @@ def install_ue4ss(game: str) -> bool:
         print(f"    {t('w.ue4ss.downloading')}")
         with urllib.request.urlopen(UE4SS_URL, timeout=60) as resp:
             data = resp.read()
+        if hashlib.sha256(data).hexdigest() != UE4SS_SHA256:
+            raise ValueError(t("w.ue4ss.checksum"))
         print(f"    {t('w.ue4ss.extracting', kb=len(data) // 1024)}")
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             z.extractall(target)
