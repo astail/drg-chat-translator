@@ -372,7 +372,7 @@ class Ipc:
         self.p_alive = os.path.join(directory, "bridge.alive")
         self.p_game_alive = os.path.join(directory, "game.alive")
         self._offset = 0
-        self._buf = ""
+        self._buf = b""
         self._wlock = threading.Lock()
         for p in (self.p_out, self.p_in):
             try:
@@ -386,13 +386,20 @@ class Ipc:
             pass
 
     def read_lines(self) -> list[list[str]]:
+        """届いた分を読み、完結した行だけを返す。
+
+        読み出しが文字の途中に当たると decode でマルチバイト文字が壊れるため、
+        Lua 側（ipc.lua）と同じく「最後の改行まで」を切り出してから decode する。
+        改行（0x0A）は UTF-8 のマルチバイト列に現れないので、この位置は必ず
+        文字の境界になる。残った半端なバイト列は次回の読み出しに持ち越す。
+        """
         try:
             size = os.path.getsize(self.p_in)
         except OSError:
             return []
         if size < self._offset:
             self._offset = 0
-            self._buf = ""
+            self._buf = b""
         if size == self._offset:
             return []
         try:
@@ -402,11 +409,15 @@ class Ipc:
         except OSError:
             return []
         self._offset += len(chunk)
-        self._buf += chunk.decode("utf-8", "replace")
+        self._buf += chunk
+
+        cut = self._buf.rfind(b"\n")
+        if cut < 0:
+            return []
+        complete, self._buf = self._buf[: cut + 1], self._buf[cut + 1 :]
 
         out = []
-        while "\n" in self._buf:
-            line, self._buf = self._buf.split("\n", 1)
+        for line in complete.decode("utf-8", "replace").split("\n"):
             line = line.strip("\r")
             if line:
                 out.append(decode_line(line))
