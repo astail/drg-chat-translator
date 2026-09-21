@@ -23,6 +23,12 @@ local pending = {}
 local handlers = {}
 local outbox = {}
 local alive_miss = 0
+local now_ms = 0
+
+-- 返事を待つ上限。bridge の翻訳は LLM で既定20秒・再試行1回かかりうるので、余裕を見る
+local PENDING_TTL_MS = 60000
+-- 書き出せずに溜まる送信キューの上限。超えたら古いものから捨てる
+local MAX_OUTBOX = 200
 
 local SEP = package.config:sub(1, 1)
 
@@ -87,6 +93,11 @@ function M.send(...)
     local parts = { ... }
     for i = 1, #parts do parts[i] = U.esc(parts[i]) end
     outbox[#outbox + 1] = table.concat(parts, "\t") .. "\n"
+    if #outbox > MAX_OUTBOX then
+        table.remove(outbox, 1)
+        U.log_once("outbox_full", "Too many lines waiting to be written to the bridge; "
+            .. "dropping the oldest (is %s writable?)", tostring(path_to_bridge))
+    end
     return true
 end
 
@@ -96,7 +107,8 @@ function M.flush()
     local payload = table.concat(outbox)
     local f = io.open(path_to_bridge, "ab")
     if not f then
-        U.dbg("could not open to_bridge.txt (retrying next tick)")
+        U.log_once("flush_failed", "Could not open %s for writing; retrying every tick",
+            tostring(path_to_bridge))
         return
     end
     f:write(payload)
@@ -109,7 +121,8 @@ end
 function M.request(kind, sender, text, on_result, on_error, host)
     local id = next_id
     next_id = next_id + 1
-    pending[id] = { on_result = on_result, on_error = on_error, kind = kind, text = text }
+    pending[id] = { on_result = on_result, on_error = on_error, kind = kind, text = text,
+                    at = now_ms }
     M.send("REQ", tostring(id), kind, sender or "", text or "", host and "1" or "0")
     return id
 end
@@ -222,6 +235,26 @@ function M.check_alive()
         U.log("Lost the bridge (is run_bridge.bat still running?)")
     end
     return false
+end
+
+--- 時刻を進め、返事の来ない要求を捨てる。ポーリングループから定期的に呼ぶ。
+--- bridge が落ちたり再起動で to_bridge.txt が空になったりすると、返事は二度と来ない。
+function M.expire_pending(now)
+    now_ms = now
+    local expired = 0
+    for id, p in pairs(pending) do
+        if now_ms - p.at > PENDING_TTL_MS then
+            pending[id] = nil
+            expired = expired + 1
+            if p.on_error then pcall(p.on_error, "timeout") end
+        end
+    end
+    if expired > 0 then
+        U.log_once("pending_timeout", "No reply from the bridge for a translation request; "
+            .. "gave up on it (is DRGTranslate.exe still running?)")
+        U.dbg("gave up on %d request(s) with no reply", expired)
+    end
+    return expired
 end
 
 function M.pending_count()

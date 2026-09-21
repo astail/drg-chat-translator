@@ -874,6 +874,14 @@ _M.update({
         "zh-tw": "未知的類型: {kind}",
         "ru": "неизвестный тип: {kind}",
     },
+    "b.ipc.bad_req": {
+        "ja": "要求の形が正しくありません（項目数 {n}）",
+        "en": "malformed request ({n} fields)",
+        "ko": "요청 형식이 올바르지 않습니다 (항목 수 {n})",
+        "zh": "请求格式不正确（字段数 {n}）",
+        "zh-tw": "請求格式不正確（欄位數 {n}）",
+        "ru": "неверный формат запроса (полей: {n})",
+    },
     "b.overlay.failed": {
         "ja": "オーバーレイを起動できません (%s)。ログのみで続行します",
         "en": "Cannot start the overlay (%s). Continuing with the log only",

@@ -602,6 +602,7 @@ local function init()
             State.last_alive_at = State.now
             IPC.check_alive()
             IPC.beat(MOD_VERSION)
+            IPC.expire_pending(State.now)
             gc_own_sent()
         end
     end)

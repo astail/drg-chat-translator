@@ -331,6 +331,24 @@ else
     check(#mock.sent > sent_before, "ON に戻すと中継が再開する", #mock.sent - sent_before)
 end
 
+print("-- 返事の来ない要求 --")
+
+-- bridge が落ちた・再起動でファイルが空になった、などで返事が来ない要求は、
+-- 期限を過ぎたら捨てて on_error を呼ぶこと（いつまでも待ち続けない）
+do
+    local IPC = require("ipc")
+    local errored = nil
+    local before_pending = IPC.pending_count()
+    IPC.request("in", "Karl", "no reply expected", function() end,
+                function(msg) errored = msg end, false)
+    check(IPC.pending_count() == before_pending + 1, "要求は返事を待つ一覧に入る")
+    -- 最後に進めた時刻から 61 秒後まで一気に進める（実時間は待たない）
+    IPC.expire_pending(10 ^ 9)
+    check(errored == "timeout", "期限を過ぎた要求は on_error(\"timeout\") で知らされる",
+          tostring(errored))
+    check(IPC.pending_count() == 0, "期限を過ぎた要求は一覧から消える", IPC.pending_count())
+end
+
 print()
 if failures == 0 then
     print("ALL PASS")
