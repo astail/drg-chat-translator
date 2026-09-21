@@ -29,6 +29,7 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from logging.handlers import RotatingFileHandler
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -648,9 +649,9 @@ class Bridge:
             if line:
                 self.show_on_overlay("in", line)
             if translated:
-                log.info(t("b.in"), sender, text, translated)
+                log.info(t("b.in"), sender, text, translated, extra=CHAT)
             if relay_lines:
-                log.info(t("b.relay"), " | ".join(relay_lines))
+                log.info(t("b.relay"), " | ".join(relay_lines), extra=CHAT)
         except TranslationError as exc:
             log.warning(t("b.in.failed"), exc)
             self.ipc.write("ERR", req_id, str(exc))
@@ -694,7 +695,7 @@ class Bridge:
             joined = self.translate_outgoing(text)
             self.ipc.write("RES", req_id, "out", out["source"], joined)
             if joined:
-                log.info(t("b.out"), text, joined)
+                log.info(t("b.out"), text, joined, extra=CHAT)
                 self.show_on_overlay("out", joined)
         except Exception as exc:  # noqa: BLE001
             log.exception(t("b.out.error"))
@@ -807,14 +808,59 @@ class Bridge:
         self.stop_event.set()
 
 
-def setup_logging(level: str) -> None:
-    """ログの出力先とレベルを設定する。2回目以降の呼び出しも効かせるため force を付ける。"""
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)-7s %(message)s",
-        datefmt="%H:%M:%S",
-        force=True,
-    )
+LOG_FILE_NAME = "bridge.log"
+LOG_FILE_MAX_BYTES = 512 * 1024
+LOG_FORMAT = "%(asctime)s %(levelname)-7s %(message)s"
+SECRET_ENV_NAMES = ("DEEPL_AUTH_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY")
+
+
+class MaskingFormatter(logging.Formatter):
+    """APIキーがログに出ないよう、書き出す直前に伏せる（例外の文面も含めて）。"""
+
+    def __init__(self, fmt: str, datefmt: str, secrets: list[str]):
+        super().__init__(fmt, datefmt)
+        self.secrets = [s for s in secrets if len(s) >= 8]
+
+    def format(self, record: logging.LogRecord) -> str:
+        text = super().format(record)
+        for secret in self.secrets:
+            text = text.replace(secret, secret[:4] + "****")
+        return text
+
+
+class NoChatFilter(logging.Filter):
+    """発言の本文（自分や他の隊員のチャット）はファイルに残さない。"""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not getattr(record, "chat", False)
+
+
+# 発言の本文を含むログに付ける目印。画面には出すが、ファイルには残さない
+CHAT = {"chat": True}
+
+
+def setup_logging(level: str, log_file: str | None = None) -> None:
+    """ログの出力先とレベルを設定する。2回目以降の呼び出しも効かせるため force を付ける。
+
+    log_file を渡すと、画面に加えてファイルにも書く。窓を閉じたあとでも何が起きたか
+    分かるようにするため。発言の本文は書かず、数百KBで打ち切って1世代だけ残す。
+    """
+    secrets = [os.environ.get(name, "").strip() for name in SECRET_ENV_NAMES]
+    console = logging.StreamHandler()
+    console.setFormatter(MaskingFormatter(LOG_FORMAT, "%H:%M:%S", secrets))
+    handlers: list[logging.Handler] = [console]
+    if log_file:
+        try:
+            os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
+            to_file = RotatingFileHandler(log_file, maxBytes=LOG_FILE_MAX_BYTES,
+                                          backupCount=1, encoding="utf-8")
+            to_file.setFormatter(MaskingFormatter(LOG_FORMAT, "%Y-%m-%d %H:%M:%S", secrets))
+            to_file.addFilter(NoChatFilter())
+            handlers.append(to_file)
+        except OSError:
+            pass
+    logging.basicConfig(level=getattr(logging, level.upper(), logging.INFO),
+                        handlers=handlers, force=True)
 
 
 def run_test(bridge: Bridge, text: str) -> int:
@@ -978,9 +1024,9 @@ def main(argv: list[str] | None = None) -> int:
     cfg = load_config(env_path)
     if args.provider:
         cfg["provider"] = args.provider
-    setup_logging(cfg["log_level"])
-
     directory = ipc_dir(args.dir)
+    setup_logging(cfg["log_level"], os.path.join(directory, LOG_FILE_NAME))
+
     try:
         bridge = Bridge(cfg, directory, fake=args.fake)
     except ValueError as exc:
