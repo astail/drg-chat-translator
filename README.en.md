@@ -332,9 +332,9 @@ DRGT_RELAY_TARGETS=ja,en,ko
 - Languages are told apart by their script. That means `en` covers not only English but
   every language written in the Latin alphabet, German and Spanish included. With
   `DRGT_INCOMING_SKIP_LANGUAGES=en`, none of those are translated.
-- The glossary (`glossary.json`) translates into Japanese, so it is not used when
-  incoming messages go into any other language (phrases like `Rock and Stone!` are simply
-  left as they are).
+- The bundled glossary (`glossary.json`) only has Japanese translations for now. When incoming
+  messages are translated into another language, an entry is used if the glossary has that
+  language (chants such as `Rock and Stone!` are kept as they are in every language).
 
 ### Translation service settings
 
@@ -422,10 +422,12 @@ say, so that is what is used.
 
 ```json
 {
-  "incoming": { "leaf lover": "リーフラバー（軟弱者）" },
+  "incoming": { "leaf lover": { "ja": "リーフラバー（軟弱者）", "ko": "리프 러버(겁쟁이)" } },
   "outgoing": { "ありがとう": { "en": "Thanks!", "ko": "고마워요!", "zh": "谢谢！" } }
 }
 ```
+
+Each `incoming` entry maps language codes to translations. Use `"*"` for text that is used as is in every language.
 
 Keys are matched ignoring spaces, punctuation and letter case, so `rock and stone` and
 `Rock and Stone!!` are treated as the same phrase.

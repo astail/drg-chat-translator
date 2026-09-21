@@ -629,12 +629,10 @@ class Bridge:
         if relay and len(text) > int(self.cfg["relay"]["max_chars"]):
             targets = []
 
-        hit = self.glossary.lookup_incoming(text)
-
+        # 用語集は言語ごとに訳を持つ。自分自身への対応（掛け声など）は中継もしない
+        hit = self.glossary.lookup_incoming(text, target)
         if hit is not None and same_phrase(hit, text):
             targets = []
-        elif hit is not None and target != "ja":
-            hit = None
 
         if not targets:
             if skip_self:
