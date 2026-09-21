@@ -256,6 +256,11 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
 | `settings.ini` | リポジトリ直下 | exe と同じフォルダ |
 | キャッシュ | `bridge\cache.json` | exe と同じフォルダの `cache.json` |
 | 用語集 | `bridge\glossary.json` | exe と同じフォルダの `glossary.json`。無ければ exe に同梱したもの |
+| ログ | `%APPDATA%\DRGTranslate\bridge.log` | 同じ（`--dir` を付けたらそのフォルダ） |
+
+ログファイルは画面に出るものと同じですが、発言の本文（受信・送信・中継の訳）は
+書きません。APIキーは画面・ファイルとも伏せて出します。512KB を超えたら
+`bridge.log.1` に回し、2世代だけ残します。
 
 ### 設定まわりの補足
 
@@ -263,8 +268,9 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
 - `settings.ini` は `.gitignore` 済みなので、APIキーがリポジトリに入ることはありません。
 - APIキー以外に `DRGT_` が付いているのは、`LOG_LEVEL` や `MAX_WORKERS` のような
   一般的な名前が他のツールの環境変数と衝突するのを避けるためです。
-- Claude はモデルによって使えるパラメータが違う（`effort` は 4.6 以降のみ、
-  `temperature` はそれ以前のみ）ため、指定したモデルに合わせて自動で送り分けます。
+- Claude はモデルによって使えるパラメータが違う（`effort` と `thinking` を
+  受け付けるのは新しい世代だけ）ため、指定したモデルに合わせて自動で送り分けます。
+  `temperature` はどのモデルにも送りません（0.5.7 でやめた）。
   `DRGT_CLAUDE_EFFORT` と `DRGT_CLAUDE_REFUSAL_FALLBACK` の `auto` はこのためのものです。
 
 ---
