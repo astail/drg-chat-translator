@@ -151,6 +151,14 @@ DEFAULTS: dict = {
 
 LANG_TAGS = {"ja": "JP", "ko": "KR"}
 
+# 利用者が settings.ini で書き換えられる書式と、その中で使える差し込み名
+FORMAT_SETTINGS = (
+    ("incoming", "format", "DRGT_INCOMING_FORMAT"),
+    ("relay", "format", "DRGT_RELAY_FORMAT"),
+    ("relay", "item_format", "DRGT_RELAY_ITEM_FORMAT"),
+)
+FORMAT_FIELDS = ("sender", "text", "lang", "original")
+
 
 def load_dotenv(path: str) -> int:
     """設定ファイル（settings.ini）を読んで os.environ に入れる。読み込んだ件数を返す。"""
@@ -304,6 +312,24 @@ def load_config(env_path: str | None) -> dict:
     elif not os.path.exists(path):
         log.warning(t("b.config.missing"), path)
     return build_config()
+
+
+def check_formats(cfg: dict) -> None:
+    """書式を一度ためしに埋めてみて、壊れていれば警告して既定に戻す。
+
+    書き間違い（{name} など）のまま動かすと、発言のたびに format() が失敗して
+    受信の翻訳がすべて黙って止まるため、起動時に見つけておく。
+    """
+    sample = {name: name for name in FORMAT_FIELDS}
+    for section, key, env in FORMAT_SETTINGS:
+        fmt = cfg[section][key]
+        try:
+            fmt.format(**sample)
+        except (KeyError, IndexError, ValueError, AttributeError) as exc:
+            default = DEFAULTS[section][key]
+            log.warning(t("b.config.bad_format"), env, fmt, exc,
+                        ", ".join("{%s}" % n for n in FORMAT_FIELDS), default)
+            cfg[section][key] = default
 
 
 def resolve_path(cfg_path: str) -> str:
@@ -460,6 +486,7 @@ class Ipc:
 
 class Bridge:
     def __init__(self, cfg: dict, directory: str, fake: bool = False):
+        check_formats(cfg)
         self.cfg = cfg
         self.ipc = Ipc(directory)
         self.stop_event = threading.Event()

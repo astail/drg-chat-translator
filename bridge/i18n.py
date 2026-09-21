@@ -902,6 +902,18 @@ _M.update({
         "ru": "Версии exe (%s) и MOD в папке игры (%s) различаются. "
               "Запустите настройку заново, чтобы обновить MOD",
     },
+    "b.config.bad_format": {
+        "ja": "settings.ini の %s（%s）が使えません（%s）。使える差し込みは %s です。"
+              "既定の「%s」で動かします",
+        "en": "%s in settings.ini (%s) cannot be used (%s). The placeholders you can use are %s. "
+              "Using the default \"%s\" instead",
+        "ko": "settings.ini의 %s(%s)을(를) 사용할 수 없습니다(%s). 사용할 수 있는 자리표시자는 %s입니다. "
+              "기본값 \"%s\"(으)로 동작합니다",
+        "zh": "settings.ini 中的 %s（%s）无法使用（%s）。可用的占位符为 %s。将使用默认值“%s”",
+        "zh-tw": "settings.ini 中的 %s（%s）無法使用（%s）。可用的佔位符為 %s。將使用預設值「%s」",
+        "ru": "%s в settings.ini (%s) нельзя использовать (%s). Допустимые подстановки: %s. "
+              "Используется значение по умолчанию «%s»",
+    },
     "b.overlay.failed": {
         "ja": "オーバーレイを起動できません (%s)。ログのみで続行します",
         "en": "Cannot start the overlay (%s). Continuing with the log only",
