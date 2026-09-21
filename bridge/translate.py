@@ -8,6 +8,7 @@ bridge の起動自体は成功する（翻訳しようとしたときにだけ�
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
 import logging
@@ -178,12 +179,19 @@ class Cache:
             snapshot = dict(self._data)
             self._dirty = False
             self._last_save = now
+        tmp = self.path + ".tmp"
         try:
-            tmp = self.path + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(snapshot, f, ensure_ascii=False)
             os.replace(tmp, self.path)
         except Exception as exc:  # noqa: BLE001
+            # 書けなかった分は次の機会にもう一度書く。書きかけの .tmp は残さない
+            with self._lock:
+                self._dirty = True
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
             log.warning(t("p.cache.save_failed"), exc)
 
 
@@ -393,7 +401,14 @@ class LLMProvider(Provider):
         self._prompts: dict[str, str] = {}
 
     def cache_scope(self) -> str:
-        return f"{self.name}:{self.model}"
+        # 同じモデルでもプロンプト（用語の指定など）を変えれば訳が変わるので、その指紋も含める
+        return f"{self.name}:{self.model}:{self.prompt_fingerprint()}"
+
+    def prompt_fingerprint(self) -> str:
+        """プロンプトの指紋。GAME_CONTEXT も指示の文面も、変われば値が変わる。"""
+        sample = (self.system_prompt("src", ["dst1", "dst2"], True)
+                  + self.system_prompt("src", ["dst1"], False))
+        return hashlib.sha256(sample.encode("utf-8")).hexdigest()[:8]
 
     sdk_package = ""
     key_env = ""
