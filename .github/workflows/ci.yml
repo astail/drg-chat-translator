@@ -40,6 +40,15 @@ jobs:
       - name: lint
         run: ruff check bridge
 
+      - name: install.ps1 の構文
+        # 実行はできない（Windows のゲームフォルダが要る）ので、構文だけ確かめる
+        shell: pwsh
+        run: |
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD/install.ps1", [ref]$null, [ref]$errors)
+          if ($errors) { $errors | ForEach-Object { $_.ToString() }; exit 1 }
+          "install.ps1: OK"
+
       - name: bridge の単体テスト
         run: python -m pytest bridge -q
 

@@ -24,6 +24,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# UE4SS が読むファイル（mods.txt / UE4SS-settings.ini）は BOM 無しの UTF-8 で書く。
+# Windows PowerShell 5.1 の Set-Content -Encoding UTF8 は BOM を付けるが、ウィザード
+# （setup_wizard.py）は付けない。2つのインストーラで同じバイト列になるようにそろえる
+$Utf8NoBom = New-Object System.Text.UTF8Encoding $false
+function Write-Lines($path, $lines) {
+    [System.IO.File]::WriteAllLines($path, [string[]]@($lines), $Utf8NoBom)
+}
+
 # 配布 zip の SHA-256。上流がファイルを差し替えても気づけるように、展開する前に照合する。
 # 版を上げるときは bridge/setup_wizard.py の UE4SS_SHA256 と一緒に更新する
 $KnownUE4SSSha256 = @{
@@ -153,7 +161,7 @@ if (Test-Path $SettingsIni) {
         "EnableDumping"         = "0"
     }
     $changed = @()
-    $iniLines = @(Get-Content $SettingsIni)
+    $iniLines = @(Get-Content $SettingsIni -Encoding UTF8)
     for ($i = 0; $i -lt $iniLines.Count; $i++) {
         $key = ($iniLines[$i] -split "=", 2)[0].Trim()
         if ($safe.ContainsKey($key)) {
@@ -165,7 +173,7 @@ if (Test-Path $SettingsIni) {
         }
     }
     if ($changed.Count -gt 0) {
-        Set-Content -Path $SettingsIni -Value $iniLines -Encoding UTF8
+        Write-Lines $SettingsIni $iniLines
         Ok ("UE4SS を安全な設定にしました（" + ($changed -join ", ") + "）")
     }
 }
@@ -176,9 +184,13 @@ $ModsTxt = Join-Path $ModsDir "mods.txt"
 if ($Uninstall) {
     if (Test-Path $Dest) { Remove-Item $Dest -Recurse -Force; Ok "$ModName を削除しました" }
     if (Test-Path $ModsTxt) {
-        (Get-Content $ModsTxt) | Where-Object { $_ -notmatch "^\s*$ModName\s*:" } |
-            Set-Content $ModsTxt -Encoding UTF8
+        $kept = @(Get-Content $ModsTxt -Encoding UTF8 | Where-Object { $_ -notmatch "^\s*$ModName\s*:" })
+        Write-Lines $ModsTxt $kept
         Ok "mods.txt から削除しました"
+    }
+    if (Test-Path $SettingsIni) {
+        Warn ("UE4SS-settings.ini の bUseUObjectArrayCache / GuiConsoleEnabled / EnableDumping は、" +
+              "導入時に変えたままです。他の MOD のために戻したい場合は次のファイルを編集してください: $SettingsIni")
     }
     exit 0
 }
@@ -186,16 +198,31 @@ if ($Uninstall) {
 $Src = Join-Path $Root "mod\$ModName"
 if (-not (Test-Path $Src)) { Die "mod フォルダが見つかりません: $Src" }
 
+# 既存の MOD は消さずに .bak へ退避し、コピーに失敗したら戻す（ウィザードと同じ手順）。
+# UE4SS は enabled.txt のあるフォルダを MOD として読み込むので、退避したものは無効にしておく
+$Backup = Join-Path $ModsDir "$ModName.bak"
+$parked = $false
 if (Test-Path $Dest) {
     Info "既存の $ModName を更新します"
-    $userCfg = Join-Path $Dest "Scripts\config.lua"
-    if (Test-Path $userCfg) {
-        Copy-Item $userCfg (Join-Path $env:TEMP "DRGTranslate.config.lua.bak") -Force
-        Warn "既存の config.lua は $env:TEMP\DRGTranslate.config.lua.bak に退避しました"
-    }
-    Remove-Item $Dest -Recurse -Force
+    if (Test-Path $Backup) { Remove-Item $Backup -Recurse -Force }
+    Move-Item $Dest $Backup
+    $flag = Join-Path $Backup "enabled.txt"
+    if (Test-Path $flag) { Move-Item $flag "$flag.off" -Force }
+    $parked = $true
+    Ok "既存の MOD は $ModName.bak に退避しました（編集した config.lua もここに残ります）"
 }
-Copy-Item $Src $Dest -Recurse -Force
+try {
+    Copy-Item $Src $Dest -Recurse -Force
+} catch {
+    if ($parked) {
+        if (Test-Path $Dest) { Remove-Item $Dest -Recurse -Force -ErrorAction SilentlyContinue }
+        Move-Item $Backup $Dest
+        $flag = Join-Path $Dest "enabled.txt.off"
+        if (Test-Path $flag) { Move-Item $flag (Join-Path $Dest "enabled.txt") -Force }
+        Warn "コピーに失敗したので、前の MOD を元に戻しました"
+    }
+    Die "MOD のコピーに失敗しました: $($_.Exception.Message)（ゲームを閉じてからもう一度実行してください）"
+}
 Ok "mod をコピーしました: $Dest"
 
 if (-not (Test-Path $ModsTxt)) { New-Item -ItemType File -Path $ModsTxt -Force | Out-Null }
@@ -210,10 +237,12 @@ $samples = @(
     "bpml_genericfunctions",
     "jsbluaprofilermod"
 )
-$lines = @(Get-Content $ModsTxt -ErrorAction SilentlyContinue)
+$lines = @(Get-Content $ModsTxt -Encoding UTF8 -ErrorAction SilentlyContinue)
 $registered = $false
 $disabled = @()
-$lines = $lines | ForEach-Object {
+# @() で囲まないと、mods.txt が1行だけのとき配列でなく文字列になり、
+# 下の += が文字列の連結になって mods.txt が壊れる
+$lines = @($lines | ForEach-Object {
     $s = $_.Trim()
     if ($s -eq "" -or $s.StartsWith(";") -or (-not $s.Contains(":"))) { return $_ }
     $name = ($s -split ":", 2)[0].Trim()
@@ -226,9 +255,9 @@ $lines = $lines | ForEach-Object {
         return "$name : 0"
     }
     return $_
-}
+})
 if (-not $registered) { $lines += "$ModName : 1" }
-Set-Content -Path $ModsTxt -Value $lines -Encoding UTF8
+Write-Lines $ModsTxt $lines
 Ok "mods.txt に登録しました（$ModName : 1）"
 if ($disabled.Count -gt 0) {
     Ok ("同梱サンプル MOD を無効化しました（" + ($disabled -join ", ") + "）")
