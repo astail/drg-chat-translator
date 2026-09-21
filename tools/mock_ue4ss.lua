@@ -14,6 +14,7 @@ M.sent = {}
 M.displayed = {}
 M.displayed_widget_attempts = 0
 M.log = {}
+M.echo_queue = {}
 
 local function FString(v)
     return setmetatable({ __v = v }, {
@@ -48,8 +49,17 @@ function M.make_world(opts)
 
     local pc = make_obj({ __name = "FSDPlayerController_0", PlayerState = player_state })
     function pc:IsLocalController() return true end
+    -- 実機と同じく、Lua から呼んでも Server_NewMessage のフックは発火し、
+    -- 送った発言はサーバを経由して自分にも ClientNewMessage で戻ってくる。
+    -- 戻りはネットワークを一周するので、次の tick() で届ける。
     function pc:Server_NewMessage(sender, text, sender_type)
         M.sent[#M.sent + 1] = { sender = sender, text = text, type = sender_type }
+        local h = M.hooks["/Script/FSD.FSDPlayerController:Server_NewMessage"]
+        if h and h.pre then
+            h.pre(M.Param(pc), M.Param(M.FString(sender)), M.Param(M.FString(text)),
+                  M.Param(sender_type or 0))
+        end
+        M.echo_queue[#M.echo_queue + 1] = { sender = sender, text = text }
     end
 
     local players = {}
@@ -102,8 +112,11 @@ function M.install()
     _G.Key = { F9 = "F9" }
 end
 
---- ループを1回分進める
+--- ループを1回分進める。前回までに送った発言の戻りもここで届く
 function M.tick()
+    local echoes = M.echo_queue
+    M.echo_queue = {}
+    for _, e in ipairs(echoes) do M.receive(e.sender, e.text, 0) end
     for _, l in ipairs(M.loops) do l.fn() end
 end
 
