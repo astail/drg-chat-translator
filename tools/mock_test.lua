@@ -105,6 +105,34 @@ wait_until(function() return logged_line("bridge version = ") ~= nil end, 5)
 check(logged_line("bridge version = ") ~= nil,
       "つながったら HELLO を送り、bridge の版が返ってくる", logged_line("bridge version"))
 
+if role == "client" then
+    print("-- 名前が分からないうちの取り違え --")
+
+    -- 自分（Kiyo）が打つと送信フックだけ先に発火し、戻りはサーバを一周してから届く。
+    -- その間に他の隊員（Karl）の発言が先に届いても、Karl を自分と取り違えないこと
+    local sent_before, disp_before = #mock.sent, #mock.displayed
+    local h = mock.hooks["/Script/FSD.FSDPlayerController:Server_NewMessage"]
+    h.pre(mock.Param(mock.pc), mock.Param(mock.FString("Kiyo")),
+          mock.Param(mock.FString("了解です")), mock.Param(0))
+    mock.receive("Karl", "watch out, left side")
+    mock.receive("Kiyo", "了解です")
+    wait_until(function() return #mock.displayed > disp_before end)
+    settle()
+    local as_karl = 0
+    for i = sent_before + 1, #mock.sent do
+        if mock.sent[i].sender == "Karl" then as_karl = as_karl + 1 end
+    end
+    check(as_karl == 0, "戻りより先に他の隊員の発言が届いても、その人の名前で訳を送らない", as_karl)
+    check(#mock.displayed > disp_before and (last_display() or ""):find("Karl", 1, true) ~= nil,
+          "そのときの他の隊員の発言は、受信としてふつうに訳す", last_display())
+    -- 名前を Karl と覚えていれば、ここで Karl の発言が「同じ名前の隊員」として無視される
+    disp_before = #mock.displayed
+    mock.receive("Karl", "need ammo over here")
+    wait_until(function() return #mock.displayed > disp_before end)
+    check(#mock.displayed > disp_before, "そのあとも Karl の発言は訳される（Karl を自分と覚えていない）",
+          last_display())
+end
+
 print("-- 受信 --")
 
 local before = #mock.displayed
