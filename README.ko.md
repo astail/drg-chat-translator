@@ -49,8 +49,8 @@ You: 回復お願いします / Please heal me / 请帮我治疗一下
 | 서비스 | 특징 | 요금 | 가입 · API 키 발급 |
 |---|---|---|---|
 | **DeepL**(기본값) | 기계 번역 중에서는 가장 자연스러움 | 무료 체험 한도 있음. 다 쓰면 유료 플랜 | https://www.deepl.com/pro-api |
-| **Claude**(Anthropic) | 속어 · 줄임말 · 오타에 강함. `gg` `bulk inc` `res me` 를 문맥으로 번역 | 쓴 만큼 내는 종량 과금. 기본값인 Claude Haiku 4.5 라면 **1000회 번역에 약 $1.5** | https://platform.claude.com/settings/keys |
-| **OpenAI** | 속어 · 줄임말 · 오타에 강함. `gg` `bulk inc` `res me` 를 문맥으로 번역 | 쓴 만큼 내는 종량 과금. 기본값인 gpt-4o-mini 라면 **1000회 번역에 약 $0.1~0.2** | https://platform.openai.com/api-keys |
+| **Claude**(Anthropic) | 속어 · 줄임말 · 오타에 강함. `bulk inc` `res me` 를 문맥으로 번역 | 쓴 만큼 내는 종량 과금. 기본값인 Claude Haiku 4.5 라면 **1000회 번역에 약 $1.5** | https://platform.claude.com/settings/keys |
+| **OpenAI** | 속어 · 줄임말 · 오타에 강함. `bulk inc` `res me` 를 문맥으로 번역 | 쓴 만큼 내는 종량 과금. 기본값인 gpt-4o-mini 라면 **1000회 번역에 약 $0.1~0.2** | https://platform.openai.com/api-keys |
 
 평범한 대화가 중심이라면 DeepL 로 충분합니다. 줄임말과 오타가 많은 공개 멀티에서
 정확도를 올리고 싶다면 Claude 나 OpenAI 를 고르세요. `Rock and Stone` 같은 관용구는
@@ -418,7 +418,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 `incoming` 의 값은 언어별 번역입니다. `"*"` 로 하면 어느 언어에서든 그 문자열을 그대로 사용합니다.
 번역을 비운 말(`{"*": ""}`)은 번역하지 않습니다. API 도 부르지 않고, 화면에 표시하지도, 중계하지도 않습니다.
-동봉된 용어집은 `r?`(준비됐어?)나 `nt`(나이스 트라이)처럼 번역할 필요가 없는 줄임말을 이렇게 해 두었습니다.
+동봉된 용어집은 `gg`, `r?`(준비됐어?), `nt`(나이스 트라이)처럼 번역할 필요가 없는 줄임말을 이렇게 해 두었습니다.
 
 키는 공백 · 기호 · 대소문자를 무시하고 대조하므로 `rock and stone` 과
 `Rock and Stone!!` 은 같은 것으로 취급됩니다.

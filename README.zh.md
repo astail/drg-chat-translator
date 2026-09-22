@@ -46,8 +46,8 @@ You: 回復お願いします / Please heal me / 회복 부탁드립니다
 | 服务 | 特点 | 费用 | 注册 · 创建密钥 |
 |---|---|---|---|
 | **DeepL**（默认） | 机器翻译中最自然的 | 有免费额度。用完后转付费套餐 | https://www.deepl.com/pro-api |
-| **Claude**（Anthropic） | 擅长俚语、缩写和错别字。能结合上下文翻译 `gg` `bulk inc` `res me` | 按用量付费。使用默认的 Claude Haiku 4.5 时，**1000 次翻译约 $1.5** | https://platform.claude.com/settings/keys |
-| **OpenAI** | 擅长俚语、缩写和错别字。能结合上下文翻译 `gg` `bulk inc` `res me` | 按用量付费。使用默认的 gpt-4o-mini 时，**1000 次翻译约 $0.1～0.2** | https://platform.openai.com/api-keys |
+| **Claude**（Anthropic） | 擅长俚语、缩写和错别字。能结合上下文翻译 `bulk inc` `res me` | 按用量付费。使用默认的 Claude Haiku 4.5 时，**1000 次翻译约 $1.5** | https://platform.claude.com/settings/keys |
+| **OpenAI** | 擅长俚语、缩写和错别字。能结合上下文翻译 `bulk inc` `res me` | 按用量付费。使用默认的 gpt-4o-mini 时，**1000 次翻译约 $0.1～0.2** | https://platform.openai.com/api-keys |
 
 如果以普通对话为主，DeepL 就足够了。想在缩写和打字错误较多的公开联机里提高准确度，就选
 Claude 或 OpenAI。像 `Rock and Stone` 这样的固定说法由术语表处理，所以用哪个服务译文都
@@ -394,7 +394,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 `incoming` 的值是按语言区分的译文。写成 `"*"` 时，任何语言都原样使用该字符串。
 译文为空的词（`{"*": ""}`）不翻译：不调用 API，不显示，也不转发。
-附带的术语表对 `r?`（准备好了吗？）、`nt`（nice try）这类不必翻译的缩写就是这样处理的。
+附带的术语表对 `gg`、`r?`（准备好了吗？）、`nt`（nice try）这类不必翻译的缩写就是这样处理的。
 
 匹配键时会忽略空格、符号和大小写，所以 `rock and stone` 和 `Rock and Stone!!` 视为同一
 条目。

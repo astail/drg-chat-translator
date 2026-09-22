@@ -48,8 +48,8 @@ You: Please heal me / 회복 부탁드립니다 / 请帮我治疗一下
 | サービス | 特徴 | 料金 | 登録・APIキーの発行 |
 |---|---|---|---|
 | **DeepL**（既定） | 機械翻訳としては最も自然 | 無料のお試し枠あり。使い切ったら有料プラン | https://www.deepl.com/pro-api |
-| **Claude**（Anthropic） | スラング・略語・誤字に強い。`gg` `bulk inc` `res me` を文脈で訳せる | 使った分だけ支払う従量課金。既定の Claude Haiku 4.5 なら、**1000回翻訳して約 $1.5** | https://platform.claude.com/settings/keys |
-| **OpenAI** | スラング・略語・誤字に強い。`gg` `bulk inc` `res me` を文脈で訳せる | 使った分だけ支払う従量課金。既定の gpt-4o-mini なら、**1000回翻訳して約 $0.1〜0.2** | https://platform.openai.com/api-keys |
+| **Claude**（Anthropic） | スラング・略語・誤字に強い。`bulk inc` `res me` を文脈で訳せる | 使った分だけ支払う従量課金。既定の Claude Haiku 4.5 なら、**1000回翻訳して約 $1.5** | https://platform.claude.com/settings/keys |
+| **OpenAI** | スラング・略語・誤字に強い。`bulk inc` `res me` を文脈で訳せる | 使った分だけ支払う従量課金。既定の gpt-4o-mini なら、**1000回翻訳して約 $0.1〜0.2** | https://platform.openai.com/api-keys |
 
 普通の会話が中心なら DeepL で十分です。略語やタイプミスの多い野良マルチで精度を上げたいなら
 Claude か OpenAI を選んでください。`Rock and Stone` のような定型句は用語集で処理されるので、
@@ -414,7 +414,7 @@ DRG の頻出フレーズを最初から登録済みです（exe に同梱され
 
 `incoming` の値は言語ごとの訳です。`"*"` にすると、どの言語でもその文字列をそのまま使います。
 訳を空にした語（`{"*": ""}`）は訳しません。API も呼ばず、画面にも出さず、中継もしません。
-同梱の用語集では `r?`（準備できた？）や `nt`（ナイストライ）のような、訳すまでもない略語をこうしています。
+同梱の用語集では `gg`、`r?`（準備できた？）、`nt`（ナイストライ）のような、訳すまでもない略語をこうしています。
 
 キーは空白・記号・大文字小文字を無視して照合されるので、`rock and stone` と
 `Rock and Stone!!` は同じ扱いになります。
