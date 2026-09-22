@@ -5,24 +5,7 @@
 
 from __future__ import annotations
 
-import copy
-import os
-import sys
-
 import pytest
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from drg_bridge import DEFAULTS, Bridge  # noqa: E402
-
-
-@pytest.fixture
-def bridge(tmp_path):
-    cfg = copy.deepcopy(DEFAULTS)
-    cfg["cache"]["enabled"] = False
-    b = Bridge(cfg, str(tmp_path), fake=True)
-    yield b
-    b.pool.shutdown(wait=True)
 
 
 @pytest.mark.parametrize("text, wanted", [

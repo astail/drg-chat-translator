@@ -8,16 +8,13 @@ from __future__ import annotations
 import copy
 import logging
 import os
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-import i18n  # noqa: E402
-import setup_wizard  # noqa: E402
-from drg_bridge import DEFAULTS, build_config, check_relay_limit, load_dotenv  # noqa: E402
-from setup_wizard import (  # noqa: E402
+import i18n
+import setup_wizard
+from drg_bridge import DEFAULTS, build_config, check_relay_limit, load_dotenv
+from setup_wizard import (
     LANGUAGE_SETTING_KEYS,
     language_settings,
     read_env_value,
@@ -49,17 +46,8 @@ def test_rerun_leaves_nothing_from_previous_language(tmp_path, first, second) ->
         assert read_env_value(str(path), key) == (expected[key] or ""), key
 
 
-def _env(monkeypatch, **values) -> None:
-    for key in [k for k in os.environ if k.startswith("DRGT_")]:
-        monkeypatch.delenv(key, raising=False)
-    for key, value in values.items():
-        monkeypatch.setenv(key, value)
-
-
-def _load(monkeypatch, path) -> dict:
-    """その settings.ini だけを読んだときの設定。環境変数は丸ごと差し替えて後で戻す。"""
-    clean = {k: v for k, v in os.environ.items() if not k.startswith("DRGT_")}
-    monkeypatch.setattr(os, "environ", clean)
+def _load(path) -> dict:
+    """その settings.ini だけを読んだときの設定。isolated の中で呼ぶ（環境変数を後で戻すため）。"""
     load_dotenv(str(path))
     return build_config()
 
@@ -77,27 +65,27 @@ def test_zh_tw_still_writes_skip_languages() -> None:
     assert language_settings("zh-tw")["DRGT_INCOMING_SKIP_LANGUAGES"] == "zh"
 
 
-def test_changing_language_by_hand_after_setup(tmp_path, monkeypatch) -> None:
+def test_changing_language_by_hand_after_setup(isolated) -> None:
     """日本語でセットアップしたあと README の手順で英語に直すと、日本語の発言が英語に訳されること。"""
-    path = tmp_path / "settings.ini"
+    path = isolated / "settings.ini"
     path.write_text(EXAMPLE, encoding="utf-8")
     write_env(str(path), language_settings("ja"))
     write_env(str(path), {"DRGT_INCOMING_TARGET": "en", "DRGT_RELAY_TARGETS": "en,ja,ko,ru,zh"})
-    cfg = _load(monkeypatch, path)
+    cfg = _load(path)
     assert cfg["incoming"]["skip_languages"] == ["en"]
     assert cfg["relay"]["max_langs"] == 5
 
 
-def test_rerun_fixes_lines_pinned_by_older_setup(tmp_path, monkeypatch) -> None:
+def test_rerun_fixes_lines_pinned_by_older_setup(isolated) -> None:
     """以前のセットアップが書いた2項目は、やり直せばコメントに戻ること。"""
-    path = tmp_path / "settings.ini"
+    path = isolated / "settings.ini"
     path.write_text(EXAMPLE + "DRGT_INCOMING_SKIP_LANGUAGES=ja\nexport DRGT_RELAY_MAX_LANGS=4\n",
                     encoding="utf-8")
     write_env(str(path), language_settings("en"))
     text = path.read_text(encoding="utf-8")
     assert "#DRGT_INCOMING_SKIP_LANGUAGES=ja" in text
     assert "#export DRGT_RELAY_MAX_LANGS=4" in text
-    cfg = _load(monkeypatch, path)
+    cfg = _load(path)
     assert cfg["incoming"]["skip_languages"] == ["en"]
     assert cfg["relay"]["max_langs"] == len(cfg["relay"]["targets"])
 
@@ -111,15 +99,15 @@ def test_zh_tw_then_ja_comments_skip_languages_out(tmp_path) -> None:
     assert read_env_value(str(path), "DRGT_INCOMING_SKIP_LANGUAGES") == ""
 
 
-def test_max_langs_defaults_to_number_of_targets(monkeypatch) -> None:
+def test_max_langs_defaults_to_number_of_targets(clean_env) -> None:
     """DRGT_RELAY_MAX_LANGS を書いていなければ、中継先の数が上限になること。"""
-    _env(monkeypatch, DRGT_RELAY_TARGETS="zh-tw,ja,en,ko,zh")
+    clean_env(DRGT_RELAY_TARGETS="zh-tw,ja,en,ko,zh")
     assert build_config()["relay"]["max_langs"] == 5
 
 
-def test_explicit_max_langs_wins(monkeypatch) -> None:
+def test_explicit_max_langs_wins(clean_env) -> None:
     """明示した値はそのまま使うこと。"""
-    _env(monkeypatch, DRGT_RELAY_TARGETS="ja,en,ko,zh", DRGT_RELAY_MAX_LANGS="2")
+    clean_env(DRGT_RELAY_TARGETS="ja,en,ko,zh", DRGT_RELAY_MAX_LANGS="2")
     assert build_config()["relay"]["max_langs"] == 2
 
 

@@ -5,16 +5,12 @@
 
 from __future__ import annotations
 
-import os
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 pytest.importorskip("tkinter")
 
-from overlay import should_show  # noqa: E402
+from overlay import should_show
 
 
 def test_dismissed_window_stays_hidden_until_next_translation() -> None:

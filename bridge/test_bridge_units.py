@@ -5,15 +5,11 @@
 
 from __future__ import annotations
 
-import copy
 import json
 import os
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from drg_bridge import DEFAULTS, Bridge, build_config  # noqa: E402
-from translate import Glossary  # noqa: E402
+from drg_bridge import build_config
+from translate import Glossary
 
 GLOSSARY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "glossary.json")
 
@@ -38,60 +34,39 @@ def test_missing_glossary_is_empty() -> None:
     assert Glossary(None).lookup_incoming("gg", "ja") is None
 
 
-def _bridge(tmp_path, **relay) -> Bridge:
-    cfg = copy.deepcopy(DEFAULTS)
-    cfg["cache"]["enabled"] = False
-    cfg["relay"].update(relay)
-    return Bridge(cfg, str(tmp_path), fake=True)
-
-
-def test_relay_lines_fit_on_one_line_by_default(tmp_path) -> None:
-    b = _bridge(tmp_path)
-    try:
-        lines = b.relay_lines("Karl", "watch out", {"ja": "気をつけろ", "ko": "조심해", "zh": "小心"})
-    finally:
-        b.pool.shutdown(wait=True)
+def test_relay_lines_fit_on_one_line_by_default(bridge) -> None:
+    lines = bridge.relay_lines("Karl", "watch out", {"ja": "気をつけろ", "ko": "조심해", "zh": "小心"})
     assert lines == ["Karl: 気をつけろ / 조심해 / 小心"]
 
 
-def test_relay_lines_split_at_max_line_chars(tmp_path) -> None:
+def test_relay_lines_split_at_max_line_chars(make_bridge, fake_cfg) -> None:
     """max_line_chars を超えるときだけ、言語の切れ目で行を分けること。"""
-    b = _bridge(tmp_path, max_line_chars=20)
-    try:
-        lines = b.relay_lines("Karl", "watch out",
-                              {"ja": "気をつけろ、左から来る", "ko": "조심해, 왼쪽이야", "zh": "小心左边"})
-    finally:
-        b.pool.shutdown(wait=True)
+    fake_cfg["relay"]["max_line_chars"] = 20
+    lines = make_bridge(fake_cfg).relay_lines(
+        "Karl", "watch out", {"ja": "気をつけろ、左から来る", "ko": "조심해, 왼쪽이야", "zh": "小心左边"})
     assert len(lines) >= 2
     assert lines[0].startswith("Karl: ")
     assert all(len(line) <= 20 or " / " not in line for line in lines)
 
 
-def _env(monkeypatch, **values) -> None:
-    for key in [k for k in os.environ if k.startswith("DRGT_")]:
-        monkeypatch.delenv(key, raising=False)
-    for key, value in values.items():
-        monkeypatch.setenv(key, value)
-
-
-def test_skip_languages_follow_incoming_target(monkeypatch) -> None:
+def test_skip_languages_follow_incoming_target(clean_env) -> None:
     """DRGT_INCOMING_SKIP_LANGUAGES を書かなければ、受信の訳す先に追従すること。"""
-    _env(monkeypatch, DRGT_INCOMING_TARGET="en")
+    clean_env(DRGT_INCOMING_TARGET="en")
     assert build_config()["incoming"]["skip_languages"] == ["en"]
-    _env(monkeypatch, DRGT_INCOMING_TARGET="en", DRGT_INCOMING_SKIP_LANGUAGES="ja, en")
+    clean_env(DRGT_INCOMING_TARGET="en", DRGT_INCOMING_SKIP_LANGUAGES="ja, en")
     assert build_config()["incoming"]["skip_languages"] == ["ja", "en"]
 
 
-def test_bad_numbers_fall_back_to_defaults(monkeypatch) -> None:
+def test_bad_numbers_fall_back_to_defaults(clean_env) -> None:
     """数値の書き間違いは、既定に戻して動くこと。"""
-    _env(monkeypatch, DRGT_CLAUDE_MAX_TOKENS="lots", DRGT_TIMEOUT_SEC="soon")
+    clean_env(DRGT_CLAUDE_MAX_TOKENS="lots", DRGT_TIMEOUT_SEC="soon")
     cfg = build_config()
     assert cfg["providers"]["claude"]["max_tokens"] == 1024
     assert cfg["network"]["timeout_sec"] == 6.0
 
 
-def test_booleans(monkeypatch) -> None:
-    _env(monkeypatch, DRGT_OVERLAY_ENABLED="yes", DRGT_RELAY_ENABLED="off")
+def test_booleans(clean_env) -> None:
+    clean_env(DRGT_OVERLAY_ENABLED="yes", DRGT_RELAY_ENABLED="off")
     cfg = build_config()
     assert cfg["overlay"]["enabled"] is True
     assert cfg["relay"]["enabled"] is False

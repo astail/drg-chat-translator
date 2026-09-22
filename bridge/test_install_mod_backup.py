@@ -5,16 +5,12 @@
 
 from __future__ import annotations
 
-import os
 import shutil
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-import setup_wizard  # noqa: E402
-from setup_wizard import MOD_NAME, install_mod  # noqa: E402
+import setup_wizard
+from setup_wizard import MOD_NAME, install_mod
 
 
 @pytest.fixture

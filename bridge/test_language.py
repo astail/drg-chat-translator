@@ -5,14 +5,10 @@
 
 from __future__ import annotations
 
-import os
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from translate import detect_language, is_translatable, is_written_in, same_phrase  # noqa: E402
+from translate import detect_language, is_translatable, is_written_in, same_phrase
 
 
 @pytest.mark.parametrize("text, lang", [

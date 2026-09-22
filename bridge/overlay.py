@@ -39,6 +39,7 @@ def should_show(mode: str, display_ok: bool | None, hide_after: float,
         return idle_sec <= hide_after
     return True
 
+
 BG = "#101014"
 FG_IN = "#d9e6ff"
 FG_OUT = "#ffe6a8"

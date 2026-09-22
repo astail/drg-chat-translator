@@ -6,13 +6,9 @@
 from __future__ import annotations
 
 import json
-import os
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-import translate  # noqa: E402
-from translate import Cache, ClaudeProvider, DeepLProvider, OpenAIProvider  # noqa: E402
+import translate
+from translate import Cache, ClaudeProvider, DeepLProvider, OpenAIProvider
 
 
 def test_llm_scope_changes_with_prompt(monkeypatch) -> None:

@@ -7,15 +7,11 @@ from __future__ import annotations
 
 import hashlib
 import io
-import os
-import sys
 import zipfile
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-import setup_wizard  # noqa: E402
+import setup_wizard
 
 
 def _zip_bytes() -> bytes:
@@ -45,8 +41,11 @@ def _serve(monkeypatch, data: bytes) -> None:
     monkeypatch.setattr(setup_wizard.urllib.request, "urlopen", lambda *a, **k: _Resp(data))
 
 
-def test_known_hash_matches_pinned_release() -> None:
-    """照合に使う値が SHA-256 の形をしていること（書き間違いの防止）。"""
+def test_pinned_hash_is_well_formed() -> None:
+    """照合に使う値が SHA-256 の形をしていること（書き間違いの防止）。
+
+    install.ps1 の値と一致しているかは test_release_consistency.py が見ている。
+    """
     assert len(setup_wizard.UE4SS_SHA256) == 64
     int(setup_wizard.UE4SS_SHA256, 16)
 

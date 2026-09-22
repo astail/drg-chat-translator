@@ -8,16 +8,13 @@ TESTING.md に「112キー × 6言語を機械的に検査した」と書いて�
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
 import pytest
 
+import i18n
+
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-
-import i18n  # noqa: E402
-
 CODES = [code for code, _ in i18n.LANGUAGES]
 KEYS = sorted(i18n._M)
 NAMED = re.compile(r"\{(\w+)\}")

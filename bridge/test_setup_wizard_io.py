@@ -6,14 +6,11 @@
 from __future__ import annotations
 
 import os
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-import setup_wizard  # noqa: E402
-from setup_wizard import MOD_NAME, install_mod, write_env, write_text_atomic  # noqa: E402
+import setup_wizard
+from setup_wizard import MOD_NAME, install_mod, write_env, write_text_atomic
 
 
 def _fail_replace(monkeypatch) -> None:

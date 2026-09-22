@@ -6,16 +6,12 @@
 from __future__ import annotations
 
 import logging
-import os
-import sys
 import threading
 from types import SimpleNamespace
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from translate import (  # noqa: E402
+from translate import (
     Cache,
     ClaudeProvider,
     Glossary,
@@ -205,8 +201,10 @@ def test_openai_does_not_retry_other_errors() -> None:
         p._complete("system", "hello", None)
 
 
-def test_failure_counter_is_thread_safe(tmp_path) -> None:
+def test_failure_counter_is_thread_safe(tmp_path, caplog) -> None:
     """失敗の数え上げが、複数のワーカから同時に呼ばれても欠けないこと。"""
+    # 5回目以降の失敗ごとに「30秒待機します」が出るので、8000回分の警告を取り込まない
+    caplog.set_level(logging.ERROR, logger="drgtl.translate")
     tr = Translator(StubProvider({}), Cache(str(tmp_path / "c.json"), enabled=False), Glossary(None))
 
     def hammer():
