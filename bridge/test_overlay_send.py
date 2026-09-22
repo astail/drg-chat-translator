@@ -130,3 +130,22 @@ def test_overlay_tells_when_translation_failed(bridge) -> None:
     bridge._do_overlay_outgoing("回復お願いします")
     assert _said(bridge) == ["回復お願いします"]
     assert any(kind == "sys" for kind, _ in _shown(bridge))
+
+
+def test_failed_translation_is_not_the_original_again(bridge) -> None:
+    """原文を付ける設定でも、訳が1つも無ければ原文をもう一度送らないこと。"""
+    def fail(text, source, targets):
+        raise TranslationError("down")
+
+    bridge.cfg["outgoing"]["include_source"] = True
+    bridge.translator.translate_multi = fail
+    assert bridge.translate_outgoing("回復お願いします") == ""
+    bridge._do_overlay_outgoing("回復お願いします")
+    assert _said(bridge) == ["回復お願いします"]
+    assert any(kind == "sys" for kind, _ in _shown(bridge))
+
+
+def test_include_source_still_puts_the_original_first(bridge) -> None:
+    bridge.cfg["outgoing"]["include_source"] = True
+    joined = bridge.translate_outgoing("回復お願いします")
+    assert joined.startswith("回復お願いします / [en] 回復お願いします")

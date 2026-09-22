@@ -810,9 +810,12 @@ class Bridge:
             except TranslationError as exc:
                 log.warning(t("b.out.failed"), ",".join(pending), exc)
 
+        translations = [results[t] for t in targets if results.get(t)]
+        if not translations:
+            # 訳が1つも無ければ、原文を付ける設定でも空を返す（原文だけをもう一度送らない）
+            return ""
         pieces: list[str] = [text] if out["include_source"] else []
-        pieces += [results[t] for t in targets if results.get(t)]
-        return out["separator"].join(p for p in pieces if p)
+        return out["separator"].join(p for p in pieces + translations if p)
 
     def outgoing_wanted(self, text: str) -> bool:
         """自分の発言を訳すかどうか。翻訳の方針はすべてここ（settings.ini）で決める。"""
