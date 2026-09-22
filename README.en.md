@@ -477,9 +477,8 @@ moved aside to `Mods\DRGTranslate.bak`.
   checked** (Japanese, Korean and simplified Chinese have been).
 - **Relaying to fellow dwarves in a lobby with several people has not been confirmed
   yet.**
-- How the small window (`DRGT_OVERLAY_ENABLED=true`) looks in a real game is unconfirmed.
-
-See [docs/TESTING.md](docs/TESTING.md) (Japanese) for details.
+- The small window (`DRGT_OVERLAY_ENABLED=true`) has been checked in the real game: it shows over the
+  game, and its input box sends chat.
 
 ---
 
@@ -566,7 +565,6 @@ appear at all**
 | | |
 |---|---|
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | How it works, running from source, building the exe, releasing, file layout |
-| [docs/TESTING.md](docs/TESTING.md) | Details of what has been tested (and what has not) |
 | [docs/INTERNALS.md](docs/INTERNALS.md) | Notes on the DRG-side API that was analysed |
 
 These documents are written in Japanese.

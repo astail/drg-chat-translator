@@ -12,7 +12,6 @@ exe を使わずにソースから動かす場合や、exe のビルド・リリ
 
 関連ドキュメント
 
-- [TESTING.md](TESTING.md) — どこまで動作確認できていて、どこが未確認か
 - [INTERNALS.md](INTERNALS.md) — 解析した DRG 側 API のメモ
 
 ---
@@ -268,8 +267,6 @@ lua5.4 tools/ipc_test.lua                  # 接続判定だけ（bridge 不要�
 `--defaults` は settings.ini の言語などを読まずに既定の設定で動かします（モックの合否は
 既定の設定＝日本語で読み書き、が前提のため）。`--selftest` は付けなくても既定の設定で動きます。
 
-どこまで動作確認できているかは [TESTING.md](TESTING.md) にまとめてあります。
-
 ### ファイルの置き場所（exe との違い）
 
 | | ソース | exe |
@@ -383,7 +380,6 @@ bridge/
 tools/                       実機なしで動かすテスト用スタブ
 docs/
   DEVELOPMENT.md             このファイル
-  TESTING.md                 動作確認の状況
   INTERNALS.md               解析した DRG 側 API のメモ
   README.txt                 配布 zip に入れる手引き（6言語・これだけ同梱）
 ```

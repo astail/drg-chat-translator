@@ -429,9 +429,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 - 已確認遊戲的語言設定裡有繁體中文和俄語的選項（來自遊戲本身的資料）。
   不過**這兩種語言下譯文能否實際顯示尚未確認**（日語、韓語、簡體中文已確認）。
 - **多人房間裡轉發能否送達同伴，尚未確認。**
-- 小視窗（`DRGT_OVERLAY_ENABLED=true`）在實機上的顯示效果也未確認。
-
-詳情請見 [docs/TESTING.md](docs/TESTING.md)（日文）。
+- 小視窗（`DRGT_OVERLAY_ENABLED=true`）已在實機上確認會顯示在遊戲上方，並且可以從輸入框發送。
 
 ---
 
@@ -507,7 +505,6 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 | | |
 |---|---|
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 運作方式、從原始碼使用的方法、建置 exe、發布、檔案結構 |
-| [docs/TESTING.md](docs/TESTING.md) | 驗證狀況的詳細內容（也包括哪些尚未驗證） |
 | [docs/INTERNALS.md](docs/INTERNALS.md) | 分析得到的 DRG 那一側 API 的筆記 |
 
 這些文件是用日文寫的。
