@@ -755,6 +755,14 @@ _M.update({
         "ru": "Показ в игре: %s",
     },
     "b.display.failed": {
+        "ja": "失敗",
+        "en": "failed",
+        "ko": "실패",
+        "zh": "失败",
+        "zh-tw": "失敗",
+        "ru": "не удалось",
+    },
+    "b.display.failed_overlay": {
         "ja": "失敗（オーバーレイに切替）",
         "en": "failed (switching to the overlay)",
         "ko": "실패 (오버레이로 전환)",

@@ -15,6 +15,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import drg_bridge  # noqa: E402
+import i18n  # noqa: E402
 from drg_bridge import CHAT, DEFAULTS, Bridge, setup_logging  # noqa: E402
 
 KEY = "sk-ant-secret-key-1234567890"
@@ -76,3 +77,75 @@ def test_bridge_chat_logs_are_marked(tmp_path, log_file) -> None:
     text = _read(log_file)
     assert "hidden incoming words" not in text
     assert "ないしょの発言です" not in text
+
+
+@pytest.fixture
+def isolated(tmp_path, monkeypatch):
+    """main() を走らせても、環境変数・表示言語・ログの設定がほかのテストに残らないようにする。"""
+    clean = {k: v for k, v in os.environ.items()
+             if not k.startswith(("DRGT_",) + drg_bridge.SECRET_ENV_NAMES)}
+    monkeypatch.setattr(os, "environ", clean)
+    monkeypatch.setattr(i18n, "_lang", i18n._lang)
+    yield tmp_path
+    root = logging.getLogger()
+    for h in list(root.handlers):
+        h.close()
+        root.removeHandler(h)
+    drg_bridge.log.setLevel(logging.NOTSET)
+
+
+def _run_main(tmp_path, ini_text: str) -> str:
+    ini = tmp_path / "settings.ini"
+    ini.write_text(ini_text, encoding="utf-8")
+    ipc = tmp_path / "ipc"
+    assert drg_bridge.main(["--fake", "--test", "hello", "--config", str(ini),
+                            "--dir", str(ipc)]) == 0
+    for h in logging.getLogger().handlers:
+        h.flush()
+    return (ipc / drg_bridge.LOG_FILE_NAME).read_text(encoding="utf-8")
+
+
+def test_settings_messages_reach_the_file(isolated) -> None:
+    """どの settings.ini を読んだか、書き間違いの警告が、ログファイルにも残ること。
+
+    以前はログを設定する前に settings.ini を読んでいたので、どちらもファイルに残らなかった。
+    """
+    text = _run_main(isolated, "DRGT_UI_LANG=en\nDRGT_MAX_WORKERS=four\n")
+    assert "Loaded settings:" in text
+    assert "DRGT_MAX_WORKERS is not a whole number" in text
+
+
+def test_key_from_settings_ini_is_masked(isolated) -> None:
+    """ログの設定より後に settings.ini から読んだ APIキーも伏せること。"""
+    key = "sk-ant-from-settings-ini-0123456789"
+    _run_main(isolated, f"DRGT_UI_LANG=en\nANTHROPIC_API_KEY={key}\n")
+    drg_bridge.log.warning("request failed with %s", key)
+    path = isolated / "ipc" / drg_bridge.LOG_FILE_NAME
+    for h in logging.getLogger().handlers:
+        h.flush()
+    text = path.read_text(encoding="utf-8")
+    assert key not in text and "sk-a****" in text
+
+
+def test_sdk_http_logs_are_not_written(log_file, capsys) -> None:
+    """翻訳 SDK の HTTP ライブラリの INFO（翻訳のたびの "HTTP Request: ..."）は出さないこと。"""
+    logging.getLogger("httpx").info('HTTP Request: POST https://api.anthropic.com/v1/messages')
+    drg_bridge.log.info("our own info line")
+    text = _read(log_file)
+    assert "HTTP Request" not in text and "HTTP Request" not in capsys.readouterr().err
+    assert "our own info line" in text
+
+
+def test_log_level_applies_to_our_logs(log_file) -> None:
+    drg_bridge.set_log_level("warning")
+    drg_bridge.log.info("hidden info")
+    drg_bridge.log.warning("shown warning")
+    text = _read(log_file)
+    assert "hidden info" not in text and "shown warning" in text
+    drg_bridge.set_log_level("info")
+
+
+def test_resolved_paths_use_one_separator() -> None:
+    """用語集・キャッシュのパスは OS の区切りにそろえること（Windows で \\ と / が混ざらない）。"""
+    path = drg_bridge.resolve_path("bridge/glossary.json")
+    assert path == os.path.normpath(path)

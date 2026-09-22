@@ -239,10 +239,19 @@ class TranslationError(RuntimeError):
     pass
 
 
+# DeepL に送る User-Agent。版は drg_bridge.py が set_user_agent で入れる
+_user_agent = "DRGTranslate"
+
+
+def set_user_agent(value: str) -> None:
+    global _user_agent
+    _user_agent = value
+
+
 def _http(url: str, *, data: bytes | None = None, headers: dict | None = None,
           timeout: float = 6.0) -> bytes:
     req = urllib.request.Request(url, data=data, headers=headers or {})
-    req.add_header("User-Agent", "DRGTranslate/0.1 (+local mod bridge)")
+    req.add_header("User-Agent", _user_agent)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.read()
