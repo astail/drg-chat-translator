@@ -375,7 +375,8 @@ One translation (one API call) is roughly 1,300 input tokens (system prompt incl
 30–60 output tokens, so with Haiku 4.5 **1000 translations cost around $1.5** (a rough
 figure). Lines handled by the glossary or the cache do not call the API, so they cost nothing.
 With Sonnet 5 / Opus 5, back-to-back translations read the system prompt from the prompt
-cache, and that part costs a tenth (Haiku 4.5's prompt is too short to be cached).
+cache, and that part costs a tenth (the first one after a gap of 5 minutes or more costs
+1.25x, because it writes the cache; Haiku 4.5's prompt is too short to be cached).
 
 What gets sent is adjusted to the model automatically, so leaving `DRGT_CLAUDE_EFFORT`
 and `DRGT_CLAUDE_REFUSAL_FALLBACK` on `auto` is fine.
