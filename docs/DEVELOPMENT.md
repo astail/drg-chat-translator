@@ -216,11 +216,17 @@ py -3 bridge\drg_bridge.py --config other.ini            # 別の設定ファイ
 ### テストを走らせる
 
 どれも APIキーは要りません。push と pull request のたびに CI（`.github/workflows/ci.yml`）で
-同じものが走ります。テストに使うものは `requirements-dev.txt` にまとめてあります。
+同じものが走ります（bridge の単体テストと通し確認は Linux と Windows の両方）。
+テストに使うものは `requirements-test.txt` に、exe のビルドに使うもの（PyInstaller）も
+合わせたものは `requirements-dev.txt` にまとめてあります。
 
 ```
-py -3 -m pip install -r requirements-dev.txt
+py -3 -m pip install -r requirements-test.txt
 ```
+
+`requirements*.txt` にはコメントに日本語があるので、1行目の `# -*- coding: utf-8 -*-` を
+消さないでください。無いと pip が OS の既定の文字コード（日本語の Windows なら cp932）で
+読み、`build.bat` の pip install が失敗します（`test_release_consistency.py` で縛っています）。
 
 **bridge の単体テストと lint**
 
@@ -248,6 +254,7 @@ py -3 bridge\drg_bridge.py --selftest --fake
 python3 bridge/drg_bridge.py --fake --defaults --dir /tmp/drgtl &
 lua5.4 tools/mock_test.lua /tmp/drgtl client
 lua5.4 tools/mock_test.lua /tmp/drgtl host
+MOCK_PLAYERS=1 lua5.4 tools/mock_test.lua /tmp/drgtl host   # ソロのホスト
 lua5.4 tools/ipc_test.lua                  # 接続判定だけ（bridge 不要）
 ```
 
@@ -326,11 +333,12 @@ git tag v0.5.5        # 上の2か所と揃えること
 git push origin v0.5.5
 ```
 
-2か所の番号とタグ名のどれかが食い違っているとビルドを止めます。
+2か所の番号がそろっているかは push と PR のたびに `bridge/test_release_consistency.py` が見て、
+タグ名との食い違いはリリースのときにビルドを止めます。
 `--selftest --fake` も CI で走るので、壊れたものは出ていきません。
 
-UE4SS のバージョンも同じステップで照合します。上げるときは
-`bridge/setup_wizard.py` の `UE4SS_VERSION` と `install.ps1` の `$UE4SSVersion` を
+UE4SS のバージョンと zip の SHA-256 も同じテストで照合します。上げるときは
+`bridge/setup_wizard.py` の `UE4SS_VERSION` / `UE4SS_SHA256` と `install.ps1` の `$UE4SSVersion` / `$KnownUE4SSSha256` を
 両方そろえてください（片方だけ上げると、exe で入れた人と `install.ps1` で
 入れた人に別の版の UE4SS が入ります）。
 

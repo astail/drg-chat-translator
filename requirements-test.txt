@@ -1,0 +1,6 @@
+# -*- coding: utf-8 -*-
+# テストと lint に使うもの（CI の ci.yml が入れる）。同梱する SDK も入れる
+# （--selftest が、同梱する anthropic がこちらの送る引数を受け付けるかを確かめるため）。
+-r requirements.txt
+pytest==9.1.1
+ruff==0.16.8

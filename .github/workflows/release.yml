@@ -52,47 +52,24 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: タグとソースのバージョンが一致するか確認
-        # v0.5.0 のタグなのに中身が 0.4.1、という取り違えを防ぐ。
-        # バージョンはアプリ全体で1つなので、bridge と MOD の番号もそろっているか見る
-        # （手動実行でも確認する。タグとの照合はタグのときだけ）。
-        # UE4SS のバージョンは exe のウィザードと install.ps1 に別々に書いてあるので、
-        # 2つがそろっているかもここで見る（片方だけ上げると入るものが変わる）。
+        # v0.5.0 のタグなのに中身が 0.4.1、という取り違えを防ぐ（タグのときだけ）。
+        # bridge と MOD の版、2つのインストーラの UE4SS の版と SHA-256 がそろっているかは、
+        # 次のテスト（bridge/test_release_consistency.py）が push と PR のたびにも見ている。
         # タグ名は環境変数経由で渡す（run に直接埋め込まない）
+        if: startsWith(github.ref, 'refs/tags/')
         shell: bash # ヒアドキュメントを使うので pwsh ではなく bash
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           python - <<'PY'
           import os, re, sys, pathlib
-
-          def read(path, pattern):
-              src = pathlib.Path(path).read_text(encoding="utf-8")
-              m = re.search(pattern, src, re.M)
-              return m.group(1) if m else "?"
-
-          bridge = read("bridge/drg_bridge.py", r'^VERSION\s*=\s*"([^"]+)"')
-          mod = read("mod/DRGTranslate/Scripts/main.lua", r'^local MOD_VERSION\s*=\s*"([^"]+)"')
-          if bridge != mod:
-              sys.exit(f"bridge の VERSION {bridge} と MOD の MOD_VERSION {mod} が一致しません")
-          if os.environ["GITHUB_REF"].startswith("refs/tags/"):
-              tag = os.environ["TAG_NAME"].lstrip("v")
-              if tag != bridge:
-                  sys.exit(f"タグ {tag} とソースのバージョン {bridge} が一致しません")
-
-          wizard = read("bridge/setup_wizard.py", r'^UE4SS_VERSION\s*=\s*"([^"]+)"')
-          ps1 = read("install.ps1", r'\$UE4SSVersion\s*=\s*"([^"]+)"')
-          if "?" in (wizard, ps1):
-              sys.exit("UE4SS のバージョンを読み取れませんでした（変数名が変わっていないか確認してください）")
-          if wizard != ps1:
-              sys.exit(f"setup_wizard.py の UE4SS_VERSION {wizard} と install.ps1 の UE4SSVersion {ps1} が一致しません")
-
-          # 展開前に照合する zip の SHA-256 も、2つのインストーラでそろっているか見る
-          wizard_sha = read("bridge/setup_wizard.py", r'^UE4SS_SHA256\s*=\s*"([0-9a-f]{64})"')
-          ps1_sha = read("install.ps1", r'"' + re.escape(wizard) + r'"\s*=\s*"([0-9a-f]{64})"')
-          if "?" in (wizard_sha, ps1_sha) or wizard_sha != ps1_sha:
-              sys.exit(f"UE4SS {wizard} の SHA-256 が setup_wizard.py（{wizard_sha}）と "
-                       f"install.ps1（{ps1_sha}）でそろっていません")
-          print(f"バージョン一致: {bridge}（UE4SS {wizard}）")
+          src = pathlib.Path("bridge/drg_bridge.py").read_text(encoding="utf-8")
+          m = re.search(r'^VERSION\s*=\s*"([^"]+)"', src, re.M)
+          bridge = m.group(1) if m else "?"
+          tag = os.environ["TAG_NAME"].lstrip("v")
+          if tag != bridge:
+              sys.exit(f"タグ {tag} とソースのバージョン {bridge} が一致しません")
+          print(f"バージョン一致: {bridge}")
           PY
 
       - name: テスト（APIキー不要）
