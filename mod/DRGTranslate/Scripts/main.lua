@@ -22,6 +22,10 @@ local OWN_ECHO_TTL_MS = 30000
 -- 中継行で訳と訳の間に入る区切り。bridge の DRGT_RELAY_SEPARATOR の既定値と同じ
 local RELAY_SEPARATOR = " / "
 local SEEN_SENDER_TTL_MS = 120000
+-- 名前がまだ分からないとき、自分が打った直後に届いた発言を「自分の発言か」決めるまで待つ時間。
+-- 自分の発言の戻りより先に他の隊員の発言が届くことがあるので、この間に届いた発言の
+-- 送信者が1人だけのときに限って、その人を自分とみなす
+local NAME_DECIDE_MS = 2000
 
 local UEHelpers = nil
 pcall(function() UEHelpers = require("UEHelpers") end)
@@ -41,6 +45,9 @@ local State = {
     display_ok     = nil,
     relay_queue    = {},
     last_relay_at  = 0,
+    -- 名前が分からないときに、自分の発言かを決めるまで持っておく発言と、決める時刻
+    name_candidates = nil,
+    name_decide_at  = 0,
 }
 
 U.set_debug(Cfg.debug)
@@ -391,6 +398,96 @@ local function pump_relay()
     U.in_game_thread(function() broadcast_relay(line) end)
 end
 
+--- 自分の発言として bridge に渡し、訳が返ったら2通目として送る。
+--- 訳すかどうか（ON/OFF・翻訳元の言語・短すぎる発言・/ などで始まる発言）は
+--- bridge が settings.ini に従って決める。訳さないときは空の結果が返る
+local function request_outgoing(sender, text)
+    U.dbg("outgoing detected: %s", text)
+    IPC.request("out", sender, text, function(_, outtext)
+        if outtext == "" then return end
+        U.in_game_thread(function() send_chat(sender, outtext, 0) end)
+    end)
+end
+
+--- 他の隊員の発言として訳す。ゲームスレッドから呼ぶこと（ホストかを UObject に聞くため）。
+--- 受信を訳すか・中継するかは bridge が settings.ini に従って決める
+--- （DRGT_INCOMING_ENABLED / DRGT_RELAY_ENABLED）。ここでは「ホストか」だけを伝える
+local function request_incoming(sender, text)
+    local relay = is_host() and player_count() ~= 1
+    U.dbg("incoming: [%s] %s (relay=%s)", sender, text, tostring(relay))
+    IPC.request("in", sender, text, function(_, outtext, relay_lines)
+        U.in_game_thread(function()
+            if outtext ~= "" then display_line(outtext) end
+        end)
+        if relay_lines and #relay_lines > 0 then queue_relay(relay_lines) end
+    end, nil, relay)
+end
+
+--- 名前が分かっているときの振り分け。自分の名前の発言は、実際に自分が打った合図
+--- （on_outgoing）が残っているときだけ自分の発言とみなす。名前だけで決めると、
+--- 同じ名前の隊員の発言まで自分の発言として訳して送ってしまう
+local function route_message(sender, text)
+    local me = get_player_name()
+    if me ~= "" and sender == me then
+        if take_local_send() then
+            request_outgoing(sender, text)
+        else
+            -- 自分の名前なのに合図が無い: 同じ名前の隊員か、合図の期限を過ぎて届いた
+            -- 自分の発言。どちらか決められないので何もしない
+            U.dbg("same name as you but you did not just send, ignoring: %s", text)
+        end
+        return
+    end
+    request_incoming(sender, text)
+end
+
+--- 候補の送信者が1人だけならその名前を、そうでなければ nil を返す。
+local function single_sender(candidates)
+    local only = nil
+    for _, c in ipairs(candidates) do
+        if c.sender == "" or (only ~= nil and c.sender ~= only) then return nil end
+        only = c.sender
+    end
+    return only
+end
+
+--- 名前が分からないときに集めた発言から、自分を決めて振り分ける。ゲームスレッドから呼ぶ。
+--- 送信者が1人だけならそれが自分。複数いたら（自分の戻りより先に他の隊員の発言が
+--- 届いた）どれが自分か分からないので、名前は覚えず、すべて他の隊員の発言として扱う。
+--- 取り違えると、その隊員の発言を自分の発言として訳し、その人の名前で送ってしまう
+local function decide_name(candidates)
+    if get_player_name() == "" then
+        local only = single_sender(candidates)
+        if only == nil then
+            U.dbg("could not tell which message was yours (%d messages), not learning your name yet",
+                  #candidates)
+            for _, c in ipairs(candidates) do request_incoming(c.sender, c.text) end
+            return
+        end
+        State.player_name = only
+        IPC.send("NAME", only)
+        U.dbg("your name: %s", only)
+    end
+    -- 候補を集め始めたときに合図を1つ使っているので、自分の最初の発言にはそれを当てる
+    local me, used = get_player_name(), false
+    for _, c in ipairs(candidates) do
+        if c.sender == me and not used then
+            used = true
+            request_outgoing(c.sender, c.text)
+        else
+            route_message(c.sender, c.text)
+        end
+    end
+end
+
+--- 集めた候補の決め時が来ていれば、ゲームスレッドで決める。ポーリングループから呼ぶ。
+local function pump_name_candidates()
+    if State.name_candidates == nil or State.now < State.name_decide_at then return end
+    local candidates = State.name_candidates
+    State.name_candidates = nil
+    U.in_game_thread(function() decide_name(candidates) end)
+end
+
 local function on_incoming(Context, MsgParam)
     if not State.enabled then return end
     if not IPC.connected then return end
@@ -414,46 +511,24 @@ local function on_incoming(Context, MsgParam)
             State.seen_senders[sender] = State.now + SEEN_SENDER_TTL_MS
         end
 
-        -- 自分の発言かどうかは、実際に自分が打った合図（on_outgoing）が残っているかで決める。
-        -- 名前だけで決めると、同じ名前の隊員の発言まで自分の発言として訳して送ってしまう。
-        local me = get_player_name()
-        local mine = false
-        if me == "" or sender == me then
-            mine = take_local_send()
-            if not mine and sender == me then
-                -- 自分の名前なのに合図が無い: 同じ名前の隊員か、合図の期限を過ぎて届いた
-                -- 自分の発言。どちらか決められないので何もしない
-                U.dbg("same name as you but you did not just send, ignoring: %s", text)
-                return
-            end
-        end
-        if mine and me == "" and sender ~= "" then
-            State.player_name = sender
-            IPC.send("NAME", sender)
-            U.dbg("your name: %s", sender)
-        end
-
-        if mine then
-            -- 訳すかどうか（ON/OFF・翻訳元の言語・短すぎる発言・/ などで始まる発言）は
-            -- bridge が settings.ini に従って決める。訳さないときは空の結果が返る
-            U.dbg("outgoing detected: %s", text)
-            IPC.request("out", sender, text, function(_, outtext)
-                if outtext == "" then return end
-                U.in_game_thread(function() send_chat(sender, outtext, 0) end)
-            end)
+        if get_player_name() ~= "" then
+            route_message(sender, text)
             return
         end
 
-        -- 受信を訳すか・中継するかは bridge が settings.ini に従って決める
-        -- （DRGT_INCOMING_ENABLED / DRGT_RELAY_ENABLED）。ここでは「ホストか」だけを伝える
-        local relay = is_host() and player_count() ~= 1
-        U.dbg("incoming: [%s] %s (relay=%s)", sender, text, tostring(relay))
-        IPC.request("in", sender, text, function(_, outtext, relay_lines)
-            U.in_game_thread(function()
-                if outtext ~= "" then display_line(outtext) end
-            end)
-            if relay_lines and #relay_lines > 0 then queue_relay(relay_lines) end
-        end, nil, relay)
+        -- 名前がまだ分からない。自分が打った直後（合図が残っている）なら、この発言は
+        -- 自分の発言の戻りかもしれないが、戻りより先に他の隊員の発言が届くこともある。
+        -- すぐには決めず、しばらく集めてから decide_name で決める
+        if State.name_candidates ~= nil then
+            State.name_candidates[#State.name_candidates + 1] = { sender = sender, text = text }
+            return
+        end
+        if take_local_send() then
+            State.name_candidates = { { sender = sender, text = text } }
+            State.name_decide_at = State.now + NAME_DECIDE_MS
+            return
+        end
+        request_incoming(sender, text)
     end)
 
     if not ok then U.dbg("on_incoming error: %s", tostring(err)) end
@@ -600,6 +675,7 @@ local function init()
         IPC.poll()
         IPC.flush()
         pump_relay()
+        pump_name_candidates()
 
         if (State.now - State.last_alive_at) >= 1000 then
             State.last_alive_at = State.now
