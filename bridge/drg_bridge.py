@@ -455,10 +455,43 @@ def decode_line(line: str) -> list[str]:
     return [unesc(f) for f in line.split("\t")]
 
 
+class AlreadyRunning(RuntimeError):
+    """同じ通信フォルダで、別の bridge がすでに動いている。"""
+
+
+def _try_lock(f) -> bool:
+    """開いたファイルに排他ロックをかける。取れなければ False。
+
+    OS のロックなので、プロセスが落ちても自然に外れる（前回が異常終了しても次は起動できる）。
+    """
+    try:
+        if os.name == "nt":
+            import msvcrt
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return False
+    return True
+
+
 class Ipc:
     def __init__(self, directory: str):
         self.dir = directory
         os.makedirs(directory, exist_ok=True)
+        # 同じ通信フォルダで bridge が2つ動くと、どちらも同じ要求を読んで翻訳 API を二重に呼ぶ
+        # （MOD は先に届いた返事しか使わないので、利用者からは料金が倍になるだけに見える）。
+        # ファイルを空にする前にロックを取り、取れなければ起動しない
+        self._lock = None
+        try:
+            self._lock = open(os.path.join(directory, "bridge.lock"), "a+", encoding="utf-8")
+        except OSError:
+            pass  # ロックのファイルすら作れない場所なら、確かめずに動かす
+        if self._lock is not None and not _try_lock(self._lock):
+            self._lock.close()
+            raise AlreadyRunning(directory)
         self.p_in = os.path.join(directory, "to_bridge.txt")
         self.p_out = os.path.join(directory, "to_game.txt")
         self.p_alive = os.path.join(directory, "bridge.alive")
@@ -554,14 +587,22 @@ class Ipc:
             os.remove(self.p_alive)
         except OSError:
             pass
+        if self._lock is not None:
+            self._lock.close()  # ロックも外れる
+            self._lock = None
 
 
 class Bridge:
-    def __init__(self, cfg: dict, directory: str, fake: bool = False):
+    def __init__(self, cfg: dict, directory: str, fake: bool = False, ipc: bool = True):
+        """ipc=False なら通信フォルダに触らない（--test とウィザードの疎通確認）。
+
+        通信フォルダを使うと、起動時にファイルを空にするので、ゲーム中に動いている bridge の
+        進行中の要求を消してしまう。翻訳を試すだけならゲームとつながる必要はない。
+        """
         check_formats(cfg)
         check_relay_limit(cfg)
         self.cfg = cfg
-        self.ipc = Ipc(directory)
+        self.ipc = Ipc(directory) if ipc else None
         self.stop_event = threading.Event()
 
         net = cfg["network"]
@@ -1090,7 +1131,7 @@ def run_setup(env_path: str, args) -> bool:
         cfg = load_config(env_path)
         if args.provider:
             cfg["provider"] = args.provider
-        return Bridge(cfg, ipc_dir(args.dir))
+        return Bridge(cfg, ipc_dir(args.dir), ipc=False)
 
     return setup_wizard.run(
         env_path=env_path,
@@ -1140,7 +1181,10 @@ def main(argv: list[str] | None = None) -> int:
         cfg["provider"] = args.provider
 
     try:
-        bridge = Bridge(cfg, directory, fake=args.fake)
+        bridge = Bridge(cfg, directory, fake=args.fake, ipc=not args.test)
+    except AlreadyRunning:
+        log.error(t("b.already_running"), directory)
+        return 3
     except ValueError as exc:
         log.error("%s", exc)
         return 2
