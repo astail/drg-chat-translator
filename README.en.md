@@ -533,7 +533,10 @@ appear at all**
   nothing is shown, so set `DRGT_OVERLAY_ENABLED=true` in `settings.ini` to get a small
   window instead. It appears only when a translation arrives and hides after 12 seconds
   (`DRGT_OVERLAY_HIDE_AFTER`). The game's display mode has to be
-  "Windowed (Fullscreen)" for it to stay in front.
+  "Windowed (Fullscreen)" for it to stay in front. Its ✕ button and Esc only hide the
+  window; translation keeps running, and the window comes back with the next
+  translation. What you type in its input box is sent like chat typed in the game:
+  the original first, then the translation.
 
 ---
 

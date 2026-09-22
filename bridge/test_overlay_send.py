@@ -16,6 +16,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from drg_bridge import DEFAULTS, Bridge, decode_line  # noqa: E402
+from translate import TranslationError  # noqa: E402
 
 SLOW = 4.0  # 翻訳にかかる時間。生存通知の間隔（1秒）より十分長くする
 
@@ -72,12 +73,79 @@ def test_incoming_is_handled_while_translating(slow_bridge) -> None:
 
 
 def test_overlay_messages_keep_their_order(slow_bridge) -> None:
-    """続けて打った文は、打った順に送られること。"""
+    """続けて打った文は、打った順に（それぞれ原文 → 訳の順で）送られること。"""
     slow_bridge.outbound_from_overlay.put("一つ目です")
     slow_bridge.outbound_from_overlay.put("二つ目です")
     deadline = time.time() + SLOW * 2 + 2
-    while time.time() < deadline and len(_said(slow_bridge)) < 2:
+    while time.time() < deadline and len(_said(slow_bridge)) < 4:
         time.sleep(0.1)
     said = _said(slow_bridge)
-    assert len(said) == 2
-    assert "一つ目" in said[0] and "二つ目" in said[1]
+    assert said[0] == "一つ目です" and said[2] == "二つ目です"
+    assert "[en] 一つ目です" in said[1] and "[en] 二つ目です" in said[3]
+
+
+@pytest.fixture
+def bridge(tmp_path):
+    cfg = copy.deepcopy(DEFAULTS)
+    cfg["cache"]["enabled"] = False
+    b = Bridge(cfg, str(tmp_path), fake=True)
+    b.overlay_attached = True
+    yield b
+    b.pool.shutdown(wait=True)
+
+
+def _shown(b: Bridge) -> list[tuple[str, str]]:
+    out = []
+    while not b.overlay_queue.empty():
+        out.append(b.overlay_queue.get_nowait())
+    return out
+
+
+def test_overlay_sends_original_then_translation(bridge) -> None:
+    """チャット欄から打ったときと同じく、原文を送ってから訳を2通目として送ること。"""
+    bridge._do_overlay_outgoing("回復お願いします")
+    said = _said(bridge)
+    assert said[0] == "回復お願いします"
+    assert said[1].startswith("[en] 回復お願いします")
+
+
+@pytest.mark.parametrize("setting, value, text", [
+    ("enabled", False, "回復お願いします"),        # 送信の翻訳を切っている
+    ("source", "ja", "hello everyone"),             # 翻訳元の言語でない
+    ("ignore_prefixes", ["/"], "/help これはコマンド"),  # 訳さない前置き
+])
+def test_overlay_follows_outgoing_settings(bridge, setting, value, text) -> None:
+    """入力欄の文も、チャット欄と同じ設定で訳すかを決めること。訳さない文は原文だけ送る。"""
+    bridge.cfg["outgoing"][setting] = value
+    bridge._do_overlay_outgoing(text)
+    assert _said(bridge) == [text]
+
+
+def test_overlay_tells_when_translation_failed(bridge) -> None:
+    """翻訳に失敗したら原文だけを送り、そのことをオーバーレイに出すこと（黙って消えない）。"""
+    def fail(text, source, targets):
+        raise TranslationError("down")
+
+    bridge.translator.translate_multi = fail
+    bridge._do_overlay_outgoing("回復お願いします")
+    assert _said(bridge) == ["回復お願いします"]
+    assert any(kind == "sys" for kind, _ in _shown(bridge))
+
+
+def test_failed_translation_is_not_the_original_again(bridge) -> None:
+    """原文を付ける設定でも、訳が1つも無ければ原文をもう一度送らないこと。"""
+    def fail(text, source, targets):
+        raise TranslationError("down")
+
+    bridge.cfg["outgoing"]["include_source"] = True
+    bridge.translator.translate_multi = fail
+    assert bridge.translate_outgoing("回復お願いします") == ""
+    bridge._do_overlay_outgoing("回復お願いします")
+    assert _said(bridge) == ["回復お願いします"]
+    assert any(kind == "sys" for kind, _ in _shown(bridge))
+
+
+def test_include_source_still_puts_the_original_first(bridge) -> None:
+    bridge.cfg["outgoing"]["include_source"] = True
+    joined = bridge.translate_outgoing("回復お願いします")
+    assert joined.startswith("回復お願いします / [en] 回復お願いします")

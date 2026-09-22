@@ -1019,6 +1019,14 @@ _M.update({
         "zh-tw": "尚未與遊戲連線，無法發送",
         "ru": "Нет связи с игрой — отправить нельзя",
     },
+    "o.not_translated": {
+        "ja": "翻訳できなかったので、原文だけを送りました",
+        "en": "Could not translate it, so only the original was sent",
+        "ko": "번역하지 못해 원문만 보냈습니다",
+        "zh": "未能翻译，只发送了原文",
+        "zh-tw": "未能翻譯，只發送了原文",
+        "ru": "Перевести не удалось — отправлен только оригинал",
+    },
     "o.update_error": {
         "ja": "オーバーレイの更新でエラー",
         "en": "Error while updating the overlay",
