@@ -656,12 +656,20 @@ class Bridge:
             translated, detected = self.translator.translate(text, None, target)
             return detected, translated, {}
 
-        pending = list(targets)
-        if not skip_self and hit is None and target not in pending:
-            pending.append(target)
-        results = self.translator.translate_multi(text, None, pending)
-        if not skip_self and hit is not None:
-            results.setdefault(target, hit)
+        wanted = list(targets)
+        if not skip_self and target not in wanted:
+            wanted.append(target)
+        # 用語集に訳がある言語は API に頼まない（送信側の translate_outgoing と同じ）
+        results: dict[str, str] = {}
+        pending: list[str] = []
+        for code in wanted:
+            found = hit if code == target else self.glossary.lookup_incoming(text, code)
+            if found is not None:
+                results[code] = found
+            else:
+                pending.append(code)
+        if pending:
+            results.update(self.translator.translate_multi(text, None, pending))
         relayed: dict[str, str] = {}
         for code in targets:
             value = results.get(code)

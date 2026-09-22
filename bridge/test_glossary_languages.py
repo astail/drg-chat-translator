@@ -84,6 +84,48 @@ def test_japanese_only_entry_is_not_used_for_other_languages(bridge_for) -> None
     assert b.translate_incoming("gg")[1] == "[ko] gg"
 
 
+GG = {"gg": {"ja": "お疲れさま！", "ko": "수고했어!", "zh": "辛苦了！"}}
+
+
+def _spy(b: Bridge) -> list[list[str]]:
+    """translate_multi に頼まれた言語を記録する。"""
+    calls: list[list[str]] = []
+    real = b.translator.translate_multi
+
+    def spy(text, source, targets):
+        calls.append(list(targets))
+        return real(text, source, targets)
+
+    b.translator.translate_multi = spy
+    return calls
+
+
+def test_host_uses_glossary_for_every_language(bridge_for) -> None:
+    """ホストの中継でも、用語集にある言語は API を呼ばずに用語集の訳を使うこと。"""
+    b = bridge_for("ja", GG)
+    calls = _spy(b)
+    _, shown, relayed = b.translate_incoming("gg", relay=True)
+    assert calls == []
+    assert shown == "お疲れさま！"
+    assert relayed == {"ja": "お疲れさま！", "ko": "수고했어!", "zh": "辛苦了！"}
+
+
+def test_host_asks_api_only_for_missing_languages(bridge_for) -> None:
+    """用語集に無い言語だけを API に頼むこと。"""
+    b = bridge_for("ja", {"gg": {"ja": "お疲れさま！"}})
+    calls = _spy(b)
+    _, shown, relayed = b.translate_incoming("gg", relay=True)
+    assert calls == [["ko", "zh"]]
+    assert shown == "お疲れさま！"
+    assert relayed["ja"] == "お疲れさま！" and relayed["ko"] == "[ko] gg"
+
+
+def test_client_and_host_show_the_same_translation(bridge_for) -> None:
+    """同じ発言なら、クライアントのときとホストのときで自分に見える訳が同じこと。"""
+    b = bridge_for("ja", GG)
+    assert b.translate_incoming("gg")[1] == b.translate_incoming("gg", relay=True)[1]
+
+
 def test_chants_are_kept_and_not_relayed_for_everyone(bridge_for) -> None:
     """掛け声はどの言語の人にもそのまま出し、中継もしないこと。"""
     b = bridge_for("zh", {"rock and stone": {"*": "Rock and Stone!"}})
