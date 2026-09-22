@@ -63,7 +63,8 @@ jobs:
         run: |
           for role in client host; do
             dir="$RUNNER_TEMP/mock-$role"
-            python bridge/drg_bridge.py --fake --no-setup --dir "$dir" > "$RUNNER_TEMP/bridge-$role.log" 2>&1 &
+            # --defaults: モックの合否は既定の設定（日本語で読み書き）が前提
+            python bridge/drg_bridge.py --fake --defaults --dir "$dir" > "$RUNNER_TEMP/bridge-$role.log" 2>&1 &
             pid=$!
             sleep 2
             (cd tools && lua5.4 mock_test.lua "$dir" "$role")

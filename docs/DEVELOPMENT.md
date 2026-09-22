@@ -183,10 +183,14 @@ py -3 bridge\drg_bridge.py --test "watch out, swarm incoming"
 ```
 
 ```
-入力      : watch out, swarm incoming
-言語判定  : en
-受信用翻訳: 気をつけろ、大群がやってくる  (元言語: en)
+input       : watch out, swarm incoming
+detected    : en
+incoming    : 気をつけろ、大群がやってくる  (source: en)
+relay (host): Karl: 気をつけろ、大群がやってくる / 조심해, 무리가 온다 / 小心，虫群来了
 ```
+
+自分が打った場合の訳（`outgoing`）は翻訳元の言語の発言のときに、他の隊員が言った場合の訳
+（`incoming`）はそれ以外のときに出ます。翻訳元を `auto` にしているときは両方出ます。
 
 このように訳が出れば準備完了です。
 
@@ -239,7 +243,7 @@ py -3 bridge\drg_bridge.py --selftest --fake
 **MOD のロジック**（UE4SS を模したスタブ。Lua 5.4 が必要）
 
 ```bash
-python3 bridge/drg_bridge.py --fake --dir /tmp/drgtl &
+python3 bridge/drg_bridge.py --fake --defaults --dir /tmp/drgtl &
 lua5.4 tools/mock_test.lua /tmp/drgtl client
 lua5.4 tools/mock_test.lua /tmp/drgtl host
 lua5.4 tools/ipc_test.lua                  # 接続判定だけ（bridge 不要）
@@ -247,6 +251,8 @@ lua5.4 tools/ipc_test.lua                  # 接続判定だけ（bridge 不要�
 
 `--fake` は翻訳APIを呼ばずに目印を付けて返すテスト専用モードです。
 `provider` として設定から選ぶことはできません。
+`--defaults` は settings.ini の言語などを読まずに既定の設定で動かします（モックの合否は
+既定の設定＝日本語で読み書き、が前提のため）。`--selftest` は付けなくても既定の設定で動きます。
 
 どこまで動作確認できているかは [TESTING.md](TESTING.md) にまとめてあります。
 
