@@ -358,8 +358,9 @@ RELAY_MAX_RATIO = 3
 RELAY_MIN_LIMIT = 80
 # 漢字・かな・ハングル1文字は、ラテン文字・キリル文字に訳すと数文字になる。
 # その向きの訳では原文のこれらの文字をこの倍数で数える（中国語の35文字の発言の
-# 英訳は140文字を超える）
-RELAY_DENSE_WEIGHT = 3
+# 英訳は140文字を超える＝約4倍）。ラテン文字の言語は文字の種類での確認が効かず
+# 長さだけが頼りなので、実測に余裕を持たせた程度（2 × 3 = 約6倍）にとどめる
+RELAY_DENSE_WEIGHT = 2
 
 
 def relay_source_length(original: str, target: str) -> int:
