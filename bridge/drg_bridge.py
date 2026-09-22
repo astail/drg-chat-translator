@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import i18n  # noqa: E402
 from i18n import t  # noqa: E402
 from translate import (  # noqa: E402
+    DENSE_LANGUAGES,
     Cache,
     Glossary,
     StubProvider,
@@ -43,6 +44,7 @@ from translate import (  # noqa: E402
     Translator,
     build_provider,
     check_claude_params,
+    count_dense,
     detect_language,
     has_script_of,
     is_translatable,
@@ -351,9 +353,20 @@ def check_formats(cfg: dict) -> None:
             cfg[section][key] = default
 
 
-# 中継する訳の長さの上限。原文のこの倍数か、下の文字数の大きいほうまで
+# 中継する訳の長さの上限。原文の長さのこの倍数か、下の文字数の大きいほうまで
 RELAY_MAX_RATIO = 3
 RELAY_MIN_LIMIT = 80
+# 漢字・かな・ハングル1文字は、ラテン文字・キリル文字に訳すと数文字になる。
+# その向きの訳では原文のこれらの文字をこの倍数で数える（中国語の35文字の発言の
+# 英訳は140文字を超える）
+RELAY_DENSE_WEIGHT = 3
+
+
+def relay_source_length(original: str, target: str) -> int:
+    """長さの上限を決めるための原文の長さ。訳す先に合わせて文字の重みを変える。"""
+    if (target or "").split("-")[0].lower() in DENSE_LANGUAGES:
+        return len(original)
+    return len(original) + (RELAY_DENSE_WEIGHT - 1) * count_dense(original)
 
 
 def relay_text_ok(value: str, original: str, target: str, check_script: bool) -> str | None:
@@ -366,7 +379,7 @@ def relay_text_ok(value: str, original: str, target: str, check_script: bool) ->
     text = "".join(ch for ch in " ".join(value.split()) if ch.isprintable())
     if not text or text.startswith("/"):
         return None
-    if len(text) > max(RELAY_MIN_LIMIT, RELAY_MAX_RATIO * len(original)):
+    if len(text) > max(RELAY_MIN_LIMIT, RELAY_MAX_RATIO * relay_source_length(original, target)):
         return None
     if check_script and not has_script_of(text, target):
         return None
