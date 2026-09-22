@@ -54,7 +54,7 @@ from translate import (  # noqa: E402
     set_user_agent,
 )
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 set_user_agent(f"DRGTranslate/{VERSION} (+https://github.com/astail/drg-chat-translator)")
 log = logging.getLogger("drgtl")
 
