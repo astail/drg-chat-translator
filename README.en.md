@@ -52,8 +52,8 @@ setup cannot finish.
 | Service | Strengths | Price | Sign up / create a key |
 |---|---|---|---|
 | **DeepL** (default) | The most natural of the machine translators | Has a free tier. Paid plan once you use it up | https://www.deepl.com/pro-api |
-| **Claude** (Anthropic) | Handles slang, abbreviations and typos. Reads `gg`, `bulk inc`, `res me` in context | Pay for what you use. With the default Claude Haiku 4.5, **about $1.5 per 1000 translations** | https://platform.claude.com/settings/keys |
-| **OpenAI** | Handles slang, abbreviations and typos. Reads `gg`, `bulk inc`, `res me` in context | Pay for what you use. With the default gpt-4o-mini, **about $0.1–0.2 per 1000 translations** | https://platform.openai.com/api-keys |
+| **Claude** (Anthropic) | Handles slang, abbreviations and typos. Reads `bulk inc`, `res me` in context | Pay for what you use. With the default Claude Haiku 4.5, **about $1.5 per 1000 translations** | https://platform.claude.com/settings/keys |
+| **OpenAI** | Handles slang, abbreviations and typos. Reads `bulk inc`, `res me` in context | Pay for what you use. With the default gpt-4o-mini, **about $0.1–0.2 per 1000 translations** | https://platform.openai.com/api-keys |
 
 If your chat is mostly ordinary conversation, DeepL is enough. Pick Claude or OpenAI if
 you want better accuracy in public lobbies full of abbreviations and typos. Set phrases
@@ -439,7 +439,7 @@ say, so that is what is used.
 
 Each `incoming` entry maps language codes to translations. Use `"*"` for text that is used as is in every language.
 An empty translation (`{"*": ""}`) means the word is left alone: no API call, nothing shown, nothing relayed.
-The bundled glossary does this for abbreviations not worth translating, such as `r?` (ready?) and `nt` (nice try).
+The bundled glossary does this for abbreviations not worth translating, such as `gg`, `r?` (ready?) and `nt` (nice try).
 
 Keys are matched ignoring spaces, punctuation and letter case, so `rock and stone` and
 `Rock and Stone!!` are treated as the same phrase.

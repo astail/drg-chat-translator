@@ -40,7 +40,7 @@ def _spy(b) -> list[list[str]]:
     return calls
 
 
-@pytest.mark.parametrize("text", ["r", "r?", "R?", "rdy?", "nt", "NT!"])
+@pytest.mark.parametrize("text", ["gg", "GG!", "r", "r?", "R?", "rdy?", "nt", "NT!"])
 @pytest.mark.parametrize("host", [False, True])
 def test_skip_words_are_not_translated_or_relayed(bridge, text, host) -> None:
     """同梱の用語集の「訳さない語」は、API を呼ばず、表示も中継もしないこと。"""
