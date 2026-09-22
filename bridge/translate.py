@@ -86,6 +86,16 @@ def has_script_of(text: str, lang: str) -> bool:
     return any(counts[name] > 0 for name in scripts)
 
 
+# 漢字・かな・ハングルで書く言語。1文字あたりの情報が多い
+DENSE_LANGUAGES = ("ja", "ko", "zh")
+
+
+def count_dense(text: str) -> int:
+    """漢字・かな・ハングルの文字数。"""
+    counts = _script_counts(text)
+    return counts["han"] + counts["kana"] + counts["hangul"]
+
+
 _URL_RE = re.compile(r"https?://\S+")
 _EMOTE_RE = re.compile(r"^[\W\d_]+$", re.UNICODE)
 

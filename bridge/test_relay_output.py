@@ -45,6 +45,34 @@ def test_short_original_still_allows_normal_length() -> None:
     assert relay_text_ok("了解、そっちに向かう", "ok", "ja", True) == "了解、そっちに向かう"
 
 
+ZH_LONG = "大家小心，左边洞里有一大群虫子冲过来了，赶紧回到补给点附近集合，别散开"
+JA_LONG = "左の洞窟から大群が来てるから、急いで補給ポッドの近くに集まって、ばらけないで"
+
+
+@pytest.mark.parametrize("original, target, value", [
+    (ZH_LONG, "en", "Everyone be careful, a huge swarm of bugs is rushing out of the cave on the "
+                    "left, hurry back and regroup near the resupply point, don't split up"),
+    (ZH_LONG, "ru", "Всем осторожно, из пещеры слева несётся огромный рой жуков, быстро "
+                    "возвращайтесь и собирайтесь у точки снабжения, не разбегайтесь"),
+    (JA_LONG, "en", "A huge swarm is coming from the cave on the left, so hurry and gather near "
+                    "the resupply pod, and don't split up"),
+])
+def test_dense_original_allows_longer_latin_translation(original, target, value) -> None:
+    """漢字・かなの発言の英訳・露訳は原文の文字数の3倍を超えやすいので、捨てないこと。"""
+    assert relay_text_ok(value, original, target, True) == value
+
+
+def test_dense_to_dense_is_not_widened() -> None:
+    """漢字・かな同士の訳では重みを付けない（中国語の発言の日本語訳が長すぎたら捨てる）。"""
+    original = "小心" * 15
+    assert relay_text_ok("あ" * 100, original, "ja", True) is None
+
+
+def test_dense_original_still_drops_runaway_output() -> None:
+    """重みを付けても、原文と釣り合わない長さの出力は捨てること。"""
+    assert relay_text_ok("x" * 300, "小心左边", "en", True) is None
+
+
 def test_slash_is_dropped() -> None:
     """/ で始まる訳は捨てること（コマンドとして解釈されうる）。"""
     assert relay_text_ok("/kick Karl", ORIGINAL, "en", True) is None
