@@ -242,6 +242,7 @@ py -3 bridge\drg_bridge.py --selftest --fake
 python3 bridge/drg_bridge.py --fake --dir /tmp/drgtl &
 lua5.4 tools/mock_test.lua /tmp/drgtl client
 lua5.4 tools/mock_test.lua /tmp/drgtl host
+lua5.4 tools/ipc_test.lua                  # 接続判定だけ（bridge 不要）
 ```
 
 `--fake` は翻訳APIを呼ばずに目印を付けて返すテスト専用モードです。

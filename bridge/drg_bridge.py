@@ -463,6 +463,9 @@ class Ipc:
         self._offset = 0
         self._buf = b""
         self._wlock = threading.Lock()
+        # 起動ごとに変わる番号。bridge.alive に書き、MOD が「bridge が入れ替わった」
+        # （再起動で to_bridge.txt が空になり HELLO / NAME が消えた）ことに気づけるようにする
+        self.boot_id = int(time.time() * 1000)
         for p in (self.p_out, self.p_in):
             try:
                 with open(p, "w", encoding="utf-8"):
@@ -524,7 +527,9 @@ class Ipc:
     def heartbeat(self) -> None:
         try:
             with open(self.p_alive, "w", encoding="utf-8") as f:
-                f.write(f"{VERSION} {int(time.time())}\n")
+                # 時刻は最後に置く（MOD は行末の数字を時刻として読む。起動番号を知らない
+                # 古い MOD でも読めるように）
+                f.write(f"{VERSION} {self.boot_id} {int(time.time())}\n")
         except OSError:
             pass
 

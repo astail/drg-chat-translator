@@ -56,6 +56,9 @@ jobs:
         # 同梱する anthropic がこちらの送る引数を受け付けるかも、ここで確かめる
         run: python bridge/drg_bridge.py --selftest --fake --dir "$RUNNER_TEMP/selftest"
 
+      - name: MOD の接続判定（bridge 不要）
+        run: lua5.4 tools/ipc_test.lua
+
       - name: MOD のロジック（UE4SS を模したスタブ）
         run: |
           for role in client host; do
