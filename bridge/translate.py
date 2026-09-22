@@ -544,8 +544,10 @@ class ClaudeProvider(LLMProvider):
 
     def __init__(self, opts: dict, timeout: float = 6.0):
         super().__init__(opts, timeout)
-        self._warned_effort = False
         self._warned_model = False
+        # 設定の書き間違いは、翻訳のたびに 400 になる前に起動時に知らせて auto に戻す
+        self.effort = self._checked_effort(self.opts.get("effort"))
+        self.refusal_fallback = self._checked_fallback(self.opts.get("refusal_fallback"))
 
     def _get_client(self):
         if self._client is not None:
@@ -585,6 +587,15 @@ class ClaudeProvider(LLMProvider):
     )
     _FALLBACK_CAPABLE = ("claude-opus-5", "claude-fable-5", "claude-mythos-5")
 
+    # effort に書ける値。xhigh は Opus 4.7 からなので、4.6 の世代は受け付けない
+    _EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
+    _NO_XHIGH = ("claude-opus-4-6", "claude-sonnet-4-6")
+    # thinking を disabled にできるのは effort が high 以下のときだけ（xhigh / max だと 400）
+    _DISABLE_THINKING_UP_TO_HIGH = ("claude-opus-5",)
+
+    _TRUE = ("1", "true", "yes", "on")
+    _FALSE = ("0", "false", "no", "off")
+
     def _is_modern(self) -> bool:
         return self.model.startswith(self._EFFORT_CAPABLE)
 
@@ -594,26 +605,68 @@ class ClaudeProvider(LLMProvider):
         self._warned_model = True
         log.warning(t("p.unknown_model"), self.model)
 
+    def effort_levels(self) -> tuple[str, ...]:
+        """このモデルの effort に書ける値（auto を除く）。effort を送らないモデルなら空。"""
+        if not self._is_modern():
+            return ()
+        if self.model.startswith(self._NO_XHIGH):
+            return tuple(v for v in self._EFFORT_LEVELS if v != "xhigh")
+        return self._EFFORT_LEVELS
+
+    def _checked_effort(self, value) -> str:
+        """DRGT_CLAUDE_EFFORT を確かめる。使えない値は警告して auto にする。"""
+        effort = str(value or "auto").strip().lower() or "auto"
+        if effort == "auto":
+            return effort
+        levels = self.effort_levels()
+        if not levels:
+            log.warning(t("p.effort_ignored"), self.model)
+            return "auto"
+        if effort not in levels:
+            log.warning(t("p.effort_invalid"), value, self.model, " / ".join(levels))
+            return "auto"
+        return effort
+
+    def _checked_fallback(self, value) -> bool | None:
+        """DRGT_CLAUDE_REFUSAL_FALLBACK を読む。None は auto（モデルに任せる）。
+
+        settings.ini の値は文字列なので bool() にかけてはいけない（"false" も真になる）。
+        """
+        if value is None or isinstance(value, bool):
+            return value
+        setting = str(value).strip().lower()
+        if setting in ("", "auto"):
+            return None
+        if setting in self._TRUE:
+            return True
+        if setting in self._FALSE:
+            return False
+        log.warning(t("p.fallback_invalid"), value)
+        return None
+
     def _use_fallback(self) -> bool:
-        setting = self.opts.get("refusal_fallback", "auto")
-        if setting == "auto" or setting is None:
+        if self.refusal_fallback is None:
             return self.model.startswith(self._FALLBACK_CAPABLE)
-        return bool(setting)
+        return self.refusal_fallback
+
+    def _can_disable_thinking(self, effort: str) -> bool:
+        """thinking: disabled を送ってよいか。送れないときは省く（そのモデルの既定で動く）。"""
+        if self.model.startswith(self._THINKING_ALWAYS_ON):
+            return False
+        if self.model.startswith(self._DISABLE_THINKING_UP_TO_HIGH):
+            return effort in ("low", "medium", "high")
+        return True
 
     def _build_params(self, system: str, user: str,
                       json_targets: list[str] | None) -> dict:
         """messages.create に渡す引数を組み立てる。"""
         self._warn_if_unknown()
         modern = self._is_modern()
+        effort = "low" if self.effort == "auto" else self.effort
 
         output_config: dict = {}
         if modern:
-            effort = self.opts.get("effort") or "auto"
-            output_config["effort"] = "low" if effort == "auto" else effort
-        elif self.opts.get("effort") not in (None, "", "auto"):
-            if not self._warned_effort:
-                self._warned_effort = True
-                log.warning(t("p.effort_ignored"), self.model)
+            output_config["effort"] = effort
 
         if json_targets:
             output_config["format"] = {
@@ -635,7 +688,7 @@ class ClaudeProvider(LLMProvider):
         if output_config:
             params["output_config"] = output_config
 
-        if modern and not self.model.startswith(self._THINKING_ALWAYS_ON):
+        if modern and self._can_disable_thinking(effort):
             params["thinking"] = {"type": "disabled"}
 
         if self._use_fallback():
