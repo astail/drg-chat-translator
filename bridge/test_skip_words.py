@@ -40,7 +40,8 @@ def _spy(b) -> list[list[str]]:
     return calls
 
 
-@pytest.mark.parametrize("text", ["gg", "GG!", "r", "r?", "R?", "rdy?", "nt", "NT!"])
+@pytest.mark.parametrize("text", ["gg", "GG!", "gg?", "GG!!", "ggs", "GGS", "GGs!", "gg wp", "GG WP!", "ggwp",
+                                  "glhf", "r", "r?", "R?", "rdy?", "nt", "NT!"])
 @pytest.mark.parametrize("host", [False, True])
 def test_skip_words_are_not_translated_or_relayed(bridge, text, host) -> None:
     """同梱の用語集の「訳さない語」は、API を呼ばず、表示も中継もしないこと。"""
@@ -49,10 +50,11 @@ def test_skip_words_are_not_translated_or_relayed(bridge, text, host) -> None:
     assert (shown, relayed, calls) == ("", {}, [])
 
 
-def test_ordinary_short_words_are_still_translated(bridge) -> None:
-    """用語集に無い語は、これまでどおり訳す（訳さない語を広げすぎていない）。"""
+@pytest.mark.parametrize("text", ["bugs from the left side", "gg go again"])
+def test_ordinary_short_words_are_still_translated(bridge, text) -> None:
+    """用語集に無い語は、これまでどおり訳す（訳さない語を広げすぎていない。文の一部に gg があっても訳す）。"""
     calls = _spy(bridge)
-    assert bridge.translate_incoming("bugs from the left side")[1] == "[ja] bugs from the left side"
+    assert bridge.translate_incoming(text)[1] == f"[ja] {text}"
     assert calls
 
 
