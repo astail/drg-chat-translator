@@ -478,7 +478,8 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
   如果关掉了转发，或从 `DRGT_RELAY_TARGETS` 中去掉了自己的语言，就什么都不会显示，这时把
   `settings.ini` 的 `DRGT_OVERLAY_ENABLED=true`，可以显示在小窗里。小窗只在译文到达时出现，
   12 秒后收起（`DRGT_OVERLAY_HIDE_AFTER`）。游戏的显示设置必须是"窗口（全屏）"才会显示在
-  最前面。
+  最前面。小窗的 ✕ 或 Esc 只会隐藏窗口，翻译不会停止（下一条译文到达时会再次出现）。
+  在小窗输入框里输入的内容，和在聊天栏里输入时一样，会先发原文再发译文。
 
 ---
 

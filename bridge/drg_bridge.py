@@ -842,12 +842,23 @@ class Bridge:
             self.ipc.write("ERR", req_id, str(exc))
 
     def _do_overlay_outgoing(self, text: str) -> None:
-        """オーバーレイの入力欄から打った文を訳してチャットへ送る。"""
+        """オーバーレイの入力欄から打った文をチャットへ送る。
+
+        チャット欄から打ったときと同じく、原文を送ってから訳を2通目として送る。訳すかどうかも
+        同じ設定（outgoing_wanted）で決め、訳さない文は原文だけを送る。翻訳に失敗したときは
+        原文だけが届いていることをオーバーレイに出す（何も出さないと、送れたか分からない）。
+        """
         try:
+            self.ipc.write("SAY", text)
+            if not self.outgoing_wanted(text):
+                self.show_on_overlay("out", text)
+                return
             translated = self.translate_outgoing(text)
             if translated:
                 self.ipc.write("SAY", translated)
                 self.show_on_overlay("out", translated)
+            else:
+                self.show_on_overlay("sys", t("o.not_translated"))
         except Exception:  # noqa: BLE001
             log.exception(t("b.out.error"))
 

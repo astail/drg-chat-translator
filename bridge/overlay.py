@@ -2,7 +2,8 @@
 
 ゲーム内チャットへの表示がうまくいかない環境や、
 ホストとしてプレイしている場合の保険として使う。
-日本語を打ち込んで Enter すると、翻訳してゲームのチャットへ送信もできる。
+入力欄に打って Enter すると、チャット欄から打ったときと同じく、原文と訳をゲームのチャットへ送る。
+✕ / Esc は窓を隠すだけで、翻訳は止まらない（次の翻訳が届けばまた出る）。
 
 注意: 排他フルスクリーンでは前面に出ない。
       ゲーム側の表示設定を「ウィンドウ(フルスクリーン)」にすること。
@@ -18,6 +19,25 @@ import tkinter as tk
 from i18n import t
 
 log = logging.getLogger("drgtl.overlay")
+
+
+def should_show(mode: str, display_ok: bool | None, hide_after: float,
+                idle_sec: float, composer_busy: bool, dismissed: bool) -> bool:
+    """小窓を出しておくか。
+
+    mode が always / off ならそれに従う。auto なら、ゲーム内に表示できていないときだけ出し、
+    最後の翻訳から hide_after 秒たったら引っ込める（入力欄を使っている間は引っ込めない）。
+    ✕ / Esc で隠した（dismissed）ときは、次の翻訳が届くまで出さない。
+    """
+    if dismissed or mode == "off":
+        return False
+    if mode == "always":
+        return True
+    if display_ok is True:
+        return False
+    if hide_after > 0 and not composer_busy:
+        return idle_sec <= hide_after
+    return True
 
 BG = "#101014"
 FG_IN = "#d9e6ff"
@@ -35,6 +55,7 @@ class Overlay:
         self.hide_after = float(cfg.get("hide_after", 12))
         self._last_msg_at = 0.0
         self._visible = True
+        self._dismissed = False
 
         self.root = tk.Tk()
         self.root.title("DRGTranslate")
@@ -56,7 +77,7 @@ class Overlay:
         close = tk.Label(header, text="✕  ", bg="#1c1c24", fg=FG_DIM,
                          font=(font[0], font[1] - 1), cursor="hand2")
         close.pack(side="right")
-        close.bind("<Button-1>", lambda _e: self.root.destroy())
+        close.bind("<Button-1>", self._dismiss)
         header.bind("<Button-1>", self._drag_start)
         header.bind("<B1-Motion>", self._drag_move)
 
@@ -79,7 +100,7 @@ class Overlay:
             self.entry.bind("<Return>", self._on_submit)
 
         self._append("sys", t("o.waiting"))
-        self.root.bind("<Escape>", lambda _e: self.root.destroy())
+        self.root.bind("<Escape>", self._dismiss)
 
         self.root.update_idletasks()
         self.root.geometry(
@@ -91,6 +112,18 @@ class Overlay:
             self._visible = False
             self.root.withdraw()
 
+
+    def _dismiss(self, _event=None) -> None:
+        """✕ / Esc: 窓を隠すだけ。bridge（翻訳）は止めない。次の翻訳が届けばまた出る。
+
+        以前は窓を閉じると bridge ごと終了し、入力欄で打つのをやめようと Esc を押しただけで
+        翻訳が止まっていた。止めるのは黒い窓（Ctrl+C か窓を閉じる）で行う。
+        """
+        if self.entry is not None:
+            self.entry.delete(0, "end")
+        self._dismissed = True
+        self._visible = False
+        self.root.withdraw()
 
     def _drag_start(self, event):
         self._drag_x, self._drag_y = event.x, event.y
@@ -134,14 +167,9 @@ class Overlay:
             return False
 
     def _apply_visibility(self) -> None:
-        if self.mode == "always":
-            want = True
-        elif self.mode == "off":
-            want = False
-        else:
-            want = self.bridge.ingame_display_ok is not True
-            if want and self.hide_after > 0 and not self._composer_busy():
-                want = (time.monotonic() - self._last_msg_at) <= self.hide_after
+        want = should_show(self.mode, self.bridge.ingame_display_ok, self.hide_after,
+                           time.monotonic() - self._last_msg_at,
+                           self._composer_busy(), self._dismissed)
         if want != self._visible:
             self._visible = want
             if want:
@@ -158,6 +186,7 @@ class Overlay:
                     break
                 self._append(kind, line)
                 self._last_msg_at = time.monotonic()
+                self._dismissed = False
             self._apply_visibility()
         except Exception:  # noqa: BLE001
             log.exception(t("o.update_error"))
