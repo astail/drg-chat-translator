@@ -50,9 +50,11 @@ from translate import (  # noqa: E402
     is_translatable,
     is_written_in,
     same_phrase,
+    set_user_agent,
 )
 
 VERSION = "0.7.0"
+set_user_agent(f"DRGTranslate/{VERSION} (+https://github.com/astail/drg-chat-translator)")
 log = logging.getLogger("drgtl")
 
 LLM_PROVIDERS = {"claude", "openai"}
@@ -397,8 +399,9 @@ def check_relay_limit(cfg: dict) -> None:
 
 
 def resolve_path(cfg_path: str) -> str:
-    """相対パスは exe（またはリポジトリルート）基準で解決する。"""
-    return cfg_path if os.path.isabs(cfg_path) else os.path.join(APP_DIR, cfg_path)
+    """相対パスは exe（またはリポジトリルート）基準で解決する。区切りは OS に合わせる。"""
+    path = cfg_path if os.path.isabs(cfg_path) else os.path.join(APP_DIR, cfg_path)
+    return os.path.normpath(path)
 
 
 def resolve_glossary(cfg_path: str) -> str:
@@ -847,7 +850,8 @@ class Bridge:
         elif kind == "DISPLAY":
             ok = (len(fields) > 1 and fields[1] == "ok")
             self.ingame_display_ok = ok
-            log.info(t("b.display"), "OK" if ok else t("b.display.failed"))
+            failed = t("b.display.failed_overlay" if self.overlay_attached else "b.display.failed")
+            log.info(t("b.display"), "OK" if ok else failed)
 
         elif kind == "TOGGLE":
             state = fields[1] if len(fields) > 1 else "?"
@@ -911,16 +915,18 @@ SECRET_ENV_NAMES = ("DEEPL_AUTH_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY")
 
 
 class MaskingFormatter(logging.Formatter):
-    """APIキーがログに出ないよう、書き出す直前に伏せる（例外の文面も含めて）。"""
+    """APIキーがログに出ないよう、書き出す直前に伏せる（例外の文面も含めて）。
 
-    def __init__(self, fmt: str, datefmt: str, secrets: list[str]):
-        super().__init__(fmt, datefmt)
-        self.secrets = [s for s in secrets if len(s) >= 8]
+    伏せるキーは書き出すたびに環境変数から取る。ログの設定は settings.ini を読むより前に
+    行う（設定の警告もファイルに残すため）ので、設定した時点ではまだキーが分からない。
+    """
 
     def format(self, record: logging.LogRecord) -> str:
         text = super().format(record)
-        for secret in self.secrets:
-            text = text.replace(secret, secret[:4] + "****")
+        for name in SECRET_ENV_NAMES:
+            secret = os.environ.get(name, "").strip()
+            if len(secret) >= 8:
+                text = text.replace(secret, secret[:4] + "****")
         return text
 
 
@@ -940,23 +946,30 @@ def setup_logging(level: str, log_file: str | None = None) -> None:
 
     log_file を渡すと、画面に加えてファイルにも書く。窓を閉じたあとでも何が起きたか
     分かるようにするため。発言の本文は書かず、数百KBで打ち切って1世代だけ残す。
+
+    レベルはこのアプリのロガー（drgtl）にだけ付ける。ルートは WARNING のままにして、
+    翻訳 SDK が使う HTTP ライブラリの INFO（翻訳のたびの "HTTP Request: ..."）を出さない。
     """
-    secrets = [os.environ.get(name, "").strip() for name in SECRET_ENV_NAMES]
     console = logging.StreamHandler()
-    console.setFormatter(MaskingFormatter(LOG_FORMAT, "%H:%M:%S", secrets))
+    console.setFormatter(MaskingFormatter(LOG_FORMAT, "%H:%M:%S"))
     handlers: list[logging.Handler] = [console]
     if log_file:
         try:
             os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
             to_file = RotatingFileHandler(log_file, maxBytes=LOG_FILE_MAX_BYTES,
                                           backupCount=1, encoding="utf-8")
-            to_file.setFormatter(MaskingFormatter(LOG_FORMAT, "%Y-%m-%d %H:%M:%S", secrets))
+            to_file.setFormatter(MaskingFormatter(LOG_FORMAT, "%Y-%m-%d %H:%M:%S"))
             to_file.addFilter(NoChatFilter())
             handlers.append(to_file)
         except OSError:
             pass
-    logging.basicConfig(level=getattr(logging, level.upper(), logging.INFO),
-                        handlers=handlers, force=True)
+    logging.basicConfig(level=logging.WARNING, handlers=handlers, force=True)
+    set_log_level(level)
+
+
+def set_log_level(level: str) -> None:
+    """このアプリのログのレベル（DRGT_LOG_LEVEL）を変える。"""
+    log.setLevel(getattr(logging, str(level).upper(), logging.INFO))
 
 
 def run_test(bridge: Bridge, text: str) -> int:
@@ -1117,11 +1130,14 @@ def main(argv: list[str] | None = None) -> int:
             print("\n" + t("w.incomplete"))
             return 1
 
+    # ログは settings.ini を読む前に設定する。読み込みの結果（どのファイルを読んだか）や
+    # 書き間違いの警告も、画面とファイルの両方に残すため。レベルは読んだあとで決める
+    directory = ipc_dir(args.dir)
+    setup_logging("info", os.path.join(directory, LOG_FILE_NAME))
     cfg = load_config(env_path)
+    set_log_level(cfg["log_level"])
     if args.provider:
         cfg["provider"] = args.provider
-    directory = ipc_dir(args.dir)
-    setup_logging(cfg["log_level"], os.path.join(directory, LOG_FILE_NAME))
 
     try:
         bridge = Bridge(cfg, directory, fake=args.fake)
