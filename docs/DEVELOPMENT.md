@@ -272,6 +272,9 @@ lua5.4 tools/mock_test.lua /tmp/drgtl host
   受け付けるのは新しい世代だけ）ため、指定したモデルに合わせて自動で送り分けます。
   `temperature` はどのモデルにも送りません（0.5.7 でやめた）。
   `DRGT_CLAUDE_EFFORT` と `DRGT_CLAUDE_REFUSAL_FALLBACK` の `auto` はこのためのものです。
+  モデルが受け付けない値（書き間違い、4.6 世代への `xhigh` など）は起動時に警告して
+  `auto` に戻します。Claude Opus 5 は effort が `xhigh` / `max` のとき `thinking` を
+  disabled にできないので、そのときだけ `thinking` を送りません（`ClaudeProvider` の表）。
 
 ---
 

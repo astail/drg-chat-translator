@@ -66,6 +66,88 @@ def test_fallbacks_are_requested(model) -> None:
     assert params["fallbacks"] == "default"
 
 
+def _with(model: str, **opts) -> dict:
+    return ClaudeProvider({"model": model, **opts})._build_params("system", "user", None)
+
+
+@pytest.mark.parametrize("value", ["false", "False", "off", "0", "no", False])
+@pytest.mark.parametrize("model", ["claude-opus-5", "claude-haiku-4-5"])
+def test_fallback_can_be_turned_off(model, value) -> None:
+    """settings.ini の文字列 "false" などで、フォールバックを止められること（bool("false") は真）。"""
+    params = _with(model, refusal_fallback=value)
+    assert "fallbacks" not in params and "betas" not in params
+
+
+@pytest.mark.parametrize("value", ["true", "on", "1", "yes", True])
+def test_fallback_can_be_forced_on(value) -> None:
+    assert _with("claude-haiku-4-5", refusal_fallback=value)["fallbacks"] == "default"
+
+
+@pytest.mark.parametrize("value", ["auto", "", None])
+def test_fallback_auto_follows_the_model(value) -> None:
+    assert "fallbacks" in _with("claude-opus-5", refusal_fallback=value)
+    assert "fallbacks" not in _with("claude-haiku-4-5", refusal_fallback=value)
+
+
+def test_unreadable_fallback_warns_and_uses_auto(caplog) -> None:
+    with caplog.at_level(logging.WARNING, logger="drgtl"):
+        params = _with("claude-haiku-4-5", refusal_fallback="maybe")
+    assert "DRGT_CLAUDE_REFUSAL_FALLBACK" in caplog.text
+    assert "fallbacks" not in params
+
+
+def test_fallback_setting_from_settings_ini(monkeypatch) -> None:
+    """build_config（settings.ini の読み込み）を通しても false が効くこと。"""
+    from drg_bridge import build_config
+
+    monkeypatch.setenv("DRGT_CLAUDE_REFUSAL_FALLBACK", "false")
+    monkeypatch.setenv("DRGT_CLAUDE_MODEL", "claude-opus-5")
+    params = ClaudeProvider(build_config()["providers"]["claude"])._build_params("s", "u", None)
+    assert "fallbacks" not in params
+
+
+@pytest.mark.parametrize("model, effort", [
+    ("claude-sonnet-5", "hgh"),        # 書き間違い
+    ("claude-opus-4-6", "xhigh"),      # 4.6 の世代は xhigh を受け付けない
+    ("claude-sonnet-4-6", "xhigh"),
+])
+def test_unusable_effort_warns_and_uses_auto(model, effort, caplog) -> None:
+    """モデルが受け付けない effort は、起動時に警告して auto（low）に戻すこと（毎回 400 にしない）。"""
+    with caplog.at_level(logging.WARNING, logger="drgtl"):
+        params = _with(model, effort=effort)
+    assert "DRGT_CLAUDE_EFFORT" in caplog.text
+    assert params["output_config"]["effort"] == "low"
+
+
+@pytest.mark.parametrize("model, effort", [
+    ("claude-opus-5", "max"), ("claude-opus-5", "xhigh"),
+    ("claude-sonnet-5", "xhigh"), ("claude-opus-4-8", "max"), ("claude-opus-4-6", "max"),
+])
+def test_valid_effort_is_sent_as_written(model, effort) -> None:
+    assert _with(model, effort=effort.upper())["output_config"]["effort"] == effort
+
+
+@pytest.mark.parametrize("effort, thinking", [
+    ("low", True), ("medium", True), ("high", True), ("xhigh", False), ("max", False),
+])
+def test_opus_5_disables_thinking_only_up_to_high(effort, thinking) -> None:
+    """Opus 5 は effort が xhigh / max のとき thinking: disabled を 400 にするので、そのときは送らないこと。"""
+    params = _with("claude-opus-5", effort=effort)
+    assert ("thinking" in params) is thinking
+
+
+@pytest.mark.parametrize("model", ["claude-sonnet-5", "claude-opus-4-8"])
+def test_other_models_disable_thinking_at_any_effort(model) -> None:
+    assert _with(model, effort="max")["thinking"] == {"type": "disabled"}
+
+
+def test_effort_on_legacy_model_is_ignored_with_a_warning(caplog) -> None:
+    with caplog.at_level(logging.WARNING, logger="drgtl"):
+        params = _with("claude-haiku-4-5", effort="medium")
+    assert "claude-haiku-4-5" in caplog.text
+    assert "effort" not in params.get("output_config", {})
+
+
 def test_unknown_model_warns_once(caplog) -> None:
     """知らないモデルは旧世代として扱い、最初の1回だけ警告すること。"""
     p = ClaudeProvider({"model": "claude-some-future-model"})
