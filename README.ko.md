@@ -289,6 +289,8 @@ OS 쪽에 같은 이름의 환경 변수가 있으면 그쪽이 `settings.ini` �
 > 0.7.0 까지의 설치는 `DRGT_INCOMING_SKIP_LANGUAGES` 와 `DRGT_RELAY_MAX_LANGS` 도
 > 썼습니다. 이 두 줄이 `#` 없이 남아 있으면 언어를 고쳐도 따라가지 않습니다.
 > 줄 앞에 `#` 을 붙이거나 설치를 다시 하세요.
+> 단, 번체 중국어로 설치했을 때의 `DRGT_INCOMING_SKIP_LANGUAGES=zh` 는 지금도 필요한
+> 줄이므로 그대로 두세요.
 
 언어는 `ja`(일본어) / `en`(영어) / `ko`(한국어) / `zh`(중국어 간체) /
 `zh-tw`(중국어 번체) / `ru`(러시아어) 처럼 씁니다.

@@ -305,6 +305,8 @@ another one).
 > Setup up to 0.7.0 also wrote `DRGT_INCOMING_SKIP_LANGUAGES` and `DRGT_RELAY_MAX_LANGS`.
 > If those two lines are still there without a leading `#`, they stop following your
 > language when you edit it. Put `#` in front of them, or run setup again.
+> The one exception is `DRGT_INCOMING_SKIP_LANGUAGES=zh` written for traditional
+> Chinese: that line is still needed, so leave it as it is.
 
 Languages are written like `ja` (Japanese), `en` (English), `ko` (Korean),
 `zh` (Chinese, simplified), `zh-tw` (Chinese, traditional), `ru` (Russian).

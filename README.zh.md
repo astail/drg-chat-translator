@@ -274,6 +274,7 @@ OPENAI_API_KEY=sk-...
 > 0.7.0 及以前的安装还会写入 `DRGT_INCOMING_SKIP_LANGUAGES` 和 `DRGT_RELAY_MAX_LANGS`。
 > 这两行如果没有 `#` 仍留在文件里，修改语言后它们不会跟着变。请在行首加上 `#`，
 > 或者重新安装一次。
+> 但以繁体中文安装时写入的 `DRGT_INCOMING_SKIP_LANGUAGES=zh` 现在仍然需要，请保持不变。
 
 语言写成 `ja`（日语）/ `en`（英语）/ `ko`（韩语）/ `zh`（中文简体）/
 `zh-tw`（中文繁体）/ `ru`（俄语）这样的形式。
