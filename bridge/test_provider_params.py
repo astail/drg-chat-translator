@@ -221,3 +221,15 @@ def test_failure_counter_is_thread_safe(tmp_path) -> None:
     assert tr._fail_streak == 8000
     tr._note_success()
     assert tr._fail_streak == 0
+
+
+@pytest.mark.parametrize("model", ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5",
+                                   "claude-fable-5-1"])
+def test_system_prompt_is_marked_for_caching(model) -> None:
+    """システムプロンプトにキャッシュの印を付けること（Sonnet 5 / Opus 5 では続けて翻訳すると1割の料金）。"""
+    p = ClaudeProvider({"model": model})
+    system = p.system_prompt(None, ["ja"], False)
+    params = p._build_params(system, "watch out", None)
+    assert params["system"] == [
+        {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+    ]
