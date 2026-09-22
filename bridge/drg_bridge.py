@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import logging
 import os
 import queue
@@ -1028,22 +1029,26 @@ def set_log_level(level: str) -> None:
 
 
 def run_test(bridge: Bridge, text: str) -> int:
+    """翻訳だけ試す。自分が打った場合（送信）と、他の隊員が言った場合（受信・中継）を出す。
+
+    送信の訳は翻訳元の言語の発言だけ、受信の訳はそれ以外の発言だけを出す。翻訳元が
+    auto（どの言語でも送信の訳の対象）のときは、どちらの立場も試せるよう両方出す。
+    """
+    source = bridge.cfg["outgoing"]["source"]
     print(f"input       : {text}")
     print(f"detected    : {detect_language(text)}")
     try:
-        if is_written_in(text, bridge.cfg["outgoing"]["source"]):
+        as_outgoing = is_written_in(text, source)
+        if as_outgoing:
             print(f"outgoing    : {bridge.translate_outgoing(text)}")
-            _, _, relayed = bridge.translate_incoming(text, relay=True)
-            for line in bridge.relay_lines("Karl", text, relayed):
-                print(f"relay (host): {line}")
-        else:
-            detected, translated, relayed = bridge.translate_incoming(text, relay=True)
+        detected, translated, relayed = bridge.translate_incoming(text, relay=True)
+        if not as_outgoing or not source:
             if translated:
                 print(f"incoming    : {translated}  (source: {detected or 'unknown'})")
             else:
                 print(f"incoming    : (not translated. source: {detected or 'undetermined'})")
-            for line in bridge.relay_lines("Karl", text, relayed):
-                print(f"relay (host): {line}")
+        for line in bridge.relay_lines("Karl", text, relayed):
+            print(f"relay (host): {line}")
     except TranslationError as exc:
         print(f"failed: {exc}")
         return 1
@@ -1100,6 +1105,8 @@ def run_selftest(bridge: Bridge) -> int:
             ok = False
             continue
         print(f"  {key}: {fields}")
+    # 以下の判定は既定の設定（日本語で読み書き）が前提。main() は --selftest のとき
+    # settings.ini の言語などを読まずに既定で動かす（with_default_settings）
     relay = seen.get("6") or []
     if len(relay) < 6:
         print("  !! no relay lines came back")
@@ -1109,15 +1116,15 @@ def run_selftest(bridge: Bridge) -> int:
         print("  !! no relay lines came back for the Japanese message")
         ok = False
     elif ja_relay[4] != "":
-        print("  !! the Japanese message got a Japanese translation")
+        print(f"  !! the Japanese message was shown translated for a Japanese reader: {ja_relay[4]!r}")
         ok = False
     en_out = seen.get("8") or []
     if len(en_out) > 4 and en_out[4] != "":
-        print("  !! a message not in the source language was translated")
+        print(f"  !! an English message was translated although the source is Japanese: {en_out[4]!r}")
         ok = False
     kanji_out = seen.get("9") or []
     if len(kanji_out) > 4 and kanji_out[4] == "":
-        print("  !! a kanji-only message was not translated")
+        print("  !! a kanji-only Japanese message was not translated")
         ok = False
     try:
         import anthropic  # noqa: F401
@@ -1131,6 +1138,20 @@ def run_selftest(bridge: Bridge) -> int:
             ok = False
     print("--- " + ("PASS" if ok else "FAIL") + " ---")
     return 0 if ok else 1
+
+
+def with_default_settings(cfg: dict) -> dict:
+    """翻訳サービスの設定（provider・APIキーなど・待ち時間などの network）だけを残し、
+    ほかは既定値にした設定。
+
+    --selftest と --defaults で使う。自己診断やモックのテストは既定の設定（日本語で読み書き）を
+    前提に合否を決めるので、利用者の settings.ini の言語などに左右されないようにする。
+    """
+    out = copy.deepcopy(DEFAULTS)
+    out["provider"] = cfg["provider"]
+    out["providers"] = copy.deepcopy(cfg["providers"])
+    out["network"] = copy.deepcopy(cfg["network"])
+    return out
 
 
 def needs_setup(env_path: str) -> bool:
@@ -1174,6 +1195,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--setup", action="store_true", help="run the setup wizard again")
     ap.add_argument("--no-setup", action="store_true",
                     help="start without the wizard even if it is not configured yet")
+    ap.add_argument("--defaults", action="store_true",
+                    help="for testing: ignore the language and other settings in the settings "
+                         "file and use the defaults (the translation service and network "
+                         "settings are kept)")
     args = ap.parse_args(argv)
 
     env_path = args.config or os.path.join(APP_DIR, SETTINGS_FILE)
@@ -1191,6 +1216,10 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging("info", os.path.join(directory, LOG_FILE_NAME))
     cfg = load_config(env_path)
     set_log_level(cfg["log_level"])
+    if args.defaults or args.selftest:
+        cfg = with_default_settings(cfg)
+        if args.selftest:
+            print("selftest uses the default settings, not the languages in the settings file")
     if args.provider:
         cfg["provider"] = args.provider
 

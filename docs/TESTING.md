@@ -17,7 +17,8 @@
 
 ### 自動で再現できるもの
 
-- bridge のファイルIPC 一式（`python3 bridge/drg_bridge.py --selftest --fake`）。翻訳元でない言語の自分の発言が
+- bridge のファイルIPC 一式（`python3 bridge/drg_bridge.py --selftest --fake`。settings.ini の言語に
+  左右されないよう既定の設定で動く）。翻訳元でない言語の自分の発言が
   訳されないこと、漢字だけの発言が日本語として訳されることも含む。
   同梱の `anthropic` がこちらの送る引数を受け付けることも見る（SDK が入っているときだけ）
 - **UE4SS を模したスタブによる MOD ロジックの通し確認**（`tools/mock_test.lua`）
