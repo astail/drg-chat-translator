@@ -453,9 +453,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
   다만 **그 두 언어로 번역문이 실제로 표시되는지는 확인하지 못했습니다**
   (일본어 · 한국어 · 간체 중국어는 확인 완료).
 - **여러 명이 있는 로비에서 중계가 동료에게 도달하는 것은 아직 확인하지 못했습니다.**
-- 작은 창(`DRGT_OVERLAY_ENABLED=true`)이 실제 환경에서 어떻게 보이는지도 미확인입니다.
-
-자세한 내용은 [docs/TESTING.md](docs/TESTING.md)(일본어)를 참고하세요.
+- 작은 창(`DRGT_OVERLAY_ENABLED=true`)은 실제 게임 위에 표시되고, 입력란에서 보낼 수 있는 것까지 확인했습니다.
 
 ---
 
@@ -536,7 +534,6 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 | | |
 |---|---|
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 구조, 소스에서 쓰는 법, exe 빌드, 릴리스, 파일 구성 |
-| [docs/TESTING.md](docs/TESTING.md) | 동작 확인 현황의 상세(무엇이 미확인인지도) |
 | [docs/INTERNALS.md](docs/INTERNALS.md) | 분석한 DRG 쪽 API 메모 |
 
 이 문서들은 일본어로 쓰여 있습니다.

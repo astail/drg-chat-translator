@@ -102,7 +102,7 @@ UE では **クライアントから NetMulticast を呼ぶとローカルでし
 
 と切り替えています。判定できなかった場合はホスト扱い（＝安全側）にしています。
 チャットウィジェットを直接呼ぶ方法は、実機で `Add Chat Message` / `NewMesssage` /
-`NewMessage` の3つとも失敗した（`pcall` で捕まりゲームは落ちなかった。TESTING.md）ので、
+`NewMessage` の3つとも失敗した（`pcall` で捕まりゲームは落ちなかった）ので、
 `auto` では使っていません。`display.strategy = "widget"` のときだけ試します。
 
 ### 中継（ホストのときだけ全員に配る）
@@ -239,7 +239,18 @@ bridge は **どの `REQ` にも必ず `RES` か `ERR` を返します**。項�
 | `NOTE <text>` | ゲーム内にローカル表示だけする。ゲームの言語によっては日本語などのフォントが無いので、**本文は英数字で書く** |
 
 `DIAG` / `SIMSAY` は開発者が `to_game.txt` に手で書いて使う診断用で、
-`config.lua` の `debug = true` のときだけ mod が受け付けます（使い方は TESTING.md）。
+`config.lua` の `debug = true` のときだけ mod が受け付けます。
+
+- `DIAG` … MOD の状態（GameState と PlayerController を見つけられたか、ホストか、人数、
+  自分の名前、ON/OFF、中継の順番待ち）を UE4SS のコンソールに出す
+- `SIMSAY<TAB>本文<TAB>送信者名` … その送信者名と本文で `Server_NewMessage` を呼ぶ。
+  チャット欄から打ったときと同じ経路（`on_outgoing` の合図 → `ClientNewMessage` で戻る）を
+  通るので、実機で自分や他の隊員の発言を模すのに使う
+
+> `SIMSAY` で他の隊員の発言を模すときは、先に自分の名前で1回流して、MOD に自分の名前を
+> 覚えさせてください。名前が分からないうちは、`Server_NewMessage` の直後（約2秒）に届いた
+> 発言の送信者が1人だけならそれを自分の名前と学習するので、最初に `Karl` で流すと自分の名前が
+> `Karl` になり、以降の `Karl` の発言が自分の発言として扱われます。
 
 ### 起動と再起動
 
