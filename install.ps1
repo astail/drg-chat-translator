@@ -32,6 +32,13 @@ function Write-Lines($path, $lines) {
     [System.IO.File]::WriteAllLines($path, [string[]]@($lines), $Utf8NoBom)
 }
 
+# mods.txt は利用者が入れている他の MOD の一覧でもあるので、書き換える前に控えを取る
+# （ウィザードと同じ）
+function Save-ModsTxt($path, $lines) {
+    if (Test-Path $path) { Copy-Item $path "$path.bak" -Force }
+    Write-Lines $path $lines
+}
+
 # 配布 zip の SHA-256。上流がファイルを差し替えても気づけるように、展開する前に照合する。
 # 版を上げるときは bridge/setup_wizard.py の UE4SS_SHA256 と一緒に更新する
 $KnownUE4SSSha256 = @{
@@ -108,6 +115,32 @@ function Get-ModsDir {
     return $null
 }
 
+# アンインストールは、UE4SS の確認・導入や UE4SS-settings.ini の書き換えより前に済ませる。
+# 消すための実行で設定を書き換えないため、また UE4SS を先に消した人でも MOD を外せるようにするため
+if ($Uninstall) {
+    $ModsDir = Get-ModsDir
+    if (-not $ModsDir) {
+        Ok "Mods フォルダが無いので、外すものはありません"
+        exit 0
+    }
+    $Dest = Join-Path $ModsDir $ModName
+    $Backup = Join-Path $ModsDir "$ModName.bak"
+    $ModsTxt = Join-Path $ModsDir "mods.txt"
+    if (Test-Path $Dest) { Remove-Item $Dest -Recurse -Force; Ok "$ModName を削除しました" }
+    if (Test-Path $Backup) { Remove-Item $Backup -Recurse -Force; Ok "$ModName.bak（入れ直しのときの控え）を削除しました" }
+    if (Test-Path $ModsTxt) {
+        $kept = @(Get-Content $ModsTxt -Encoding UTF8 | Where-Object { $_ -notmatch "^\s*$ModName\s*:" })
+        Save-ModsTxt $ModsTxt $kept
+        Ok "mods.txt から削除しました（元の内容は mods.txt.bak）"
+    }
+    $SettingsIni = Join-Path $Win64 "UE4SS-settings.ini"
+    if (Test-Path $SettingsIni) {
+        Warn ("UE4SS-settings.ini の bUseUObjectArrayCache / GuiConsoleEnabled / EnableDumping は、" +
+              "導入時に変えたままです。他の MOD のために戻したい場合は次のファイルを編集してください: $SettingsIni")
+    }
+    exit 0
+}
+
 $ue4ssDll = @("UE4SS.dll", "ue4ss\UE4SS.dll") | ForEach-Object { Join-Path $Win64 $_ } |
             Where-Object { Test-Path $_ } | Select-Object -First 1
 
@@ -181,20 +214,6 @@ if (Test-Path $SettingsIni) {
 $Dest = Join-Path $ModsDir $ModName
 $ModsTxt = Join-Path $ModsDir "mods.txt"
 
-if ($Uninstall) {
-    if (Test-Path $Dest) { Remove-Item $Dest -Recurse -Force; Ok "$ModName を削除しました" }
-    if (Test-Path $ModsTxt) {
-        $kept = @(Get-Content $ModsTxt -Encoding UTF8 | Where-Object { $_ -notmatch "^\s*$ModName\s*:" })
-        Write-Lines $ModsTxt $kept
-        Ok "mods.txt から削除しました"
-    }
-    if (Test-Path $SettingsIni) {
-        Warn ("UE4SS-settings.ini の bUseUObjectArrayCache / GuiConsoleEnabled / EnableDumping は、" +
-              "導入時に変えたままです。他の MOD のために戻したい場合は次のファイルを編集してください: $SettingsIni")
-    }
-    exit 0
-}
-
 $Src = Join-Path $Root "mod\$ModName"
 if (-not (Test-Path $Src)) { Die "mod フォルダが見つかりません: $Src" }
 
@@ -257,7 +276,7 @@ $lines = @($lines | ForEach-Object {
     return $_
 })
 if (-not $registered) { $lines += "$ModName : 1" }
-Write-Lines $ModsTxt $lines
+Save-ModsTxt $ModsTxt $lines
 Ok "mods.txt に登録しました（$ModName : 1）"
 if ($disabled.Count -gt 0) {
     Ok ("同梱サンプル MOD を無効化しました（" + ($disabled -join ", ") + "）")
