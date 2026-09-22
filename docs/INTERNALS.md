@@ -87,18 +87,23 @@ hook のほうは「自分が今送った」という合図を取るためだけ
 
 | 方法 | クライアント | ホスト |
 |---|---|---|
-| `AFSDGameState::PostGameMessage(FString)` | ローカルのみ ✅ | **全員に配信されてしまう** ❌ |
-| `UHUD_Chat_C::"Add Chat Message"(FFSDChatMessage)` | ローカルのみ ✅ | ローカルのみ ✅ |
+| `AFSDGameState::PostGameMessage(FString)` | ローカルのみ ✅ | **全員に配信されてしまう** ❌（ソロなら問題ない） |
+| `UHUD_Chat_C::"Add Chat Message"(FFSDChatMessage)` | ローカルのみ（のはず） | ローカルのみ（のはず）。ただし実機では呼び出しが失敗した |
 
 `PostGameMessage` は内部で `ClientNewMessage`（NetMulticast）を呼んでいると見られます。
 UE では **クライアントから NetMulticast を呼ぶとローカルでしか実行されない**ため、
 クライアント側では安全に使えます。一方ホスト（権限あり）が呼ぶと全員に飛びます。
 
-そのため MOD は `HasAuthority()` を見て、
+そのため MOD（`config.lua` の `display.strategy = "auto"`）は `HasAuthority()` と人数を見て、
 - クライアント → `PostGameMessage`
-- ホスト → チャットウィジェットを直接呼ぶ
+- ソロのホスト（`PlayerArray` が1人）→ `PostGameMessage`（全員＝自分だけなので問題ない）
+- 同僚がいるホスト → ゲーム内には出さない。自分の言語は中継先に入っているので、
+  全員に流す中継行で読む（中継を切っているならオーバーレイで）
 
 と切り替えています。判定できなかった場合はホスト扱い（＝安全側）にしています。
+チャットウィジェットを直接呼ぶ方法は、実機で `Add Chat Message` / `NewMesssage` /
+`NewMessage` の3つとも失敗した（`pcall` で捕まりゲームは落ちなかった。TESTING.md）ので、
+`auto` では使っていません。`display.strategy = "widget"` のときだけ試します。
 
 ### 中継（ホストのときだけ全員に配る）
 

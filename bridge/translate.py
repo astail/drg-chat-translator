@@ -221,6 +221,8 @@ class Cache:
             self._last_save = now
         tmp = self.path + ".tmp"
         try:
+            # 保存先のフォルダが無いと毎回失敗して10秒ごとに警告が出るので、作っておく
+            os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(snapshot, f, ensure_ascii=False)
             os.replace(tmp, self.path)
