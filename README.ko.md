@@ -280,11 +280,17 @@ OS 쪽에 같은 이름의 환경 변수가 있으면 그쪽이 `settings.ini` �
 
 **보통은 첫 설치의 `[1]` 에서 고르는 것만으로 끝납니다.** 고른 언어에 맞춰
 `DRGT_UI_LANG` / `DRGT_INCOMING_TARGET` / `DRGT_INCOMING_FORMAT` /
-`DRGT_OUTGOING_SOURCE` / `DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS` /
-`DRGT_RELAY_MAX_LANGS` 가 한꺼번에 쓰입니다(번체 중국어일 때는
+`DRGT_OUTGOING_SOURCE` / `DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS` 가
+한꺼번에 쓰입니다(번체 중국어일 때는
 `DRGT_INCOMING_SKIP_LANGUAGES` 도. 언어 판별이 간체와 번체를 구분하지 못하기 때문입니다). 나중에 바꾸고 싶거나 목록에 없는 언어를
 쓰고 싶을 때는 `settings.ini` 를 고치세요([설치를 다시 하면](#설치) 다시 고를 수도
 있습니다).
+
+> 0.7.0 까지의 설치는 `DRGT_INCOMING_SKIP_LANGUAGES` 와 `DRGT_RELAY_MAX_LANGS` 도
+> 썼습니다. 이 두 줄이 `#` 없이 남아 있으면 언어를 고쳐도 따라가지 않습니다.
+> 줄 앞에 `#` 을 붙이거나 설치를 다시 하세요.
+> 단, 번체 중국어로 설치했을 때의 `DRGT_INCOMING_SKIP_LANGUAGES=zh` 는 지금도 필요한
+> 줄이므로 그대로 두세요.
 
 언어는 `ja`(일본어) / `en`(영어) / `ko`(한국어) / `zh`(중국어 간체) /
 `zh-tw`(중국어 번체) / `ru`(러시아어) 처럼 씁니다.

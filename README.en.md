@@ -295,12 +295,18 @@ An environment variable of the same name set in Windows takes priority over
 
 **Normally picking a language at step `[1]` of the first-run setup is all you need.**
 It writes `DRGT_UI_LANG`, `DRGT_INCOMING_TARGET`, `DRGT_INCOMING_FORMAT`,
-`DRGT_OUTGOING_SOURCE`, `DRGT_OUTGOING_TARGETS`, `DRGT_RELAY_TARGETS` and
-`DRGT_RELAY_MAX_LANGS` together to match (plus `DRGT_INCOMING_SKIP_LANGUAGES` for
+`DRGT_OUTGOING_SOURCE`, `DRGT_OUTGOING_TARGETS` and `DRGT_RELAY_TARGETS`
+together to match (plus `DRGT_INCOMING_SKIP_LANGUAGES` for
 traditional Chinese, because the language check cannot tell it apart from
 simplified). Edit `settings.ini` when you want to change it later, or to use a
 language that is not on the list ([running setup again](#install) lets you pick
 another one).
+
+> Setup up to 0.7.0 also wrote `DRGT_INCOMING_SKIP_LANGUAGES` and `DRGT_RELAY_MAX_LANGS`.
+> If those two lines are still there without a leading `#`, they stop following your
+> language when you edit it. Put `#` in front of them, or run setup again.
+> The one exception is `DRGT_INCOMING_SKIP_LANGUAGES=zh` written for traditional
+> Chinese: that line is still needed, so leave it as it is.
 
 Languages are written like `ja` (Japanese), `en` (English), `ko` (Korean),
 `zh` (Chinese, simplified), `zh-tw` (Chinese, traditional), `ru` (Russian).

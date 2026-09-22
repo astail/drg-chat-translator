@@ -404,22 +404,27 @@ LANGUAGE_SETTING_KEYS = (
 )
 
 
-def language_settings(lang: str) -> dict[str, str]:
-    """自分の言語から、言語まわりの設定をまとめて作る（LANGUAGE_SETTING_KEYS を全部）。"""
+def language_settings(lang: str) -> dict[str, str | None]:
+    """自分の言語から、言語まわりの設定をまとめて作る（LANGUAGE_SETTING_KEYS を全部）。
+
+    値が None の項目は、書かずにコメントへ戻す（＝既定に戻す）。書かなければほかの設定に
+    追従する項目（中継の上限は中継先の数、訳さない言語は受信の訳す先）を固定の値で
+    書いてしまうと、あとで settings.ini の言語を直したときに追従しなくなるため。
+    """
     others = [x for x in BASE_LANGUAGES if x != lang]
     relay = [lang] + others
-    values = {
+    base = lang.split("-")[0]
+    values: dict[str, str | None] = {
         "DRGT_UI_LANG": lang,
         "DRGT_INCOMING_TARGET": lang,
         "DRGT_INCOMING_FORMAT": INCOMING_LABELS.get(lang, "[TL]") + " {sender}: {text}",
         "DRGT_OUTGOING_SOURCE": lang,
         "DRGT_OUTGOING_TARGETS": ",".join(others),
         "DRGT_RELAY_TARGETS": ",".join(relay),
-        "DRGT_RELAY_MAX_LANGS": str(len(relay)),
+        "DRGT_RELAY_MAX_LANGS": None,
         # 言語判定は文字の種類で見るので zh-tw のような地域つきの言語は
-        # 元の言語（zh）までしか分からない。書かないでおくと、やり直しで
-        # 別の言語を選んだときに前の値が残ってしまうので、常に書く
-        "DRGT_INCOMING_SKIP_LANGUAGES": lang.split("-")[0],
+        # 元の言語（zh）までしか分からない。そのときだけ書く
+        "DRGT_INCOMING_SKIP_LANGUAGES": base if base != lang else None,
     }
     return values
 
@@ -451,7 +456,7 @@ def save_language(env_path: str, example_path: str, lang: str) -> None:
     values = language_settings(lang)
     ensure_env_file(env_path, example_path)
     write_env(env_path, values)
-    os.environ.update(values)
+    os.environ.update({k: v for k, v in values.items() if v is not None})
 
 
 def choose_provider() -> tuple[str, str, str, str]:
@@ -468,8 +473,22 @@ def ensure_env_file(env_path: str, example_path: str) -> None:
         shutil.copyfile(example_path, env_path)
 
 
-def write_env(env_path: str, values: dict[str, str]) -> None:
-    """既存の設定ファイルを壊さずに、渡された項目だけ書き換える。"""
+def _active_key(line: str) -> str | None:
+    """コメントでない `KEY=value` の行なら KEY を返す（load_dotenv と同じ読み方）。"""
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#"):
+        return None
+    if stripped.lower().startswith("export "):
+        stripped = stripped[7:].lstrip()
+    name, sep, _ = stripped.partition("=")
+    return name.strip() if sep else None
+
+
+def write_env(env_path: str, values: dict[str, str | None]) -> None:
+    """既存の設定ファイルを壊さずに、渡された項目だけ書き換える。
+
+    値が None の項目は、書かれている行をコメントに戻す（既定に戻す）。
+    """
     lines: list[str] = []
     if os.path.exists(env_path):
         with open(env_path, encoding="utf-8") as f:
@@ -484,8 +503,16 @@ def write_env(env_path: str, values: dict[str, str]) -> None:
                 return
         lines.append(target)
 
+    def reset(key: str) -> None:
+        for i, line in enumerate(lines):
+            if _active_key(line) == key:
+                lines[i] = "#" + line.strip()
+
     for key, value in values.items():
-        upsert(key, value)
+        if value is None:
+            reset(key)
+        else:
+            upsert(key, value)
 
     write_text_atomic(env_path, "\n".join(lines) + "\n")
 

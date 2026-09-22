@@ -278,10 +278,16 @@ OS 側に同名の環境変数がある場合は、そちらが `settings.ini` �
 
 **ふつうは初回セットアップの `[1]` で選ぶだけで済みます。** 選んだ言語に合わせて
 `DRGT_UI_LANG` / `DRGT_INCOMING_TARGET` / `DRGT_INCOMING_FORMAT` / `DRGT_OUTGOING_SOURCE` /
-`DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS` / `DRGT_RELAY_MAX_LANGS` が
+`DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS` が
 まとめて書かれます（繁体字中国語のときは `DRGT_INCOMING_SKIP_LANGUAGES` も。
 言語判定が簡体字と繁体字を見分けられないため）。あとから変えたいときや、一覧に無い言語を使いたいときは
 `settings.ini` を直してください（[セットアップをやり直す](#導入)と選び直せます）。
+
+> 0.7.0 までのセットアップは `DRGT_INCOMING_SKIP_LANGUAGES` と `DRGT_RELAY_MAX_LANGS` も
+> 書いていました。この2行が `#` 無しで残っていると、言語を直しても追従しません。
+> 行頭に `#` を付けるか、セットアップをやり直してください。
+> ただし繁体字中国語でセットアップした場合の `DRGT_INCOMING_SKIP_LANGUAGES=zh` は
+> いまも必要な行なので、そのままにしてください。
 
 言語は `ja`（日本語）/ `en`（英語）/ `ko`（韓国語）/ `zh`（中国語・簡体字）/
 `zh-tw`（中国語・繁体字）/ `ru`（ロシア語）のように書きます。
