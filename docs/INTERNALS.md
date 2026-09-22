@@ -220,7 +220,7 @@ bridge.lock     bridge が動いている間だけ OS の排他ロックを取�
 | `NAME <playername>` | 自分のプレイヤー名 |
 | `REQ <id> in <sender> <text> <host>` | 受信文を訳す（既定は日本語へ）。`host`=`1` なら中継用の訳も一緒に |
 | `REQ <id> out <sender> <text> <host>` | 自分の発言を翻訳（結果を2通目として送る）。mod は中身を見ずに送り、訳さない発言（OFF・翻訳元の言語でない・短すぎる・`/` などで始まる）なら bridge が空の結果を返す。判定は settings.ini の `DRGT_OUTGOING_*` だけで決まる |
-| `DISPLAY ok\|fail` | ゲーム内表示ができているか |
+| `DISPLAY ok\|fail [理由]` | ゲーム内表示ができているか。理由が `host` なら、同僚がいるホストなので設計どおり出していない（失敗ではない。bridge はそのように表示する） |
 | `TOGGLE ON\|OFF` | F9 で翻訳を切り替えた。bridge はログとオーバーレイに出す |
 | `PING` | bridge が `NOTE` で応答する。いまは mod から送っていない（手で確かめる用） |
 

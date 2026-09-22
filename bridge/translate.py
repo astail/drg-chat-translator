@@ -155,11 +155,20 @@ class Glossary:
         return {"*" if same_phrase(phrase, str(value)) else "ja": str(value)}
 
     def lookup_incoming(self, text: str, target: str) -> str | None:
-        """受信した発言の、target の言語での対訳。無ければ None。"""
+        """受信した発言の、target の言語での対訳。無ければ None。
+
+        空文字は「訳さない語」（r? / nt など）。API も呼ばず、表示も中継もしない。
+        """
         entry = self.incoming.get(_normalize(text))
         if not entry:
             return None
-        return entry.get(target) or entry.get("*")
+        if target in entry:
+            return entry[target]
+        return entry.get("*")
+
+    def skips_incoming(self, text: str, target: str) -> bool:
+        """用語集で「訳さない語」とされている発言か。"""
+        return self.lookup_incoming(text, target) == ""
 
     def lookup_outgoing(self, text: str, target: str) -> str | None:
         entry = self.outgoing.get(_normalize(text))

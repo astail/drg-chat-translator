@@ -43,6 +43,7 @@ local State = {
     last_alive_at  = 0,
     local_sends    = {},
     display_ok     = nil,
+    display_reason = "",
     relay_queue    = {},
     last_relay_at  = 0,
     -- 名前が分からないときに、自分の発言かを決めるまで持っておく発言と、決める時刻
@@ -191,10 +192,14 @@ local function display_via_widget(text)
     return false
 end
 
-local function report_display(ok)
-    if State.display_ok ~= ok then
+--- ゲーム内に表示できたかを bridge に知らせる（変わったときだけ）。
+--- reason は出さなかった理由。"host" は同僚がいるホストなので出さない（設計どおりで、失敗ではない）
+local function report_display(ok, reason)
+    reason = reason or ""
+    if State.display_ok ~= ok or State.display_reason ~= reason then
         State.display_ok = ok
-        IPC.send("DISPLAY", ok and "ok" or "fail")
+        State.display_reason = reason
+        IPC.send("DISPLAY", ok and "ok" or "fail", reason)
     end
 end
 
@@ -243,7 +248,7 @@ local function display_line(text)
         end
     end
 
-    report_display(false)
+    report_display(false, host and "host" or "")
     if host then
         U.log_once("display", "You are hosting with other dwarves around, so incoming translations are "
               .. "not shown in the incoming format (anything a host puts in the chat box "

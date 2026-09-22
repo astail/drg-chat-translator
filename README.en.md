@@ -438,6 +438,8 @@ say, so that is what is used.
 ```
 
 Each `incoming` entry maps language codes to translations. Use `"*"` for text that is used as is in every language.
+An empty translation (`{"*": ""}`) means the word is left alone: no API call, nothing shown, nothing relayed.
+The bundled glossary does this for abbreviations not worth translating, such as `r?` (ready?) and `nt` (nice try).
 
 Keys are matched ignoring spaces, punctuation and letter case, so `rock and stone` and
 `Rock and Stone!!` are treated as the same phrase.
