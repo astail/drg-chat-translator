@@ -284,6 +284,12 @@ lua5.4 tools/ipc_test.lua                  # 接続判定だけ（bridge 不要�
   モデルが受け付けない値（書き間違い、4.6 世代への `xhigh` など）は起動時に警告して
   `auto` に戻します。Claude Opus 5 は effort が `xhigh` / `max` のとき `thinking` を
   disabled にできないので、そのときだけ `thinking` を送りません（`ClaudeProvider` の表）。
+- Claude のシステムプロンプトにはキャッシュの印（`cache_control`）を付けています。いまのプロンプトは
+  約1,300トークンで、最小の長さに届く Sonnet 5 / Opus 5 などでは続けて翻訳するとその部分が1割の
+  料金になり、届かない Haiku 4.5（最小 4,096）では何も起きません。キャッシュは5分使われないと
+  消え、次の1回は書き込みとして1.25倍になるので、発言が5分以上あく静かな部屋ではわずかに高くなります。
+- README の料金の目安（Haiku 4.5 で1000回あたり約 $1.5）は、プロンプトの長さから計算しています。
+  `GAME_CONTEXT` を変えたら、Anthropic の `count_tokens`（課金なし）で数え直して README を直してください。
 
 ---
 

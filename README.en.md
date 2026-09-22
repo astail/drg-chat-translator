@@ -52,8 +52,8 @@ setup cannot finish.
 | Service | Strengths | Price | Sign up / create a key |
 |---|---|---|---|
 | **DeepL** (default) | The most natural of the machine translators | Has a free tier. Paid plan once you use it up | https://www.deepl.com/pro-api |
-| **Claude** (Anthropic) | Handles slang, abbreviations and typos. Reads `gg`, `bulk inc`, `res me` in context | Pay for what you use. With the default Claude Haiku 4.5, **about $0.5 per 1000 translations** | https://platform.claude.com/settings/keys |
-| **OpenAI** | Handles slang, abbreviations and typos. Reads `gg`, `bulk inc`, `res me` in context | Pay for what you use. With the default gpt-4o-mini, **under about $0.1 per 1000 translations** | https://platform.openai.com/api-keys |
+| **Claude** (Anthropic) | Handles slang, abbreviations and typos. Reads `gg`, `bulk inc`, `res me` in context | Pay for what you use. With the default Claude Haiku 4.5, **about $1.5 per 1000 translations** | https://platform.claude.com/settings/keys |
+| **OpenAI** | Handles slang, abbreviations and typos. Reads `gg`, `bulk inc`, `res me` in context | Pay for what you use. With the default gpt-4o-mini, **about $0.1–0.2 per 1000 translations** | https://platform.openai.com/api-keys |
 
 If your chat is mostly ordinary conversation, DeepL is enough. Pick Claude or OpenAI if
 you want better accuracy in public lobbies full of abbreviations and typos. Set phrases
@@ -371,8 +371,12 @@ not good enough.
 | `claude-sonnet-5` | $2 / $10 | For more natural phrasing |
 | `claude-opus-5` | $5 / $25 | When long or complicated messages show up too |
 
-One translation is roughly 330 input tokens (system prompt included) and 30 output
-tokens, so with Haiku 4.5 **1000 translations cost around $0.5** (a rough figure).
+One translation (one API call) is roughly 1,300 input tokens (system prompt included) and
+30–60 output tokens, so with Haiku 4.5 **1000 translations cost around $1.5** (a rough
+figure). Lines handled by the glossary or the cache do not call the API, so they cost nothing.
+With Sonnet 5 / Opus 5, back-to-back translations read the system prompt from the prompt
+cache, and that part costs a tenth (the first one after a gap of 5 minutes or more costs
+1.25x, because it writes the cache; Haiku 4.5's prompt is too short to be cached).
 
 What gets sent is adjusted to the model automatically, so leaving `DRGT_CLAUDE_EFFORT`
 and `DRGT_CLAUDE_REFUSAL_FALLBACK` on `auto` is fine.

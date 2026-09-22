@@ -46,8 +46,8 @@ You: 回復お願いします / Please heal me / 회복 부탁드립니다 / 请
 | 服務 | 特點 | 費用 | 註冊 · 建立金鑰 |
 |---|---|---|---|
 | **DeepL**（預設） | 機器翻譯中最自然的 | 有免費額度。用完後轉付費方案 | https://www.deepl.com/pro-api |
-| **Claude**（Anthropic） | 擅長俚語、縮寫和錯字。能依上下文翻譯 `gg` `bulk inc` `res me` | 按用量付費。使用預設的 Claude Haiku 4.5 時，**1000 次翻譯約 $0.5** | https://platform.claude.com/settings/keys |
-| **OpenAI** | 擅長俚語、縮寫和錯字。能依上下文翻譯 `gg` `bulk inc` `res me` | 按用量付費。使用預設的 gpt-4o-mini 時，**1000 次翻譯不到 $0.1** | https://platform.openai.com/api-keys |
+| **Claude**（Anthropic） | 擅長俚語、縮寫和錯字。能依上下文翻譯 `gg` `bulk inc` `res me` | 按用量付費。使用預設的 Claude Haiku 4.5 時，**1000 次翻譯約 $1.5** | https://platform.claude.com/settings/keys |
+| **OpenAI** | 擅長俚語、縮寫和錯字。能依上下文翻譯 `gg` `bulk inc` `res me` | 按用量付費。使用預設的 gpt-4o-mini 時，**1000 次翻譯約 $0.1～0.2** | https://platform.openai.com/api-keys |
 
 若以一般對話為主，DeepL 就夠了。想在縮寫和打字錯誤較多的公開連線中提高準確度，就選
 Claude 或 OpenAI。像 `Rock and Stone` 這種固定說法由術語表處理，所以用哪個服務譯文都
@@ -337,8 +337,10 @@ ANTHROPIC_API_KEY=sk-ant-...
 | `claude-sonnet-5` | $2 / $10 | 想讓用字更自然時 |
 | `claude-opus-5` | $5 / $25 | 也會混入長文或複雜內容時 |
 
-一次翻譯連同系統提示詞大約是輸入 330 token、輸出 30 token，所以用 Haiku 4.5 時
-**大約 1000 次翻譯約 $0.5**（僅供參考）。
+一次翻譯（呼叫一次 API）連同系統提示詞大約是輸入 1,300 token、輸出 30～60 token，所以用 Haiku 4.5 時
+**大約 1000 次翻譯約 $1.5**（僅供參考）。由術語表或快取處理的發言不會呼叫 API，費用相應更低。
+使用 Sonnet 5 / Opus 5 時，連續翻譯會從快取讀取系統提示詞部分，該部分只收一成的費用
+（間隔 5 分鐘以上後的第一次會寫入快取，費用為 1.25 倍；Haiku 4.5 的提示詞太短，不會被快取）。
 
 送出的內容會依模型自動調整，所以 `DRGT_CLAUDE_EFFORT` 和
 `DRGT_CLAUDE_REFUSAL_FALLBACK` 保持 `auto` 就沒問題。

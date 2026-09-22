@@ -49,8 +49,8 @@ You: 回復お願いします / Please heal me / 请帮我治疗一下
 | 서비스 | 특징 | 요금 | 가입 · API 키 발급 |
 |---|---|---|---|
 | **DeepL**(기본값) | 기계 번역 중에서는 가장 자연스러움 | 무료 체험 한도 있음. 다 쓰면 유료 플랜 | https://www.deepl.com/pro-api |
-| **Claude**(Anthropic) | 속어 · 줄임말 · 오타에 강함. `gg` `bulk inc` `res me` 를 문맥으로 번역 | 쓴 만큼 내는 종량 과금. 기본값인 Claude Haiku 4.5 라면 **1000회 번역에 약 $0.5** | https://platform.claude.com/settings/keys |
-| **OpenAI** | 속어 · 줄임말 · 오타에 강함. `gg` `bulk inc` `res me` 를 문맥으로 번역 | 쓴 만큼 내는 종량 과금. 기본값인 gpt-4o-mini 라면 **1000회 번역에 약 $0.1 미만** | https://platform.openai.com/api-keys |
+| **Claude**(Anthropic) | 속어 · 줄임말 · 오타에 강함. `gg` `bulk inc` `res me` 를 문맥으로 번역 | 쓴 만큼 내는 종량 과금. 기본값인 Claude Haiku 4.5 라면 **1000회 번역에 약 $1.5** | https://platform.claude.com/settings/keys |
+| **OpenAI** | 속어 · 줄임말 · 오타에 강함. `gg` `bulk inc` `res me` 를 문맥으로 번역 | 쓴 만큼 내는 종량 과금. 기본값인 gpt-4o-mini 라면 **1000회 번역에 약 $0.1~0.2** | https://platform.openai.com/api-keys |
 
 평범한 대화가 중심이라면 DeepL 로 충분합니다. 줄임말과 오타가 많은 공개 멀티에서
 정확도를 올리고 싶다면 Claude 나 OpenAI 를 고르세요. `Rock and Stone` 같은 관용구는
@@ -353,8 +353,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 | `claude-sonnet-5` | $2 / $10 | 표현의 자연스러움을 올리고 싶을 때 |
 | `claude-opus-5` | $5 / $25 | 긴 글이나 복잡한 내용도 섞일 때 |
 
-한 번의 번역은 시스템 프롬프트를 포함해 입력 약 330 토큰 · 출력 약 30 토큰이므로,
-Haiku 4.5 라면 **대략 1000회 번역에 $0.5 정도**입니다(어디까지나 기준).
+한 번의 번역(API 호출 1회)은 시스템 프롬프트를 포함해 입력 약 1,300 토큰 · 출력 30~60 토큰이므로,
+Haiku 4.5 라면 **대략 1000회 번역에 $1.5 정도**입니다(어디까지나 기준). 용어집이나 캐시로 처리된
+발언은 API 를 부르지 않으므로 그만큼 저렴해집니다.
+Sonnet 5 / Opus 5 에서는 연달아 번역하면 시스템 프롬프트 부분을 캐시에서 읽어 그 부분이
+1할 요금이 됩니다(5분 이상 간격이 뜬 뒤의 1회는 캐시 쓰기로 1.25배가 됩니다. Haiku 4.5 는
+프롬프트가 너무 짧아 캐시되지 않습니다).
 
 모델에 맞춰 보내는 내용은 자동으로 조정되므로, `DRGT_CLAUDE_EFFORT` 와
 `DRGT_CLAUDE_REFUSAL_FALLBACK` 의 `auto` 는 그대로 두어도 문제없습니다.

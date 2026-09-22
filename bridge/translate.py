@@ -703,7 +703,10 @@ class ClaudeProvider(LLMProvider):
         params: dict = {
             "model": self.model,
             "max_tokens": self.max_tokens,
-            "system": system,
+            # システムプロンプト（約1,300トークン）は発言が変わっても同じなので、キャッシュの印を
+            # 付ける。最小の長さに届くモデル（Sonnet 5 / Opus 5 など）では、5分以内に続く翻訳の
+            # この部分が1割の料金になる。届かないモデル（Haiku 4.5 は 4,096）では何も起きない
+            "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             "messages": [{"role": "user", "content": user}],
         }
         if output_config:
