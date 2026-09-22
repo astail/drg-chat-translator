@@ -270,9 +270,13 @@ OPENAI_API_KEY=sk-...
 
 **通常只要在首次安裝的 `[1]` 選一次就夠了。** 會依所選語言一併寫入 `DRGT_UI_LANG` /
 `DRGT_INCOMING_TARGET` / `DRGT_INCOMING_FORMAT` / `DRGT_OUTGOING_SOURCE` /
-`DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS` / `DRGT_RELAY_MAX_LANGS`（繁體中文時還會
+`DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS`（繁體中文時還會
 寫入 `DRGT_INCOMING_SKIP_LANGUAGES`）。之後想修改，或想用清單裡沒有的語言時，請直接編輯
 `settings.ini`（[重新安裝](#安裝)也可以重新選擇）。
+
+> 0.7.0 及以前的安裝還會寫入 `DRGT_INCOMING_SKIP_LANGUAGES` 和 `DRGT_RELAY_MAX_LANGS`。
+> 這兩行如果沒有 `#` 仍留在檔案裡，修改語言後它們不會跟著變。請在行首加上 `#`，
+> 或者重新安裝一次。
 
 語言寫成 `ja`（日語）/ `en`（英語）/ `ko`（韓語）/ `zh`（中文簡體）/
 `zh-tw`（中文繁體）/ `ru`（俄語）這樣的形式。
