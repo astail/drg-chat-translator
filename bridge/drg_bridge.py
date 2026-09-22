@@ -1141,7 +1141,8 @@ def run_selftest(bridge: Bridge) -> int:
 
 
 def with_default_settings(cfg: dict) -> dict:
-    """翻訳サービスの設定（provider と APIキーなど）だけを残し、ほかは既定値にした設定。
+    """翻訳サービスの設定（provider・APIキーなど・待ち時間などの network）だけを残し、
+    ほかは既定値にした設定。
 
     --selftest と --defaults で使う。自己診断やモックのテストは既定の設定（日本語で読み書き）を
     前提に合否を決めるので、利用者の settings.ini の言語などに左右されないようにする。
@@ -1149,6 +1150,7 @@ def with_default_settings(cfg: dict) -> dict:
     out = copy.deepcopy(DEFAULTS)
     out["provider"] = cfg["provider"]
     out["providers"] = copy.deepcopy(cfg["providers"])
+    out["network"] = copy.deepcopy(cfg["network"])
     return out
 
 
@@ -1195,7 +1197,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="start without the wizard even if it is not configured yet")
     ap.add_argument("--defaults", action="store_true",
                     help="for testing: ignore the language and other settings in the settings "
-                         "file and use the defaults (the translation service settings are kept)")
+                         "file and use the defaults (the translation service and network "
+                         "settings are kept)")
     args = ap.parse_args(argv)
 
     env_path = args.config or os.path.join(APP_DIR, SETTINGS_FILE)

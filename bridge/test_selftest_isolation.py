@@ -85,14 +85,16 @@ def test_defaults_flag_ignores_languages_in_settings(isolated, capsys) -> None:
 
 
 def test_defaults_keep_the_translation_service() -> None:
-    """既定に戻すのは言語などで、翻訳サービスの設定（provider と APIキー）は残すこと。"""
+    """既定に戻すのは言語などで、翻訳サービスの設定（provider・APIキー・待ち時間など）は残すこと。"""
     cfg = copy.deepcopy(DEFAULTS)
     cfg["provider"] = "claude"
     cfg["providers"]["claude"]["api_key"] = "sk-ant-kept"
     cfg["incoming"]["target"] = "en"
+    cfg["network"]["llm_timeout_sec"] = 60.0
     out = drg_bridge.with_default_settings(cfg)
     assert out["provider"] == "claude"
     assert out["providers"]["claude"]["api_key"] == "sk-ant-kept"
+    assert out["network"]["llm_timeout_sec"] == 60.0
     assert out["incoming"]["target"] == DEFAULTS["incoming"]["target"]
 
 
