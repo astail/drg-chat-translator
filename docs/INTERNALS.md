@@ -191,7 +191,7 @@ MOD が使うのは `Add Chat Message`（ローカル表示）だけです。入
 ```
 to_bridge.txt   mod -> bridge（mod が追記 / bridge が読む）
 to_game.txt     bridge -> mod（bridge が追記 / mod が読む）
-bridge.alive    bridge の生存確認。bridge が1秒ごとに「<版> <UNIX時刻>」で上書き
+bridge.alive    bridge の生存確認。bridge が1秒ごとに「<版> <起動番号> <UNIX時刻>」で上書き
 game.alive      mod の生存確認。mod が1秒ごとに「<版> <UNIX時刻>」で上書き
 ```
 
@@ -204,7 +204,7 @@ game.alive      mod の生存確認。mod が1秒ごとに「<版> <UNIX時刻>�
 
 | | |
 |---|---|
-| `HELLO <version>` | 接続開始。bridge は自分の `HELLO` を返し、版が違えば警告する（下記） |
+| `HELLO <version>` | 接続開始。bridge とつながるたびに送る（下記「起動と再起動」）。bridge は自分の `HELLO` を返し、版が違えば警告する（下記） |
 | `NAME <playername>` | 自分のプレイヤー名 |
 | `REQ <id> in <sender> <text> <host>` | 受信文を訳す（既定は日本語へ）。`host`=`1` なら中継用の訳も一緒に |
 | `REQ <id> out <sender> <text> <host>` | 自分の発言を翻訳（結果を2通目として送る）。mod は中身を見ずに送り、訳さない発言（OFF・翻訳元の言語でない・短すぎる・`/` などで始まる）なら bridge が空の結果を返す。判定は settings.ini の `DRGT_OUTGOING_*` だけで決まる |
@@ -236,6 +236,11 @@ bridge は **どの `REQ` にも必ず `RES` か `ERR` を返します**。項�
   `to_bridge.txt` を頭から読み直し、前回までに処理した `REQ` を二重に翻訳・送信してしまう
 - 相手が先にファイルを空にしても、読む側は「ファイルが読み取り位置より小さくなった」
   ことに気づいて読み取り位置を 0 に戻すので、どちらを先に起動しても復帰する
+- bridge が起動時に `to_bridge.txt` を空にすると、それより前に mod が書いた `HELLO` /
+  `NAME` も消える。そのため mod は `HELLO`（名前が分かっていれば `NAME` も）を、起動時ではなく
+  **bridge とつながるたびに**送る。つながったとき・切断のあとにつながり直したときに加えて、
+  `bridge.alive` の起動番号が変わったとき（切断に気づく前の約4秒以内に bridge が
+  再起動したとき）も送り直す（`ipc.lua` の `check_alive` / `set_on_connect`）
 
 bridge の再起動で `to_bridge.txt` が空になると、mod が書いたがまだ読まれていなかった
 `REQ` は失われます。mod は返事の来ない要求を **60 秒**で諦めて捨てるので
@@ -243,7 +248,9 @@ bridge の再起動で `to_bridge.txt` が空になると、mod が書いたが�
 
 ### 生存確認
 
-`*.alive` の中の UNIX 時刻（壁時計）を相手側が読み、現在時刻との差で判定します。
+`*.alive` の中の UNIX 時刻（壁時計、行末の数字）を相手側が読み、現在時刻との差で判定します。
+`bridge.alive` の起動番号（bridge の起動時刻のミリ秒）は、再起動に気づくためだけに使います。
+起動番号の無い古い形（「<版> <UNIX時刻>」）も読めます。
 
 | | 見ているファイル | 「生きている」とみなす条件 |
 |---|---|---|

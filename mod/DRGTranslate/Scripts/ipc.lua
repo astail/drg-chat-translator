@@ -24,6 +24,8 @@ local handlers = {}
 local outbox = {}
 local alive_miss = 0
 local now_ms = 0
+local bridge_boot = nil
+local on_connect = nil
 
 -- 返事を待つ上限。bridge の翻訳は LLM で既定20秒・再試行1回かかりうるので、余裕を見る
 local PENDING_TTL_MS = 60000
@@ -82,6 +84,7 @@ function M.init(dir_override)
     pending = {}
     outbox = {}
     M.connected = false
+    bridge_boot = nil
 
     U.log("IPC dir: %s", dir)
     return true
@@ -206,14 +209,31 @@ function M.beat(version)
     f:close()
 end
 
+--- bridge とつながったとき（つながり直したとき・bridge が入れ替わったときも）に呼ぶ関数。
+--- bridge は起動時に to_bridge.txt を空にするので、それより前に送った HELLO / NAME は
+--- 届いていない。ここで送り直す。
+function M.set_on_connect(fn)
+    on_connect = fn
+end
+
+--- bridge.alive の中身を読む。「<版> <起動番号> <UNIX時刻>」（起動番号の無い古い形も読む）。
+--- 行全体で合わせること。行末だけで合わせると、古い形の版の数字（0.7.0 の 0）を起動番号と読む
+local function read_alive(content)
+    local boot, ts = content:match("^%S+%s+(%d+)%s+(%d+)%s*$")
+    if ts then return tonumber(ts), boot end
+    return tonumber(content:match("(%d+)%s*$") or ""), nil
+end
+
 --- bridge が動いているか。
 function M.check_alive()
     local fresh = false
+    local boot = nil
     local f = path_alive and io.open(path_alive, "rb")
     if f then
         local content = f:read("l") or ""
         f:close()
-        local ts = tonumber(content:match("(%d+)%s*$") or "")
+        local ts
+        ts, boot = read_alive(content)
         if ts then
             local age = os.time() - ts
             fresh = (age >= -5 and age <= 10)
@@ -222,9 +242,16 @@ function M.check_alive()
 
     if fresh then
         alive_miss = 0
-        if not M.connected then
+        -- 切断に気づく前（約4秒以内）に bridge が再起動しても、起動番号が変わるので分かる
+        local restarted = M.connected and boot ~= nil and bridge_boot ~= nil and boot ~= bridge_boot
+        bridge_boot = boot
+        if not M.connected or restarted then
             M.connected = true
-            U.log("Connected to the bridge")
+            U.log(restarted and "The bridge restarted" or "Connected to the bridge")
+            if on_connect then
+                local ok, err = pcall(on_connect)
+                if not ok then U.log("on_connect error: %s", tostring(err)) end
+            end
         end
         return true
     end

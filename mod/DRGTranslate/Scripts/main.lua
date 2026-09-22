@@ -568,7 +568,14 @@ local function init()
     U.log("DRGTranslate v%s started", MOD_VERSION)
 
     IPC.init(Cfg.ipc.dir)
-    IPC.send("HELLO", MOD_VERSION)
+    -- HELLO はつながるたびに送る。起動時に1回だけ送ると、あとから起動した（再起動した）
+    -- bridge が to_bridge.txt を空にしたときに消え、版の確認が行われない
+    IPC.set_on_connect(function()
+        IPC.send("HELLO", MOD_VERSION)
+        if State.player_name and State.player_name ~= "" then
+            IPC.send("NAME", State.player_name)
+        end
+    end)
 
     safe_hook("/Script/FSD.FSDGameState:ClientNewMessage", on_incoming)
     safe_hook("/Script/FSD.FSDPlayerController:Server_NewMessage", on_outgoing)

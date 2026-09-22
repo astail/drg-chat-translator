@@ -27,6 +27,22 @@ Cfg.ipc.dir = ipc_dir
 Cfg.debug = false
 package.loaded["config"] = Cfg
 
+-- MOD のログを控えておく（bridge からの返事が届いたかを見るため）
+local U = require("util")
+local logged = {}
+local real_log = U.log
+U.log = function(fmt, ...)
+    local ok, s = pcall(string.format, fmt, ...)
+    logged[#logged + 1] = ok and s or tostring(fmt)
+    real_log(fmt, ...)
+end
+local function logged_line(needle)
+    for _, line in ipairs(logged) do
+        if line:find(needle, 1, true) then return line end
+    end
+    return nil
+end
+
 local failures = 0
 local function check(cond, label, detail)
     if cond then
@@ -85,6 +101,9 @@ if not connected then
     print("!! bridge が動いていません。先に drg_bridge.py を起動してください")
     os.exit(1)
 end
+wait_until(function() return logged_line("bridge version = ") ~= nil end, 5)
+check(logged_line("bridge version = ") ~= nil,
+      "つながったら HELLO を送り、bridge の版が返ってくる", logged_line("bridge version"))
 
 print("-- 受信 --")
 
