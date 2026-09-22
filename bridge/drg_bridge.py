@@ -170,7 +170,11 @@ FORMAT_FIELDS = ("sender", "text", "lang", "original")
 
 
 def load_dotenv(path: str) -> int:
-    """設定ファイル（settings.ini）を読んで os.environ に入れる。読み込んだ件数を返す。"""
+    """設定ファイル（settings.ini）を読んで os.environ に入れる。書かれている項目の数を返す。
+
+    すでに環境変数にある項目（OS の環境変数や、直前のセットアップで入れたもの）は
+    上書きしないが、数には入れる（ファイルに何項目あったかを知らせるため）。
+    """
     if not os.path.exists(path):
         return 0
     loaded = 0
@@ -188,9 +192,11 @@ def load_dotenv(path: str) -> int:
             value = value.strip()
             if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
                 value = value[1:-1]
-            if key and key not in os.environ:
+            if not key:
+                continue
+            loaded += 1
+            if key not in os.environ:
                 os.environ[key] = value
-                loaded += 1
     return loaded
 
 
@@ -331,9 +337,9 @@ def load_config(env_path: str | None) -> dict:
     path = env_path or os.path.join(APP_DIR, SETTINGS_FILE)
     n = load_dotenv(path)
     i18n.init()
-    if n:
+    if os.path.exists(path):
         log.info(t("b.config.loaded"), path, n)
-    elif not os.path.exists(path):
+    else:
         log.warning(t("b.config.missing"), path)
     return build_config()
 
@@ -695,6 +701,9 @@ class Bridge:
 
         # 用語集は言語ごとに訳を持つ。自分自身への対応（掛け声など）は中継もしない
         hit = self.glossary.lookup_incoming(text, target)
+        if hit == "":
+            # 用語集で「訳さない語」（r? / nt など）。API も呼ばず、表示も中継もしない
+            return lang, "", {}
         if hit is not None and same_phrase(hit, text):
             targets = []
 
@@ -768,6 +777,8 @@ class Bridge:
             detected, translated, relayed = self.translate_incoming(text, relay=host)
             if not translated and not relayed:
                 self.ipc.write("RES", req_id, "in", detected, "")
+                if self.glossary.skips_incoming(text, inc["target"]):
+                    log.info(t("b.in.skipped"), sender, text, extra=CHAT)
                 return
 
             lang = detected or detect_language(text)
@@ -818,23 +829,40 @@ class Bridge:
         pieces: list[str] = [text] if out["include_source"] else []
         return out["separator"].join(p for p in pieces + translations if p)
 
-    def outgoing_wanted(self, text: str) -> bool:
-        """自分の発言を訳すかどうか。翻訳の方針はすべてここ（settings.ini）で決める。"""
+    def outgoing_skip_reason(self, text: str) -> str | None:
+        """自分の発言を訳さない理由（表示用の文言）。訳すなら None。
+
+        翻訳の方針はすべてここ（settings.ini の DRGT_OUTGOING_*）で決める。
+        """
         out = self.cfg["outgoing"]
         body = text.strip()
-        if not out["enabled"] or not body:
-            return False
-        if len(body) < int(out["min_length"]) or len(body) > int(out["max_chars"]):
-            return False
+        if not body:
+            return t("b.out.skip.empty")
+        if not out["enabled"]:
+            return t("b.out.skip.disabled")
+        if len(body) < int(out["min_length"]):
+            return t("b.out.skip.short")
+        if len(body) > int(out["max_chars"]):
+            return t("b.out.skip.long")
         if any(p and body.startswith(p) for p in out["ignore_prefixes"]):
-            return False
-        return is_written_in(body, out["source"])
+            return t("b.out.skip.prefix")
+        if not is_written_in(body, out["source"]):
+            return t("b.out.skip.language", lang=out["source"] or "auto")
+        return None
+
+    def outgoing_wanted(self, text: str) -> bool:
+        """自分の発言を訳すかどうか。"""
+        return self.outgoing_skip_reason(text) is None
 
     def _do_outgoing(self, req_id: str, text: str) -> None:
         out = self.cfg["outgoing"]
         try:
-            if not self.outgoing_wanted(text):
+            reason = self.outgoing_skip_reason(text)
+            if reason is not None:
                 self.ipc.write("RES", req_id, "out", "", "")
+                # 訳さなかったことも画面に出す（何も出ないと、認識されなかったように見える）
+                if text.strip():
+                    log.info(t("b.out.skipped"), text, reason, extra=CHAT)
                 return
             joined = self.translate_outgoing(text)
             self.ipc.write("RES", req_id, "out", out["source"], joined)
@@ -905,9 +933,17 @@ class Bridge:
 
         elif kind == "DISPLAY":
             ok = (len(fields) > 1 and fields[1] == "ok")
+            reason = fields[2] if len(fields) > 2 else ""
             self.ingame_display_ok = ok
-            failed = t("b.display.failed_overlay" if self.overlay_attached else "b.display.failed")
-            log.info(t("b.display"), "OK" if ok else failed)
+            if ok:
+                state = "OK"
+            elif reason == "host":
+                # 同僚がいるホストは、ローカルに出したつもりでも全員に届くので出さない（設計どおり）
+                state = t("b.display.host_overlay" if self.overlay_attached else "b.display.host")
+            else:
+                state = t("b.display.failed_overlay" if self.overlay_attached
+                          else "b.display.failed")
+            log.info(t("b.display"), state)
 
         elif kind == "TOGGLE":
             state = fields[1] if len(fields) > 1 else "?"
