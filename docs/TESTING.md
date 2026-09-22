@@ -36,7 +36,7 @@
 - **MOD の接続判定**（`tools/ipc_test.lua`。bridge 不要）。`bridge.alive` を書き換えて、
   つながったとき・つながり直したとき・bridge が入れ替わった（起動番号が変わった）ときに
   `HELLO` を送り直す合図が出ること、古い形の `bridge.alive` も読めること
-- **bridge の単体テスト**（`python3 -m pytest bridge/`。pytest が必要。push と PR のたびに CI でも走る）
+- **bridge の単体テスト**（`python3 -m pytest bridge/`。pytest が必要。push と PR のたびに CI の Linux と Windows で走る）
 
   | 確かめていること | ファイル |
   |---|---|
@@ -51,6 +51,7 @@
   | 書式指定の検証、中継に流す訳の確認、ログファイル（本文を残さない・APIキーを伏せる） | `test_formats.py` / `test_relay_output.py` / `test_log_file.py` |
   | `--fake` が本物のキャッシュを汚さない、SDK の引数確認を省いたら知らせる | `test_selftest_isolation.py` |
   | 同じ通信フォルダで bridge を2つ動かさない、`--test` は通信フォルダに触らない | `test_single_instance.py` |
+  | bridge と MOD の版、2つのインストーラの UE4SS の版と SHA-256 がそろっている、`requirements*.txt` が utf-8 を宣言している | `test_release_consistency.py` |
   | ウィザード：ファイル書き込みが途中で止まっても壊れない、MOD の退避と復元、UE4SS の zip の SHA-256、やり直しで前の言語が残らない、保存済みの APIキーの使い回し | `test_setup_wizard_io.py` / `test_install_mod_backup.py` / `test_ue4ss_download.py` / `test_wizard_rerun.py` |
 
 ### 人が確かめた記録

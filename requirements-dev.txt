@@ -1,5 +1,4 @@
-# ビルドとテストに使うもの（CI・build.bat が入れる）。
--r requirements.txt
+# -*- coding: utf-8 -*-
+# ビルドとテストに使うもの（build.bat と release.yml が入れる）。
+-r requirements-test.txt
 pyinstaller==6.22.3
-pytest==9.1.1
-ruff==0.16.8
