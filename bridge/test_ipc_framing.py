@@ -5,14 +5,10 @@
 
 from __future__ import annotations
 
-import os
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from drg_bridge import Ipc, decode_line, encode_line, esc, unesc  # noqa: E402
+from drg_bridge import Ipc, decode_line, encode_line, esc, unesc
 
 FIELDS = ("REQ", "1", "in", "Karl", "こんにちは")
 PAYLOAD = encode_line(*FIELDS).encode("utf-8")

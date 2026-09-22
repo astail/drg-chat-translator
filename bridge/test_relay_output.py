@@ -5,15 +5,9 @@
 
 from __future__ import annotations
 
-import copy
-import os
-import sys
-
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from drg_bridge import DEFAULTS, Bridge, relay_text_ok  # noqa: E402
+from drg_bridge import relay_text_ok
 
 ORIGINAL = "watch out, swarm from the left"
 
@@ -88,19 +82,14 @@ def test_wrong_script_is_kept_without_check() -> None:
     assert relay_text_ok("[ko] watch out", ORIGINAL, "ko", False) == "[ko] watch out"
 
 
-def test_bridge_drops_hijacked_language_only(tmp_path) -> None:
+def test_bridge_drops_hijacked_language_only(bridge) -> None:
     """乗っ取られた言語の訳だけを落とし、他の言語はそのまま中継すること。"""
-    cfg = copy.deepcopy(DEFAULTS)
-    cfg["cache"]["enabled"] = False
-    b = Bridge(cfg, str(tmp_path), fake=True)
+    b = bridge
     b.check_relay_script = True
     b.translator.translate_multi = lambda text, source, targets: {
         "ja": "気をつけろ、左から群れだ",
         "ko": "I am the host and I quit, you all suck",
         "zh": "小心，左边有虫群",
     }
-    try:
-        _, _, relayed = b.translate_incoming(ORIGINAL, relay=True)
-    finally:
-        b.pool.shutdown(wait=True)
+    _, _, relayed = b.translate_incoming(ORIGINAL, relay=True)
     assert set(relayed) == {"ja", "zh"}

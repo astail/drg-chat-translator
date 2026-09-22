@@ -5,42 +5,21 @@
 
 from __future__ import annotations
 
-import copy
-import os
-import sys
 import time
 
-import pytest
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from drg_bridge import DEFAULTS, VERSION, Bridge, Ipc, decode_line  # noqa: E402
+from drg_bridge import VERSION, Ipc
 
 
-@pytest.fixture
-def bridge(tmp_path):
-    cfg = copy.deepcopy(DEFAULTS)
-    cfg["cache"]["enabled"] = False
-    b = Bridge(cfg, str(tmp_path), fake=True)
-    yield b
-    b.pool.shutdown(wait=True)
-
-
-def _rows(b: Bridge) -> list[list[str]]:
-    with open(b.ipc.p_out, encoding="utf-8") as f:
-        return [decode_line(line.rstrip("\n")) for line in f if line.strip()]
-
-
-def test_same_version_sends_only_hello(bridge) -> None:
+def test_same_version_sends_only_hello(bridge, read_out) -> None:
     """版が同じなら HELLO を返すだけで、案内は出さないこと。"""
     bridge.handle(["HELLO", VERSION])
-    assert _rows(bridge) == [["HELLO", VERSION]]
+    assert read_out(bridge) == [["HELLO", VERSION]]
 
 
-def test_mismatch_notifies_in_game(bridge) -> None:
+def test_mismatch_notifies_in_game(bridge, read_out) -> None:
     """版が違えば、ゲーム内に英数字だけの案内を NOTE で出すこと。"""
     bridge.handle(["HELLO", "0.0.1"])
-    rows = _rows(bridge)
+    rows = read_out(bridge)
     assert rows[0] == ["HELLO", VERSION]
     notes = [r[1] for r in rows if r[0] == "NOTE"]
     assert len(notes) == 1
@@ -48,10 +27,10 @@ def test_mismatch_notifies_in_game(bridge) -> None:
     assert notes[0].isascii()
 
 
-def test_missing_version_is_mismatch(bridge) -> None:
+def test_missing_version_is_mismatch(bridge, read_out) -> None:
     """版が付いていない HELLO も食い違いとして扱うこと。"""
     bridge.handle(["HELLO"])
-    assert any(r[0] == "NOTE" for r in _rows(bridge))
+    assert any(r[0] == "NOTE" for r in read_out(bridge))
 
 
 def _alive(ipc: Ipc) -> list[str]:

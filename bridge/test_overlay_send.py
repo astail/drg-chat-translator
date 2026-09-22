@@ -5,93 +5,107 @@
 
 from __future__ import annotations
 
-import copy
 import os
-import sys
 import threading
 import time
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from drg_bridge import Bridge
+from translate import TranslationError
 
-from drg_bridge import DEFAULTS, Bridge, decode_line  # noqa: E402
-from translate import TranslationError  # noqa: E402
 
-SLOW = 4.0  # 翻訳にかかる時間。生存通知の間隔（1秒）より十分長くする
+def _wait_for(cond, timeout: float = 5.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if cond():
+            return True
+        time.sleep(0.05)
+    return bool(cond())
 
 
 @pytest.fixture
-def slow_bridge(tmp_path):
-    """翻訳に SLOW 秒かかる Bridge。IPC のループを別スレッドで回す。"""
-    cfg = copy.deepcopy(DEFAULTS)
-    cfg["cache"]["enabled"] = False
-    b = Bridge(cfg, str(tmp_path), fake=True)
+def gated_bridge(make_bridge):
+    """翻訳が gate を開けるまで止まる Bridge。IPC のループを別スレッドで回す。
+
+    以前は翻訳に4秒の sleep を入れていて、テスト全体の時間の大半を使っていた。
+    止めておく長さはテストが決め、確かめ終わったら gate を開ける。
+    """
+    b = make_bridge()
+    gate = threading.Event()
     real = b.translator.translate_multi
 
-    def slow(text, source, targets):
-        time.sleep(SLOW)
+    def gated(text, source, targets):
+        gate.wait(10)
         return real(text, source, targets)
 
-    b.translator.translate_multi = slow
+    b.translator.translate_multi = gated
     worker = threading.Thread(target=b.run_loop, daemon=True)
     worker.start()
-    time.sleep(0.3)
-    yield b
+    assert _wait_for(lambda: os.path.exists(b.ipc.p_alive))
+    yield b, gate
+    gate.set()
     b.stop()
     worker.join(timeout=3)
+
+
+@pytest.fixture
+def bridge(make_bridge):
+    b = make_bridge()
+    b.overlay_attached = True
+    return b
 
 
 def _said(b: Bridge) -> list[str]:
     """to_game.txt に書かれた SAY の本文を順に返す。"""
     with open(b.ipc.p_out, encoding="utf-8") as f:
-        rows = [decode_line(line.rstrip("\n")) for line in f if line.strip()]
-    return [r[1] for r in rows if r[0] == "SAY"]
+        return [line.rstrip("\n").split("\t", 1)[1] for line in f if line.startswith("SAY\t")]
 
 
-def test_heartbeat_keeps_running_while_translating(slow_bridge) -> None:
+def _alive_time(b: Bridge) -> int:
+    """bridge.alive に書かれた時刻（書きかけで読めなければ -1）。"""
+    try:
+        with open(b.ipc.p_alive, encoding="utf-8") as f:
+            return int(f.read().split()[-1])
+    except (OSError, ValueError, IndexError):
+        return -1
+
+
+def test_heartbeat_keeps_running_while_translating(gated_bridge) -> None:
     """翻訳を待っている間も bridge.alive の更新が止まらないこと。"""
-    slow_bridge.outbound_from_overlay.put("回復お願いします")
-    worst = 0.0
-    deadline = time.time() + SLOW + 0.5
-    while time.time() < deadline:
-        time.sleep(0.1)
-        worst = max(worst, time.time() - os.path.getmtime(slow_bridge.ipc.p_alive))
-    # 生存通知は1秒ごと。ファイル時刻の反映が遅い環境もあるので、SLOW より十分短い値で見る
-    assert worst < 2.5, f"生存通知が {worst:.1f} 秒止まった"
+    b, _gate = gated_bridge
+    b.outbound_from_overlay.put("回復お願いします")
+    assert _wait_for(lambda: _alive_time(b) >= 0)
+    start = _alive_time(b)
+    # 生存通知は1秒ごと。翻訳が止まっている間に、書かれる時刻が進むこと
+    assert _wait_for(lambda: _alive_time(b) > start, timeout=3), "翻訳を待つ間に生存通知が止まった"
 
 
-def test_incoming_is_handled_while_translating(slow_bridge) -> None:
+def test_incoming_is_handled_while_translating(gated_bridge) -> None:
     """オーバーレイの翻訳を待っている間も、ゲームからの要求を読み続けること。"""
-    slow_bridge.outbound_from_overlay.put("回復お願いします")
-    time.sleep(0.2)
-    with open(slow_bridge.ipc.p_in, "a", encoding="utf-8") as f:
+    b, _gate = gated_bridge
+    b.outbound_from_overlay.put("回復お願いします")
+    assert _wait_for(lambda: _said(b) == ["回復お願いします"])  # 原文を送り、訳の途中で止まっている
+    with open(b.ipc.p_in, "a", encoding="utf-8") as f:
         f.write("HELLO\ttest\n")
-    time.sleep(0.5)
-    with open(slow_bridge.ipc.p_out, encoding="utf-8") as f:
-        assert "HELLO\t" in f.read()
+
+    def replied() -> bool:
+        with open(b.ipc.p_out, encoding="utf-8") as f:
+            return "HELLO\t" in f.read()
+
+    assert _wait_for(replied, timeout=3)
 
 
-def test_overlay_messages_keep_their_order(slow_bridge) -> None:
+def test_overlay_messages_keep_their_order(gated_bridge) -> None:
     """続けて打った文は、打った順に（それぞれ原文 → 訳の順で）送られること。"""
-    slow_bridge.outbound_from_overlay.put("一つ目です")
-    slow_bridge.outbound_from_overlay.put("二つ目です")
-    deadline = time.time() + SLOW * 2 + 2
-    while time.time() < deadline and len(_said(slow_bridge)) < 4:
-        time.sleep(0.1)
-    said = _said(slow_bridge)
+    b, gate = gated_bridge
+    b.outbound_from_overlay.put("一つ目です")
+    b.outbound_from_overlay.put("二つ目です")
+    gate.set()
+    assert _wait_for(lambda: len(_said(b)) >= 4)
+    said = _said(b)
     assert said[0] == "一つ目です" and said[2] == "二つ目です"
     assert "[en] 一つ目です" in said[1] and "[en] 二つ目です" in said[3]
-
-
-@pytest.fixture
-def bridge(tmp_path):
-    cfg = copy.deepcopy(DEFAULTS)
-    cfg["cache"]["enabled"] = False
-    b = Bridge(cfg, str(tmp_path), fake=True)
-    b.overlay_attached = True
-    yield b
-    b.pool.shutdown(wait=True)
 
 
 def _shown(b: Bridge) -> list[tuple[str, str]]:

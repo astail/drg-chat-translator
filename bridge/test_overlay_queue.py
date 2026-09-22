@@ -5,27 +5,7 @@
 
 from __future__ import annotations
 
-import copy
-import os
-import sys
-
-import pytest
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from drg_bridge import DEFAULTS, Bridge  # noqa: E402
-
-
-@pytest.fixture
-def bridge(tmp_path):
-    """API もキャッシュも使わない Bridge。IPC のファイルは tmp_path に置く。"""
-    cfg = copy.deepcopy(DEFAULTS)
-    cfg["cache"]["enabled"] = False
-    cfg["cache"]["path"] = str(tmp_path / "cache.json")
-    b = Bridge(cfg, str(tmp_path), fake=True)
-    yield b
-    b.stop()
-    b.pool.shutdown(wait=False)
+from drg_bridge import Bridge
 
 
 def _fill(b: Bridge) -> None:

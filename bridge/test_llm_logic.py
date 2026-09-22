@@ -7,15 +7,11 @@ TESTING.md に「スタブで8項目を検証した」と書いていた内容�
 from __future__ import annotations
 
 import json
-import os
-import sys
 from types import SimpleNamespace
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from translate import (  # noqa: E402
+from translate import (
     Cache,
     ClaudeProvider,
     Glossary,

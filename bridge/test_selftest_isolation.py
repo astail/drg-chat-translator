@@ -6,58 +6,31 @@
 from __future__ import annotations
 
 import copy
-import logging
-import os
 import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-import drg_bridge  # noqa: E402
-import i18n  # noqa: E402
-from drg_bridge import DEFAULTS, Bridge  # noqa: E402
+import drg_bridge
+from drg_bridge import DEFAULTS
 
 
-def test_fake_does_not_write_cache(tmp_path) -> None:
+def test_fake_does_not_write_cache(tmp_path, make_bridge, fake_cfg) -> None:
     """--fake の目印つきの訳は、キャッシュが有効でも書き出さないこと。"""
-    cfg = copy.deepcopy(DEFAULTS)
-    cfg["cache"]["enabled"] = True
-    cfg["cache"]["path"] = str(tmp_path / "cache.json")
-    b = Bridge(cfg, str(tmp_path / "ipc"), fake=True)
-    try:
-        b.translate_outgoing("回復お願いします")
-        b.cache.maybe_save(force=True)
-    finally:
-        b.pool.shutdown(wait=True)
+    fake_cfg["cache"]["enabled"] = True
+    fake_cfg["cache"]["path"] = str(tmp_path / "cache.json")
+    b = make_bridge(fake_cfg, directory=tmp_path / "ipc")
+    b.translate_outgoing("回復お願いします")
+    b.cache.maybe_save(force=True)
     assert not (tmp_path / "cache.json").exists()
 
 
-def test_selftest_says_when_sdk_check_is_skipped(tmp_path, monkeypatch, capsys) -> None:
+def test_selftest_says_when_sdk_check_is_skipped(monkeypatch, capsys, bridge) -> None:
     """anthropic が無いときは、引数の確認を省いたことを出力すること（PASS のまま）。"""
     monkeypatch.setitem(sys.modules, "anthropic", None)  # import すると ImportError になる
-    cfg = copy.deepcopy(DEFAULTS)
-    cfg["cache"]["enabled"] = False
-    b = Bridge(cfg, str(tmp_path / "ipc"), fake=True)
-    assert drg_bridge.run_selftest(b) == 0
+    assert drg_bridge.run_selftest(bridge) == 0
     out = capsys.readouterr().out
     assert "anthropic is not installed" in out
     assert "--- PASS ---" in out
-
-
-@pytest.fixture
-def isolated(tmp_path, monkeypatch):
-    """main() を走らせても、環境変数・表示言語・ログの設定がほかのテストに残らないようにする。"""
-    clean = {k: v for k, v in os.environ.items()
-             if not k.startswith(("DRGT_",) + drg_bridge.SECRET_ENV_NAMES)}
-    monkeypatch.setattr(os, "environ", clean)
-    monkeypatch.setattr(i18n, "_lang", i18n._lang)
-    yield tmp_path
-    root = logging.getLogger()
-    for h in list(root.handlers):
-        h.close()
-        root.removeHandler(h)
-    drg_bridge.log.setLevel(logging.NOTSET)
 
 
 def _main(tmp_path, settings: str, *args: str) -> int:

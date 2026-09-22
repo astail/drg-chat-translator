@@ -8,14 +8,11 @@ from __future__ import annotations
 import copy
 import json
 import os
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from drg_bridge import DEFAULTS, Bridge  # noqa: E402
-from translate import Glossary  # noqa: E402
+from drg_bridge import Bridge
+from translate import Glossary
 
 
 def _glossary(tmp_path, incoming: dict) -> str:
@@ -54,22 +51,16 @@ def test_shipped_glossary_is_in_the_new_format() -> None:
 
 
 @pytest.fixture
-def bridge_for(tmp_path):
-    made = []
-
+def bridge_for(tmp_path, make_bridge, fake_cfg):
+    """受信の訳す先と用語集を決めた Bridge を作る。"""
     def make(target: str, incoming: dict) -> Bridge:
-        cfg = copy.deepcopy(DEFAULTS)
-        cfg["cache"]["enabled"] = False
+        cfg = copy.deepcopy(fake_cfg)
         cfg["incoming"]["target"] = target
         cfg["incoming"]["skip_languages"] = [target]
         cfg["glossary"]["path"] = _glossary(tmp_path, incoming)
-        b = Bridge(cfg, str(tmp_path / f"ipc-{target}"), fake=True)
-        made.append(b)
-        return b
+        return make_bridge(cfg, directory=tmp_path / f"ipc-{target}")
 
-    yield make
-    for b in made:
-        b.pool.shutdown(wait=True)
+    return make
 
 
 def test_glossary_reaches_non_japanese_users(bridge_for) -> None:

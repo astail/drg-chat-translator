@@ -5,29 +5,24 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 import os
-import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-import drg_bridge  # noqa: E402
-import i18n  # noqa: E402
-from drg_bridge import CHAT, DEFAULTS, Bridge, setup_logging  # noqa: E402
+import drg_bridge
+from drg_bridge import CHAT, setup_logging
 
 KEY = "sk-ant-secret-key-1234567890"
 
 
 @pytest.fixture
-def log_file(tmp_path, monkeypatch):
+def log_file(isolated, monkeypatch):
+    """ファイルにも書くログの設定。後始末（ハンドラを閉じて外す）は isolated が行う。"""
     monkeypatch.setenv("ANTHROPIC_API_KEY", KEY)
-    path = tmp_path / "bridge.log"
+    path = isolated / "bridge.log"
     setup_logging("info", str(path))
-    yield path
-    logging.getLogger().handlers.clear()
+    return path
 
 
 def _read(path) -> str:
@@ -64,34 +59,14 @@ def test_api_key_is_masked(log_file, capsys) -> None:
     assert KEY not in capsys.readouterr().err
 
 
-def test_bridge_chat_logs_are_marked(tmp_path, log_file) -> None:
+def test_bridge_chat_logs_are_marked(log_file, make_bridge) -> None:
     """実際の受信・送信の処理でも、本文がファイルに残らないこと。"""
-    cfg = copy.deepcopy(DEFAULTS)
-    cfg["cache"]["enabled"] = False
-    b = Bridge(cfg, str(tmp_path / "ipc"), fake=True)
-    try:
-        b._do_incoming("1", "Karl", "hidden incoming words", host=True)
-        b._do_outgoing("2", "ないしょの発言です")
-    finally:
-        b.pool.shutdown(wait=True)
+    b = make_bridge(directory=log_file.parent / "ipc")
+    b._do_incoming("1", "Karl", "hidden incoming words", host=True)
+    b._do_outgoing("2", "ないしょの発言です")
     text = _read(log_file)
     assert "hidden incoming words" not in text
     assert "ないしょの発言です" not in text
-
-
-@pytest.fixture
-def isolated(tmp_path, monkeypatch):
-    """main() を走らせても、環境変数・表示言語・ログの設定がほかのテストに残らないようにする。"""
-    clean = {k: v for k, v in os.environ.items()
-             if not k.startswith(("DRGT_",) + drg_bridge.SECRET_ENV_NAMES)}
-    monkeypatch.setattr(os, "environ", clean)
-    monkeypatch.setattr(i18n, "_lang", i18n._lang)
-    yield tmp_path
-    root = logging.getLogger()
-    for h in list(root.handlers):
-        h.close()
-        root.removeHandler(h)
-    drg_bridge.log.setLevel(logging.NOTSET)
 
 
 def _run_main(tmp_path, ini_text: str) -> str:

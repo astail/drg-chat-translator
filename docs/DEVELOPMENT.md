@@ -235,6 +235,11 @@ py -3 -m pytest bridge
 py -3 -m ruff check bridge
 ```
 
+テストは `bridge/test_*.py` にあり、リポジトリ直下の `pytest.ini` で `bridge` を import の
+パスに入れています（各テストで `sys.path` を書き換えない）。`--fake` の Bridge を作る、
+`to_game.txt` を読む、設定の環境変数を消す、`main()` を走らせても状態を残さない、といった
+共通の fixture は `bridge/conftest.py` にあります。
+
 **bridge の通し確認**
 
 ```
