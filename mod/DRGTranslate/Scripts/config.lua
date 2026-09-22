@@ -59,18 +59,21 @@ M.host_relay = {
 
 -- Where translations are shown
 M.display = {
-    -- "auto"      : GameState:PostGameMessage as a client, the chat widget
-    --               directly as a host
+    -- "auto"      : GameState:PostGameMessage as a client and as a solo host.
+    --               As a host with other dwarves around nothing is shown in
+    --               game, because anything a host posts reaches everyone; read
+    --               the relay line instead (or turn on the overlay)
     -- "gamestate" : always use GameState:PostGameMessage
     -- "widget"    : always drive the HUD_Chat widget directly
     --               (this passes a struct argument, so it may crash the game.
-    --                Use at your own risk)
+    --                It did not work when tried in the real game. Use at your
+    --                own risk)
     -- "off"       : show nothing in game (bridge overlay only)
     strategy = "auto",
 
-    -- When the widget fails on a host (listen server), fall back to
-    -- PostGameMessage.
-    -- That would show the translation to *everyone*, so it is off by default.
+    -- With "auto", use PostGameMessage even as a host with other dwarves
+    -- around. That shows your translations to *everyone*, so it is off by
+    -- default.
     host_broadcast_fallback = false,
 }
 

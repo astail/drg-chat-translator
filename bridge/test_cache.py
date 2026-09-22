@@ -89,3 +89,12 @@ def test_eviction_keeps_size_bounded(tmp_path) -> None:
     assert len(cache._data) <= 10
     assert cache.get("s", "text24", "auto", "ja") == "訳24"
     assert cache.get("s", "text0", "auto", "ja") is None
+
+
+def test_maybe_save_creates_the_folder(tmp_path) -> None:
+    """保存先のフォルダが無くても作って保存すること（無いと10秒ごとに失敗して警告が出る）。"""
+    path = tmp_path / "not" / "yet" / "cache.json"
+    c = Cache(str(path))
+    c.put("s", "hello", "auto", "ja", "こんにちは")
+    c.maybe_save(force=True)
+    assert path.exists()
