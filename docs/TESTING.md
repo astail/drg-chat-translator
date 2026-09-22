@@ -49,6 +49,7 @@
   | オーバーレイ：読み手がいないとき溜めない、送信の翻訳で IPC のループを止めない | `test_overlay_queue.py` / `test_overlay_send.py` |
   | 書式指定の検証、中継に流す訳の確認、ログファイル（本文を残さない・APIキーを伏せる） | `test_formats.py` / `test_relay_output.py` / `test_log_file.py` |
   | `--fake` が本物のキャッシュを汚さない、SDK の引数確認を省いたら知らせる | `test_selftest_isolation.py` |
+  | 同じ通信フォルダで bridge を2つ動かさない、`--test` は通信フォルダに触らない | `test_single_instance.py` |
   | ウィザード：ファイル書き込みが途中で止まっても壊れない、MOD の退避と復元、UE4SS の zip の SHA-256、やり直しで前の言語が残らない、保存済みの APIキーの使い回し | `test_setup_wizard_io.py` / `test_install_mod_backup.py` / `test_ue4ss_download.py` / `test_wizard_rerun.py` |
 
 ### 人が確かめた記録

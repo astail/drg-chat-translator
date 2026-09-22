@@ -794,6 +794,14 @@ _M.update({
         "zh-tw": "正在停止...",
         "ru": "Останавливаюсь...",
     },
+    "b.already_running": {
+        "ja": "DRGTranslate はすでに動いています（通信フォルダ: %s）。先に起動した黒い窓をそのまま使ってください",
+        "en": "DRGTranslate is already running (folder: %s). Keep using the console window you opened first",
+        "ko": "DRGTranslate 가 이미 실행 중입니다(통신 폴더: %s). 먼저 연 콘솔 창을 그대로 사용하세요",
+        "zh": "DRGTranslate 已在运行（通信文件夹：%s）。请继续使用先打开的那个黑色窗口",
+        "zh-tw": "DRGTranslate 已在執行（通訊資料夾：%s）。請繼續使用先開啟的那個黑色視窗",
+        "ru": "DRGTranslate уже запущен (папка: %s). Пользуйтесь окном консоли, которое открыли первым",
+    },
     "b.stopped": {
         "ja": "終了しました",
         "en": "Stopped",

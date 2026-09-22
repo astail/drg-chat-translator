@@ -74,6 +74,10 @@ def test_heartbeat_carries_a_boot_id(tmp_path) -> None:
 
 
 def test_boot_id_changes_when_the_bridge_restarts(tmp_path) -> None:
-    first = _alive(Ipc(str(tmp_path)))
+    old = Ipc(str(tmp_path))
+    first = _alive(old)
+    old.cleanup()  # 前の bridge が終わってから次が起動する（同時には動かせない）
     time.sleep(0.01)
-    assert _alive(Ipc(str(tmp_path)))[1] != first[1]
+    new = Ipc(str(tmp_path))
+    assert _alive(new)[1] != first[1]
+    new.cleanup()

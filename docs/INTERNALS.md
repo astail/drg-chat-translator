@@ -199,6 +199,7 @@ to_bridge.txt   mod -> bridge（mod が追記 / bridge が読む）
 to_game.txt     bridge -> mod（bridge が追記 / mod が読む）
 bridge.alive    bridge の生存確認。bridge が1秒ごとに「<版> <起動番号> <UNIX時刻>」で上書き
 game.alive      mod の生存確認。mod が1秒ごとに「<版> <UNIX時刻>」で上書き
+bridge.lock     bridge が動いている間だけ OS の排他ロックを取るファイル（中身は空）
 ```
 
 1行1メッセージ、TAB 区切り。各フィールドは `\` `\t` `\r` `\n` をエスケープ済み
@@ -237,6 +238,9 @@ bridge は **どの `REQ` にも必ず `RES` か `ERR` を返します**。項�
 
 ### 起動と再起動
 
+- 同じ通信フォルダで bridge は1つしか動かない。bridge は起動時に `bridge.lock` の排他ロックを取り、
+  取れなければ（すでに動いていれば）ファイルに触らずに終了する。2つ動くと、どちらも同じ `REQ` を
+  読んで翻訳 API を二重に呼ぶため。`--test` とウィザードの疎通確認は通信フォルダを使わない
 - mod は起動時（ゲームの起動時・MOD の再読み込み時）に両ファイルを空にする
 - bridge も起動時に両ファイルを空にする。空にしないと、bridge を再起動したときに
   `to_bridge.txt` を頭から読み直し、前回までに処理した `REQ` を二重に翻訳・送信してしまう
