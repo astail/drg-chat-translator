@@ -299,6 +299,18 @@
     実際にできた zip の中身がこの4つであることを確認
   - `--selftest --fake` と `tools/mock_test.lua` の client / host は引き続き PASS
 
+- **`install.ps1` を偽のゲームフォルダに対して実行**（2026-09-22 / Windows の PowerShell 5.1）。
+  `FSD-Win64-Shipping.exe` と `UE4SS.dll` を空ファイルで置き、利用者の MOD の行と前の版の MOD が
+  入った状態から確認した
+  - 導入: MOD がコピーされ、前の版は `DRGTranslate.bak`（`enabled.txt.off`）に退避される。
+    `mods.txt` は書き換える前の内容が `mods.txt.bak` に残り、同梱サンプルだけが `: 0` になる。
+    `UE4SS-settings.ini` の3項目が安全側に書き換わる
+  - `-Uninstall`: `UE4SS-settings.ini` を書き換えない。MOD と `DRGTranslate.bak` が消え、
+    `mods.txt` から行が外れる（元の内容は `mods.txt.bak`）
+  - `UE4SS.dll` が無い状態で `-Uninstall -InstallUE4SS`: UE4SS をダウンロードせず、止まらずに MOD を外す
+  - 直す前の `install.ps1` では、`-Uninstall` で `UE4SS-settings.ini` が書き換わり、
+    `UE4SS.dll` が無いと終了コード 1 で止まることも確かめた
+
 ## 未検証
 
 - 翻訳元を日本語以外にした設定で、**実際にキーボードでチャットを打った**ときの動作。
@@ -308,8 +320,8 @@
   `Server_NewMessage` を通り、そちらは実機で動いているので届くはずです
 - `host_relay.sender = "original"`（元の発言者の名前で流す）。サーバ側で名前が
   上書きされる可能性があるため既定にしていません
-- インストーラの実行。MOD の導入はファイルコピーで行ったため、`install.ps1` を
-  実機のゲームフォルダに対して流してはいません
+- インストーラを実機のゲームフォルダに対して流すこと。偽のゲームフォルダに対しては
+  確かめています（上の「人が確かめた記録」）
 - オーバーレイ（`DRGT_OVERLAY_ENABLED=true`）の実機での見え方
 - **多言語化したあとの実機での通し確認。** 変更したのは文言の差し替えと設定の
   書き込みで、翻訳経路そのものには触れていませんが、ゲームを起動しての確認は

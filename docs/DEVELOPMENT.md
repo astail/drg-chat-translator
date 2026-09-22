@@ -138,7 +138,9 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -GamePath "G:\SteamLibrar
 3. `mod\DRGTranslate` を UE4SS の `Mods` 配下へコピーし、`mods.txt` に登録
 4. `settings.ini` を用意し、通信用フォルダ `%APPDATA%\DRGTranslate` を作成
 
-アンインストールは `-Uninstall` を付けて実行してください。
+アンインストールは `-Uninstall` を付けて実行してください。MOD と入れ直しのときの控え
+（`DRGTranslate.bak`）を消し、`mods.txt` から行を外します（元の内容は `mods.txt.bak`）。
+UE4SS の確認や `UE4SS-settings.ini` の書き換えはしないので、UE4SS を先に消していても動きます。
 
 ### ⚠ インストーラは APIキーと言語までは設定しません
 
