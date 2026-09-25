@@ -362,12 +362,11 @@ def restore_backup(dest: str, backup: str) -> None:
         os.replace(flag + ".off", flag)
 
 
-def install_mod(game: str, mod_source: str) -> bool:
-    step(4, t("w.step.mod"))
-    if not os.path.isdir(mod_source):
-        warn(t("w.mod.source_missing", path=mod_source))
-        return False
+def replace_mod(game: str, mod_source: str) -> tuple[str, bool]:
+    """同梱の MOD をゲームフォルダにコピーする。(コピー先, 前の MOD を退避したか) を返す。
 
+    前の MOD は .bak に退避する。コピーに失敗したら元に戻してから OSError を投げる。
+    """
     mods = mods_dir(game)
     dest = os.path.join(mods, MOD_NAME)
     backup = os.path.join(mods, f"{MOD_NAME}.bak")
@@ -376,17 +375,32 @@ def install_mod(game: str, mod_source: str) -> bool:
         if os.path.exists(dest):
             park_backup(dest, backup)
             parked = True
-            print(f"    {t('w.mod.backup', name=MOD_NAME)}")
         shutil.copytree(mod_source, dest)
-    except OSError as exc:
+    except OSError:
         if parked:
             try:
                 restore_backup(dest, backup)
             except OSError:
                 pass
+        raise
+    return dest, parked
+
+
+def install_mod(game: str, mod_source: str) -> bool:
+    step(4, t("w.step.mod"))
+    if not os.path.isdir(mod_source):
+        warn(t("w.mod.source_missing", path=mod_source))
+        return False
+
+    mods = mods_dir(game)
+    try:
+        dest, parked = replace_mod(game, mod_source)
+    except OSError as exc:
         warn(t("w.mod.copy_failed", err=exc))
         print(f"    {t('w.mod.close_game')}")
         return False
+    if parked:
+        print(f"    {t('w.mod.backup', name=MOD_NAME)}")
     ok(dest)
     if game_running():
         # UE4SS は起動時にしか Lua を読まないので、今動いているゲームには古い MOD が残っている

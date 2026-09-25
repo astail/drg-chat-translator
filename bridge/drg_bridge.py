@@ -930,11 +930,13 @@ class Bridge:
                                            f"MOD {mod_version}. The MOD is already updated. "
                                            f"Restart the game to load it")
                 else:
-                    # MOD はゲームフォルダにあるので、exe だけ更新して MOD が古いままになりやすい
+                    # 起動時の MOD の更新（update_mod）ができなかった。ゲームフォルダが
+                    # 見つからないときは、セットアップで場所を指定して入れ直すしかない
                     log.warning(t("b.version_mismatch"), VERSION, mod_version)
                     self.ipc.write("NOTE", f"[DRGTranslate] Version mismatch: exe {VERSION} / "
-                                           f"MOD {mod_version}. Run the setup again to update "
-                                           f"the MOD")
+                                           f"MOD {mod_version}. Close the game, rename "
+                                           f"settings.ini and start DRGTranslate.exe again "
+                                           f"to reinstall the MOD")
 
         elif kind == "NAME":
             self.player_name = fields[1] if len(fields) > 1 else ""
@@ -1207,6 +1209,29 @@ def installed_mod_version() -> str | None:
     return setup_wizard.installed_mod_version(game) if game else None
 
 
+def update_mod() -> None:
+    """ゲームフォルダの MOD が exe と違う版なら、同梱の MOD に入れ替える。
+
+    zip を展開して settings.ini だけ前のフォルダから持ってくると、セットアップが走らず、
+    ゲームフォルダの MOD が古いまま残る。MOD が入っていない（セットアップで入れていない）
+    ときは何もしない。
+    """
+    import setup_wizard
+
+    game = setup_wizard.find_game()
+    if not game:
+        return
+    old = setup_wizard.installed_mod_version(game)
+    if old is None or old == VERSION:
+        return
+    try:
+        dest, _ = setup_wizard.replace_mod(game, bundled("mod", "DRGTranslate"))
+    except OSError as exc:
+        log.warning(t("b.mod.update_failed"), old, VERSION, exc)
+        return
+    log.info(t("b.mod.updated"), old, VERSION, dest)
+
+
 def needs_setup(env_path: str) -> bool:
     """初回起動かどうか。設定ファイルが無ければ未セットアップ。"""
     return not os.path.exists(env_path)
@@ -1289,6 +1314,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_test(bridge, args.test)
     if args.selftest:
         return run_selftest(bridge)
+    if not args.fake:
+        update_mod()
 
     def on_signal(_sig, _frm):
         log.info(t("b.stopping"))

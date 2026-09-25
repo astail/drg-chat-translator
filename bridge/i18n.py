@@ -995,28 +995,61 @@ _M.update({
         "ru": "версия MOD: %s",
     },
     "b.version_mismatch": {
-        "ja": "exe（%s）とゲームフォルダの MOD（%s）のバージョンが違います。"
-              "セットアップをやり直して MOD を入れ直してください",
-        "en": "The exe (%s) and the MOD in the game folder (%s) are different versions. "
-              "Run the setup again to update the MOD",
-        "ko": "exe(%s)와 게임 폴더의 MOD(%s) 버전이 다릅니다. "
-              "설정을 다시 실행해 MOD를 다시 설치하세요",
-        "zh": "exe（%s）与游戏文件夹中的 MOD（%s）版本不一致。请重新运行设置以更新 MOD",
-        "zh-tw": "exe（%s）與遊戲資料夾中的 MOD（%s）版本不一致。請重新執行設定以更新 MOD",
-        "ru": "Версии exe (%s) и MOD в папке игры (%s) различаются. "
-              "Запустите настройку заново, чтобы обновить MOD",
+        "ja": "exe（%s）とゲームが読み込んでいる MOD（%s）のバージョンが違います。"
+              "ゲームフォルダの MOD を自動で更新できませんでした。ゲームを終了し、"
+              "settings.ini の名前を変えて（例: settings.old.ini）から DRGTranslate.exe を"
+              "もう一度起動してください。セットアップが始まり、MOD が入れ直されます"
+              "（APIキーはもう一度入力します）",
+        "en": "The exe (%s) and the MOD the game has loaded (%s) are different versions, "
+              "and the MOD in the game folder could not be updated automatically. Close the "
+              "game, rename settings.ini (e.g. settings.old.ini) and start DRGTranslate.exe "
+              "again. The setup starts and reinstalls the MOD (you enter the API key again)",
+        "ko": "exe(%s)와 게임이 불러온 MOD(%s) 버전이 다르며, 게임 폴더의 MOD를 자동으로 "
+              "업데이트하지 못했습니다. 게임을 종료하고 settings.ini의 이름을 바꾼 뒤"
+              "(예: settings.old.ini) DRGTranslate.exe를 다시 실행하세요. 설정이 시작되어 "
+              "MOD를 다시 설치합니다(API 키를 다시 입력합니다)",
+        "zh": "exe（%s）与游戏已加载的 MOD（%s）版本不一致，且无法自动更新游戏文件夹中的 MOD。"
+              "请退出游戏，将 settings.ini 改名（例如 settings.old.ini）后重新运行 "
+              "DRGTranslate.exe。设置将会开始并重新安装 MOD（需要重新输入 API 密钥）",
+        "zh-tw": "exe（%s）與遊戲已載入的 MOD（%s）版本不一致，且無法自動更新遊戲資料夾中的 MOD。"
+                 "請關閉遊戲，將 settings.ini 改名（例如 settings.old.ini）後重新執行 "
+                 "DRGTranslate.exe。設定將會開始並重新安裝 MOD（需要重新輸入 API 金鑰）",
+        "ru": "Версии exe (%s) и MOD, загруженного игрой (%s), различаются, а MOD в папке "
+              "игры не удалось обновить автоматически. Закройте игру, переименуйте "
+              "settings.ini (например, в settings.old.ini) и снова запустите DRGTranslate.exe. "
+              "Начнётся настройка, и MOD будет установлен заново (API-ключ нужно ввести снова)",
     },
     "b.version_restart": {
         "ja": "exe（%s）とゲームが読み込んでいる MOD（%s）のバージョンが違います。"
-              "ゲームフォルダの MOD はもう新しくなっているので、ゲームを再起動してください",
+              "ゲームフォルダの MOD はもう新しくなっているので、ゲームを終了してもう一度起動してください",
         "en": "The exe (%s) and the MOD the game has loaded (%s) are different versions. "
-              "The MOD in the game folder is already updated, so restart the game",
+              "The MOD in the game folder is already updated, so close the game and start it again",
         "ko": "exe(%s)와 게임이 불러온 MOD(%s) 버전이 다릅니다. "
-              "게임 폴더의 MOD는 이미 업데이트되었으니 게임을 다시 시작하세요",
-        "zh": "exe（%s）与游戏已加载的 MOD（%s）版本不一致。游戏文件夹中的 MOD 已更新，请重新启动游戏",
-        "zh-tw": "exe（%s）與遊戲已載入的 MOD（%s）版本不一致。遊戲資料夾中的 MOD 已更新，請重新啟動遊戲",
+              "게임 폴더의 MOD는 이미 업데이트되었으니 게임을 종료하고 다시 실행하세요",
+        "zh": "exe（%s）与游戏已加载的 MOD（%s）版本不一致。游戏文件夹中的 MOD 已更新，请退出游戏并重新启动",
+        "zh-tw": "exe（%s）與遊戲已載入的 MOD（%s）版本不一致。遊戲資料夾中的 MOD 已更新，請關閉遊戲並重新啟動",
         "ru": "Версии exe (%s) и MOD, загруженного игрой (%s), различаются. "
-              "MOD в папке игры уже обновлён, перезапустите игру",
+              "MOD в папке игры уже обновлён: закройте игру и запустите её снова",
+    },
+    "b.mod.updated": {
+        "ja": "ゲームフォルダの MOD を %s から %s に更新しました: %s（前の MOD は DRGTranslate.bak に残しています）",
+        "en": "Updated the MOD in the game folder from %s to %s: %s (the previous MOD is kept in DRGTranslate.bak)",
+        "ko": "게임 폴더의 MOD를 %s에서 %s(으)로 업데이트했습니다: %s (이전 MOD는 DRGTranslate.bak에 남겨 두었습니다)",
+        "zh": "已将游戏文件夹中的 MOD 从 %s 更新到 %s：%s（旧的 MOD 保留在 DRGTranslate.bak）",
+        "zh-tw": "已將遊戲資料夾中的 MOD 從 %s 更新到 %s：%s（舊的 MOD 保留在 DRGTranslate.bak）",
+        "ru": "MOD в папке игры обновлён с %s до %s: %s (прежний MOD сохранён в DRGTranslate.bak)",
+    },
+    "b.mod.update_failed": {
+        "ja": "ゲームフォルダの MOD を %s から %s に更新できませんでした: %s。"
+              "ゲームを終了してから、DRGTranslate.exe をもう一度起動してください",
+        "en": "Could not update the MOD in the game folder from %s to %s: %s. "
+              "Close the game, then start DRGTranslate.exe again",
+        "ko": "게임 폴더의 MOD를 %s에서 %s(으)로 업데이트하지 못했습니다: %s. "
+              "게임을 종료한 뒤 DRGTranslate.exe를 다시 실행하세요",
+        "zh": "无法将游戏文件夹中的 MOD 从 %s 更新到 %s：%s。请退出游戏后重新运行 DRGTranslate.exe",
+        "zh-tw": "無法將遊戲資料夾中的 MOD 從 %s 更新到 %s：%s。請關閉遊戲後重新執行 DRGTranslate.exe",
+        "ru": "Не удалось обновить MOD в папке игры с %s до %s: %s. "
+              "Закройте игру и снова запустите DRGTranslate.exe",
     },
     "b.config.bad_format": {
         "ja": "settings.ini の %s（%s）が使えません（%s）。使える差し込みは %s です。"

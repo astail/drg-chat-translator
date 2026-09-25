@@ -61,12 +61,13 @@ def test_mismatch_asks_for_restart_when_disk_is_updated(bridge, read_out, disk_v
 @pytest.mark.parametrize("on_disk", [None, "0.0.1"])
 def test_mismatch_asks_for_setup_when_disk_is_old(bridge, read_out, disk_version,
                                                   on_disk) -> None:
-    """ゲームフォルダが見つからないか、そこでも古いなら、これまでどおりセットアップを案内すること。"""
+    """ゲームフォルダが見つからないか、そこでも古いなら、セットアップで入れ直す手順を案内すること。"""
     disk_version(on_disk)
     bridge.handle(["HELLO", "0.0.1"])
     notes = _notes(read_out(bridge))
     assert len(notes) == 1
-    assert "Run the setup again" in notes[0]
+    assert "rename settings.ini" in notes[0] and "DRGTranslate.exe" in notes[0]
+    assert notes[0].isascii()
 
 
 def test_missing_version_is_mismatch(bridge, read_out) -> None:
