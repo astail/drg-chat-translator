@@ -20,7 +20,9 @@ from __future__ import annotations
 import hashlib
 import io
 import os
+import re
 import shutil
+import subprocess
 import urllib.request
 import zipfile
 
@@ -36,6 +38,7 @@ UE4SS_URL = (
     f"{UE4SS_VERSION}/UE4SS_{UE4SS_VERSION}.zip"
 )
 MOD_NAME = "DRGTranslate"
+GAME_EXE = "FSD-Win64-Shipping.exe"
 
 LANGUAGES = i18n.LANGUAGES
 
@@ -145,8 +148,7 @@ def find_game() -> str | None:
         if path in seen:
             continue
         seen.add(path)
-        if os.path.exists(os.path.join(path, "FSD", "Binaries", "Win64",
-                                       "FSD-Win64-Shipping.exe")):
+        if os.path.exists(os.path.join(path, "FSD", "Binaries", "Win64", GAME_EXE)):
             return path
     return None
 
@@ -167,8 +169,7 @@ def resolve_game(preset: str | None = None) -> str | None:
         if not answer:
             return None
         answer = answer.strip('"')
-        if os.path.exists(os.path.join(answer, "FSD", "Binaries", "Win64",
-                                       "FSD-Win64-Shipping.exe")):
+        if os.path.exists(os.path.join(answer, "FSD", "Binaries", "Win64", GAME_EXE)):
             ok(answer)
             return answer
         warn(t("w.game.no_exe"))
@@ -287,15 +288,53 @@ def harden_ue4ss(game: str) -> None:
         warn(t("w.ue4ss.write_failed", err=exc))
 
 
-def mods_dir(game: str) -> str:
+def existing_mods_dir(game: str) -> str | None:
     base = win64_dir(game)
     for rel in ("ue4ss\\Mods", "Mods"):
         path = os.path.join(base, rel)
         if os.path.exists(path):
             return path
-    path = os.path.join(base, "Mods")
+    return None
+
+
+def mods_dir(game: str) -> str:
+    path = existing_mods_dir(game)
+    if path:
+        return path
+    path = os.path.join(win64_dir(game), "Mods")
     os.makedirs(path, exist_ok=True)
     return path
+
+
+def installed_mod_version(game: str) -> str | None:
+    """ゲームフォルダに入っている MOD の版（main.lua の MOD_VERSION）。読めなければ None。
+
+    ゲームが読み込んでいる版とは限らない。UE4SS はゲームの起動時にしか Lua を読まないので、
+    ゲームを起動したまま MOD を入れ替えると、ディスク上だけ新しい版になる。
+    """
+    mods = existing_mods_dir(game)
+    if not mods:
+        return None
+    try:
+        with open(os.path.join(mods, MOD_NAME, "Scripts", "main.lua"),
+                  encoding="utf-8", errors="replace") as f:
+            m = re.search(r'^local MOD_VERSION = "([^"]*)"', f.read(), re.M)
+    except OSError:
+        return None
+    return m.group(1) if m else None
+
+
+def game_running() -> bool:
+    """ゲームが動いているか。調べられなければ False（案内を出さないだけで済むので）。"""
+    try:
+        out = subprocess.run(
+            ["tasklist", "/FI", f"IMAGENAME eq {GAME_EXE}", "/NH"],
+            capture_output=True, text=True, errors="replace", timeout=10,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return GAME_EXE.lower() in (out or "").lower()
 
 
 def park_backup(dest: str, backup: str) -> None:
@@ -349,6 +388,9 @@ def install_mod(game: str, mod_source: str) -> bool:
         print(f"    {t('w.mod.close_game')}")
         return False
     ok(dest)
+    if game_running():
+        # UE4SS は起動時にしか Lua を読まないので、今動いているゲームには古い MOD が残っている
+        warn(t("w.mod.restart_game"))
 
     mods_txt = os.path.join(mods, "mods.txt")
     lines: list[str] = []
