@@ -14,7 +14,7 @@
 
 "房主"是指自己开房的一方，"客户端"是指加入别人房间的一方。
 
-安装时会先问你用哪种语言阅读，并据此写好设置。选择简体中文后，日语、英语、韩语等发言会
+第一次启动时会先问你用哪种语言阅读，并据此写好设置。选择简体中文后，日语、英语、韩语等发言会
 被翻译成**简体中文**，你用中文打的话会被翻译成**日语 · 英语 · 韩语**。从哪种语言翻译到
 哪种语言都可以在设置文件（`settings.ini`）中修改（[更改语言](#更改语言)）。
 
@@ -40,8 +40,8 @@ You: 回復お願いします / Please heal me / 회복 부탁드립니다
 ## 开始之前：准备翻译服务的 API 密钥
 
 翻译交给外部的翻译服务完成。**在开始使用之前，请先在下列服务中任选一个注册并创建
-"API 密钥"。** API 密钥是让本程序代表你使用该服务的一串字符，会在首次启动的安装过程中
-粘贴。事先没有准备好的话，安装过程会中途卡住。
+"API 密钥"。** API 密钥是让本程序代表你使用该服务的一串字符，第一次启动 `DRGTranslate.exe`
+时会在提问中让你粘贴。事先没有准备好的话，会在中途卡住。
 
 | 服务 | 特点 | 费用 | 注册 · 创建密钥 |
 |---|---|---|---|
@@ -77,8 +77,8 @@ LICENSE               许可证（MIT）
 
 ```
 [1] 言語を選んでください / Choose your language
-      セットアップの案内と、他の人の発言の訳がこの言語になります。
-      Setup and the chat you read are shown in this language.
+      この画面の案内と、他の人の発言の訳がこの言語になります。
+      These questions and the chat you read are shown in this language.
       1) 日本語 (ja)
       2) English (en)
       3) 한국어 (ko)
@@ -112,10 +112,26 @@ LICENSE               许可证（MIT）
 
 设置完成后翻译进程会直接常驻，请保持窗口打开并启动游戏。
 
-第二次以后会跳过安装过程，直接进入常驻状态。
+你的回答会保存在 exe 同一文件夹的 `settings.ini` 中。第二次以后因为已有 `settings.ini`，
+不会再出现这些问题，直接进入常驻状态。
 
-**想重新走一遍安装过程时**，删除 exe 同一文件夹中的 `settings.ini`，再启动
-`DRGTranslate.exe`，就会从最开始重新开始（API 密钥也要重新输入，请先准备好）。
+**想重新选择语言、游戏位置、API 密钥，或想重新安装 MOD 时**，删除 exe 同一文件夹中的
+`settings.ini`，再启动 `DRGTranslate.exe`。上面 `[1]`〜`[6]` 的问题会再出现一次
+（API 密钥也要重新输入，请先准备好）。
+
+### 更新到新版本时
+
+1. 退出游戏。
+2. 下载新版本的 zip 并解压。
+3. 把旧版本文件夹里的 `settings.ini` 复制到新版本的文件夹。
+4. 启动新版本的 `DRGTranslate.exe`。
+
+启动时如果游戏文件夹里的 MOD 较旧，会自动换成新版本（黑色窗口会显示类似"已将游戏文件夹中的
+MOD 从 0.8.1 更新到 0.8.2"的消息）。旧的 MOD 保留在 `Mods\DRGTranslate.bak`。如果更换时游戏
+正在运行，请退出游戏再重新启动，新的 MOD 才会被加载。
+
+如果找不到游戏文件夹（例如游戏位置是你手动输入的），MOD 不会自动更换。这时请按照黑色窗口的
+提示，退出游戏，删除 `settings.ini`，再重新启动 `DRGTranslate.exe`。
 
 > **关于杀毒软件的警告**
 >
@@ -220,7 +236,7 @@ You: Karl: 気をつけろ、大群が来るぞ / 조심해, 무리가 온다 / 
 
 ### `settings.ini` — 翻译相关
 
-双击 exe 同一文件夹中的 **`settings.ini`** 会用记事本打开（首次安装时创建）。改完保存后，
+双击 exe 同一文件夹中的 **`settings.ini`** 会用记事本打开（第一次启动 `DRGTranslate.exe` 时创建）。改完保存后，
 请重新启动 `DRGTranslate.exe`。在不显示文件扩展名的电脑上，它显示为 `settings`。
 
 **所有项目都带着默认值被注释掉了。**
@@ -242,7 +258,7 @@ OPENAI_API_KEY=sk-...
 
 | 键 | 说明 |
 |---|---|
-| `DRGT_UI_LANG` | 安装过程和黑色窗口消息的语言。`ja` / `en` / `ko` / `zh` / `zh-tw` / `ru`。未设置时与 `DRGT_INCOMING_TARGET` 相同 |
+| `DRGT_UI_LANG` | 第一次启动时的问题和黑色窗口消息的语言。`ja` / `en` / `ko` / `zh` / `zh-tw` / `ru`。未设置时与 `DRGT_INCOMING_TARGET` 相同 |
 | `DRGT_PROVIDER` | `deepl` / `claude` / `openai` |
 | `DEEPL_AUTH_KEY`<br>`ANTHROPIC_API_KEY`<br>`OPENAI_API_KEY` | API 密钥。只需要你所用服务的那一个 |
 | `DRGT_INCOMING_TARGET` | 把收到的发言翻译成哪种语言 |
@@ -264,17 +280,17 @@ OPENAI_API_KEY=sk-...
 
 ### 更改语言
 
-**通常只要在首次安装的 `[1]` 里选一次就够了。** 会按所选语言一并写入 `DRGT_UI_LANG` /
+**通常只要在第一次启动时的问题 `[1]` 里选一次就够了。** 会按所选语言一并写入 `DRGT_UI_LANG` /
 `DRGT_INCOMING_TARGET` / `DRGT_INCOMING_FORMAT` / `DRGT_OUTGOING_SOURCE` /
 `DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS`（选繁体中文时
 还会写入 `DRGT_INCOMING_SKIP_LANGUAGES`，因为语言判断无法区分简体和繁体）。之后想修改，
-或者想用列表里没有的语言时，请直接编辑 `settings.ini`（[重新安装](#安装)也可以重新
-选择）。
+或者想用列表里没有的语言时，请直接编辑 `settings.ini`（删除 `settings.ini` 后重新启动
+`DRGTranslate.exe`，也可以在 `[1]` 重新选择）。
 
-> 0.7.0 及以前的安装还会写入 `DRGT_INCOMING_SKIP_LANGUAGES` 和 `DRGT_RELAY_MAX_LANGS`。
+> 0.7.0 及以前的版本在第一次启动时还会写入 `DRGT_INCOMING_SKIP_LANGUAGES` 和 `DRGT_RELAY_MAX_LANGS`。
 > 这两行如果没有 `#` 仍留在文件里，修改语言后它们不会跟着变。请在行首加上 `#`，
-> 或者重新安装一次。
-> 但以繁体中文安装时写入的 `DRGT_INCOMING_SKIP_LANGUAGES=zh` 现在仍然需要，请保持不变。
+> 或者删除 `settings.ini` 后重新启动 `DRGTranslate.exe`。
+> 但在 `[1]` 选择繁体中文时写入的 `DRGT_INCOMING_SKIP_LANGUAGES=zh` 现在仍然需要，请保持不变。
 
 语言写成 `ja`（日语）/ `en`（英语）/ `ko`（韩语）/ `zh`（中文简体）/
 `zh-tw`（中文繁体）/ `ru`（俄语）这样的形式。
@@ -413,8 +429,8 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 文件里的说明用英文书写，以便使用任何语言的人都能读。
 修改 `config.lua` 后请**重启游戏**。
-[重新安装](#安装)会重新装入 MOD，你编辑过的 `config.lua` 会被移到
-`Mods\DRGTranslate.bak`。
+删除 `settings.ini` 后重新启动 `DRGTranslate.exe`，或[更新到新版本](#更新到新版本时)时，
+会重新装入 MOD，你编辑过的 `config.lua` 会被移到 `Mods\DRGTranslate.bak`。
 
 ---
 
@@ -424,7 +440,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
   日语/韩语/中文的显示。
 - 把用英语打的发言翻译成日语、韩语的设置（[更改语言](#更改语言)）也在实机上确认过。
 - DeepL / Claude / OpenAI 三者都已确认可以实际翻译。
-- 安装过程和黑色窗口的消息，已用与发布相同方式构建的 exe 在 Windows 上逐一验证了 6 种语言。
+- 第一次启动时的问题和黑色窗口的消息，已用与发布相同方式构建的 exe 在 Windows 上逐一验证了 6 种语言。
 - 已确认游戏的语言设置里有繁体中文和俄语的选项（来自游戏本身的数据）。
   不过**这两种语言下译文能否实际显示尚未确认**（日语、韩语、简体中文已确认）。
 - **多人房间里转发能否送达同伴，尚未确认。**
@@ -443,8 +459,8 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
   2. `Mods\mods.txt` 里 UE4SS 自带的示例 MOD（`ConsoleEnablerMod`、`BPModLoaderMod` 等）
      是否为 `: 0`。翻译不需要它们，而且它们会改写引擎内部，容易成为崩溃源。
 
-  这两点从 v0.2.1 起安装过程会自动处理。如果是用旧版本装的，删除 `settings.ini` 后启动
-  `DRGTranslate.exe` 重新走一遍安装过程即可解决。
+  这两点从 v0.2.1 起会在第一次启动时自动处理。如果是用旧版本装的，删除 `settings.ini` 后启动
+  `DRGTranslate.exe`，重新回答一遍和第一次相同的问题即可解决。
   如果还是崩溃，把 `mods.txt` 里的 `DRGTranslate : 1` 改成 `: 0` 后启动，看看是不是 MOD
   本身的问题。
 
@@ -525,7 +541,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 | | 许可证 | 处理方式 |
 |---|---|---|
-| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | MIT | **未内置。** 安装时从官方发布页获取 |
+| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | MIT | **未内置。** 第一次启动时从官方发布页获取 |
 | [DRG-Modding/FSD-Template](https://github.com/DRG-Modding/FSD-Template)<br>[DRG-Modding/Header-Dumps](https://github.com/DRG-Modding/Header-Dumps) | 未设置 | 没有引入其代码。见下文 |
 | DeepL / Anthropic / OpenAI | 各公司的使用条款 | API 密钥由使用者自行准备。遵守各公司条款是使用者的责任 |
 

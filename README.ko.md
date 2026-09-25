@@ -14,7 +14,7 @@ Deep Rock Galactic 의 채팅을 자동으로 번역하는 모드입니다.
 
 "호스트"는 내가 방을 연 쪽, "클라이언트"는 남의 방에 들어간 쪽입니다.
 
-설치할 때 어떤 언어로 읽을지 묻고, 그에 맞춰 설정을 써 줍니다. 한국어를 고르면 일본어,
+처음 실행할 때 어떤 언어로 읽을지 묻고, 그에 맞춰 설정을 써 줍니다. 한국어를 고르면 일본어,
 영어, 중국어 등의 말이 **한국어**가 되고, 한국어로 친 말은 **일본어 · 영어 ·
 중국어(간체)** 로 번역됩니다. 어느 언어에서 어느 언어로 번역할지는 설정 파일
 (`settings.ini`)에서 바꿀 수 있습니다 ([언어 바꾸기](#언어-바꾸기)).
@@ -43,8 +43,8 @@ You: 回復お願いします / Please heal me / 请帮我治疗一下
 
 번역은 외부 번역 서비스에 맡깁니다. **쓰기 시작하기 전에 아래 중 하나에 가입해서
 "API 키"를 발급해 두세요.** API 키는 그 서비스를 이 프로그램에서 쓰기 위한 암호 같은
-문자열이며, 첫 실행 설치 과정에서 붙여넣습니다. 미리 준비해 두지 않으면 설치 도중에
-멈추게 됩니다.
+문자열이며, `DRGTranslate.exe` 를 처음 실행했을 때 나오는 질문에서 붙여넣습니다. 미리
+준비해 두지 않으면 그 도중에 멈추게 됩니다.
 
 | 서비스 | 특징 | 요금 | 가입 · API 키 발급 |
 |---|---|---|---|
@@ -83,8 +83,8 @@ LICENSE               라이선스(MIT)
 
 ```
 [1] 言語を選んでください / Choose your language
-      セットアップの案内と、他の人の発言の訳がこの言語になります。
-      Setup and the chat you read are shown in this language.
+      この画面の案内と、他の人の発言の訳がこの言語になります。
+      These questions and the chat you read are shown in this language.
       1) 日本語 (ja)
       2) English (en)
       3) 한국어 (ko)
@@ -118,11 +118,28 @@ LICENSE               라이선스(MIT)
 
 설정이 끝나면 그대로 번역 프로세스가 상주하므로, 창을 열어 둔 채로 게임을 실행하세요.
 
-두 번째부터는 설치 과정을 건너뛰고 바로 상주 상태가 됩니다.
+답한 내용은 exe 와 같은 폴더의 `settings.ini` 에 저장됩니다. 두 번째부터는 `settings.ini`
+가 있으므로 이 질문은 나오지 않고 바로 상주 상태가 됩니다.
 
-**설치를 처음부터 다시 하고 싶을 때**는 exe 와 같은 폴더에 있는 `settings.ini` 를 지운
-뒤 `DRGTranslate.exe` 를 실행하세요. 처음 설치 과정부터 시작됩니다(API 키도 다시
-넣어야 하므로 미리 준비해 두세요).
+**언어·게임 위치·API 키를 다시 고르고 싶거나 모드를 다시 설치하고 싶을 때**는 exe 와
+같은 폴더에 있는 `settings.ini` 를 지운 뒤 `DRGTranslate.exe` 를 실행하세요. 위의
+`[1]`~`[6]` 질문이 다시 나옵니다(API 키도 다시 넣어야 하므로 미리 준비해 두세요).
+
+### 새 버전으로 업데이트할 때
+
+1. 게임을 종료합니다.
+2. 새 버전의 zip 을 내려받아 압축을 풉니다.
+3. 이전 버전 폴더에 있는 `settings.ini` 를 새 버전 폴더로 복사합니다.
+4. 새 버전의 `DRGTranslate.exe` 를 실행합니다.
+
+실행할 때 게임 폴더의 모드가 오래된 버전이면 자동으로 새 버전으로 바뀝니다(검은 창에
+"게임 폴더의 MOD를 0.8.1에서 0.8.2(으)로 업데이트했습니다"처럼 나옵니다). 이전 모드는
+`Mods\DRGTranslate.bak` 에 남습니다. 게임을 실행한 채로 바뀐 경우에는 게임을 종료하고
+다시 실행하면 새 모드가 읽힙니다.
+
+게임 위치를 직접 입력한 경우처럼 게임 폴더를 찾지 못하면 자동으로 바뀌지 않습니다.
+그때는 검은 창의 안내대로 게임을 종료하고, `settings.ini` 를 지운 뒤
+`DRGTranslate.exe` 를 다시 실행하세요.
 
 > **백신 프로그램 경고에 대해**
 >
@@ -233,8 +250,8 @@ You: Karl: 気をつけろ、大群が来るぞ / 조심해, 무리가 온다 / 
 
 ### `settings.ini` — 번역 관련
 
-exe 와 같은 폴더에 있는 **`settings.ini`** 를 더블클릭하면 메모장으로 열립니다(첫 설치
-때 만들어집니다). 고쳐서 저장했으면 `DRGTranslate.exe` 를 다시 실행하세요. 파일 확장자를
+exe 와 같은 폴더에 있는 **`settings.ini`** 를 더블클릭하면 메모장으로 열립니다(`DRGTranslate.exe` 를
+처음 실행할 때 만들어집니다). 고쳐서 저장했으면 `DRGTranslate.exe` 를 다시 실행하세요. 파일 확장자를
 표시하지 않는 PC 에서는 `settings` 로 보입니다.
 
 **모든 항목이 기본값과 함께 주석 처리되어 있습니다.**
@@ -256,7 +273,7 @@ OPENAI_API_KEY=sk-...
 
 | 키 | 설명 |
 |---|---|
-| `DRGT_UI_LANG` | 설치 과정과 검은 창 메시지의 언어. `ja` / `en` / `ko` / `zh` / `zh-tw` / `ru`. 설정하지 않으면 `DRGT_INCOMING_TARGET` 과 같은 언어 |
+| `DRGT_UI_LANG` | 처음 실행할 때의 질문과 검은 창 메시지의 언어. `ja` / `en` / `ko` / `zh` / `zh-tw` / `ru`. 설정하지 않으면 `DRGT_INCOMING_TARGET` 과 같은 언어 |
 | `DRGT_PROVIDER` | `deepl` / `claude` / `openai` |
 | `DEEPL_AUTH_KEY`<br>`ANTHROPIC_API_KEY`<br>`OPENAI_API_KEY` | API 키. 쓰는 서비스의 것만 있으면 됩니다 |
 | `DRGT_INCOMING_TARGET` | 받은 말을 어느 언어로 번역할지 |
@@ -278,18 +295,18 @@ OS 쪽에 같은 이름의 환경 변수가 있으면 그쪽이 `settings.ini` �
 
 ### 언어 바꾸기
 
-**보통은 첫 설치의 `[1]` 에서 고르는 것만으로 끝납니다.** 고른 언어에 맞춰
+**보통은 처음 실행할 때의 질문 `[1]` 에서 고르는 것만으로 끝납니다.** 고른 언어에 맞춰
 `DRGT_UI_LANG` / `DRGT_INCOMING_TARGET` / `DRGT_INCOMING_FORMAT` /
 `DRGT_OUTGOING_SOURCE` / `DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS` 가
 한꺼번에 쓰입니다(번체 중국어일 때는
 `DRGT_INCOMING_SKIP_LANGUAGES` 도. 언어 판별이 간체와 번체를 구분하지 못하기 때문입니다). 나중에 바꾸고 싶거나 목록에 없는 언어를
-쓰고 싶을 때는 `settings.ini` 를 고치세요([설치를 다시 하면](#설치) 다시 고를 수도
-있습니다).
+쓰고 싶을 때는 `settings.ini` 를 고치세요(`settings.ini` 를 지우고 `DRGTranslate.exe` 를
+다시 실행하면 `[1]` 에서 다시 고를 수도 있습니다).
 
-> 0.7.0 까지의 설치는 `DRGT_INCOMING_SKIP_LANGUAGES` 와 `DRGT_RELAY_MAX_LANGS` 도
+> 0.7.0 까지의 버전은 처음 실행할 때 `DRGT_INCOMING_SKIP_LANGUAGES` 와 `DRGT_RELAY_MAX_LANGS` 도
 > 썼습니다. 이 두 줄이 `#` 없이 남아 있으면 언어를 고쳐도 따라가지 않습니다.
-> 줄 앞에 `#` 을 붙이거나 설치를 다시 하세요.
-> 단, 번체 중국어로 설치했을 때의 `DRGT_INCOMING_SKIP_LANGUAGES=zh` 는 지금도 필요한
+> 줄 앞에 `#` 을 붙이거나, `settings.ini` 를 지우고 `DRGTranslate.exe` 를 다시 실행하세요.
+> 단, `[1]` 에서 번체 중국어를 골랐을 때의 `DRGT_INCOMING_SKIP_LANGUAGES=zh` 는 지금도 필요한
 > 줄이므로 그대로 두세요.
 
 언어는 `ja`(일본어) / `en`(영어) / `ko`(한국어) / `zh`(중국어 간체) /
@@ -437,8 +454,9 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 파일 안의 설명은 어느 언어를 쓰는 사람이든 읽을 수 있도록 영어로 쓰여 있습니다.
 `config.lua` 를 고쳤으면 **게임을 재시작**하세요.
-[설치를 다시 하면](#설치) 모드가 다시 설치되고, 편집하던 `config.lua` 는
-`Mods\DRGTranslate.bak` 으로 옮겨집니다.
+`settings.ini` 를 지우고 `DRGTranslate.exe` 를 다시 실행하거나
+[새 버전으로 업데이트하면](#새-버전으로-업데이트할-때) 모드가 다시 설치되고, 편집하던
+`config.lua` 는 `Mods\DRGTranslate.bak` 으로 옮겨집니다.
 
 ---
 
@@ -449,7 +467,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 - 영어로 친 말을 일본어 · 한국어로 번역하는 설정([언어 바꾸기](#언어-바꾸기))도 실제
   환경에서 확인했습니다.
 - DeepL / Claude / OpenAI 세 가지 모두 실제로 번역되는 것을 확인했습니다.
-- 설치 과정과 검은 창 메시지는, 배포와 같은 방법으로 빌드한 exe 를 Windows 에서 실행해
+- 처음 실행할 때의 질문과 검은 창 메시지는, 배포와 같은 방법으로 빌드한 exe 를 Windows 에서 실행해
   6개 언어 모두 확인했습니다.
 - 게임의 언어 설정에 번체 중국어와 러시아어 항목이 있는 것은 확인했습니다(게임 데이터에서).
   다만 **그 두 언어로 번역문이 실제로 표시되는지는 확인하지 못했습니다**
@@ -472,8 +490,9 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
      `BPModLoaderMod` 등)가 `: 0` 인지. 번역에는 불필요하고 엔진 내부를 건드리므로 튕김의
      원인이 되기 쉽습니다.
 
-  둘 다 v0.2.1 이후의 설치 과정이 자동으로 합니다. 옛 버전으로 넣었다면 `settings.ini`
-  를 지운 뒤 `DRGTranslate.exe` 를 실행해 설치를 다시 하면 해결됩니다.
+  둘 다 v0.2.1 이후에는 처음 실행할 때 자동으로 합니다. 옛 버전으로 넣었다면
+  `settings.ini` 를 지운 뒤 `DRGTranslate.exe` 를 실행해, 처음과 같은 질문에 다시 답하면
+  해결됩니다.
   그래도 튕긴다면 `mods.txt` 의 `DRGTranslate : 1` 을 `: 0` 으로 바꿔 실행해, 모드 본체가
   원인인지 확인하세요.
 
@@ -560,7 +579,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 | | 라이선스 | 취급 |
 |---|---|---|
-| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | MIT | **포함하지 않았습니다.** 설치할 때 공식 릴리스에서 받습니다 |
+| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | MIT | **포함하지 않았습니다.** 처음 실행할 때 공식 릴리스에서 받습니다 |
 | [DRG-Modding/FSD-Template](https://github.com/DRG-Modding/FSD-Template)<br>[DRG-Modding/Header-Dumps](https://github.com/DRG-Modding/Header-Dumps) | 미설정 | 코드는 가져오지 않았습니다. 아래 참조 |
 | DeepL / Anthropic / OpenAI | 각 사의 이용 약관 | API 키는 이용자가 준비합니다. 각 사의 약관 준수는 이용자의 책임입니다 |
 

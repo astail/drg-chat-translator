@@ -14,7 +14,7 @@ A mod that translates Deep Rock Galactic chat for you.
 
 "Host" means you started the game; "client" means you joined someone else's.
 
-Setup asks which language you read, and writes the settings to match. If you pick
+The first time you start it, it asks which language you read and writes the settings to match. If you pick
 English, chat in Japanese, Korean, Chinese and so on is turned into **English**, and
 what you type in English is translated into **Japanese, Korean and Chinese (simplified)**.
 Every language pair can be changed in the settings file (`settings.ini`), so translating
@@ -46,8 +46,8 @@ Running from source, building the exe and how the internals work are covered in 
 
 Translation is done by an outside service. **Before you use this, sign up with one of
 these and create an "API key".** An API key is a string of text that lets this program
-use that service on your behalf; you paste it during the first-run setup. Without one,
-setup cannot finish.
+use that service on your behalf; you paste it when `DRGTranslate.exe` asks for it the
+first time you start it. Without one, you cannot get past that question.
 
 | Service | Strengths | Price | Sign up / create a key |
 |---|---|---|---|
@@ -88,8 +88,8 @@ first, and everything after that is shown in the language you picked.**
 
 ```
 [1] 言語を選んでください / Choose your language
-      セットアップの案内と、他の人の発言の訳がこの言語になります。
-      Setup and the chat you read are shown in this language.
+      この画面の案内と、他の人の発言の訳がこの言語になります。
+      These questions and the chat you read are shown in this language.
       1) 日本語 (ja)
       2) English (en)
       3) 한국어 (ko)
@@ -121,14 +121,31 @@ first, and everything after that is shown in the language you picked.**
 The language you pick is stored as `DRGT_UI_LANG` in `settings.ini` and used on every
 later launch too (the messages in the console window are in that language as well).
 
-Once setup is done the translator keeps running, so leave the window open and start the
-game.
+Once you have answered them the translator keeps running, so leave the window open and
+start the game.
 
-From the second launch on, setup is skipped and it goes straight to running.
+Your answers are saved in `settings.ini` next to the exe. From the second launch on
+`settings.ini` is there, so these questions are skipped and it goes straight to running.
 
-**To run setup again**, delete `settings.ini` (next to the exe) and start
-`DRGTranslate.exe`. It starts over from the beginning (you will have to paste your API
-key again, so keep it at hand).
+**To choose the language, game folder or API key again, or to reinstall the mod**, delete
+`settings.ini` (next to the exe) and start `DRGTranslate.exe`. Questions `[1]` to `[6]`
+above come up again (you will have to paste your API key again, so keep it at hand).
+
+### Updating to a new version
+
+1. Close the game.
+2. Download the new version's zip and extract it.
+3. Copy `settings.ini` from the old version's folder into the new version's folder.
+4. Start the new version's `DRGTranslate.exe`.
+
+When it starts, it replaces the mod in the game folder with the new version if the mod
+there is older (the console window says something like "Updated the MOD in the game
+folder from 0.8.1 to 0.8.2"). The previous mod is kept in `Mods\DRGTranslate.bak`. If the
+game was running at that time, close the game and start it again to load the new mod.
+
+If the game folder cannot be found (for example because you typed the game's location
+in yourself), the mod is not replaced automatically. In that case, as the console window
+says, close the game, delete `settings.ini` and start `DRGTranslate.exe` again.
 
 > **About antivirus warnings**
 >
@@ -249,7 +266,7 @@ say reaches the ones who do not read English.
 ### `settings.ini` — everything about translation
 
 Double-click **`settings.ini`** next to the exe and it opens in Notepad (it is created
-during the first-run setup). Save your changes and restart `DRGTranslate.exe`.
+the first time you start `DRGTranslate.exe`). Save your changes and restart `DRGTranslate.exe`.
 On a PC that hides file extensions it shows up as `settings`.
 
 **Every option is listed with its default value and commented out.**
@@ -270,7 +287,7 @@ The main options are below. Every option is explained inside `settings.ini` itse
 
 | Key | What it does |
 |---|---|
-| `DRGT_UI_LANG` | Language of the setup wizard and the console window. `ja` / `en` / `ko` / `zh` / `zh-tw` / `ru`. When unset, the same language as `DRGT_INCOMING_TARGET` |
+| `DRGT_UI_LANG` | Language of the first-launch questions and the console window. `ja` / `en` / `ko` / `zh` / `zh-tw` / `ru`. When unset, the same language as `DRGT_INCOMING_TARGET` |
 | `DRGT_PROVIDER` | `deepl` / `claude` / `openai` |
 | `DEEPL_AUTH_KEY`<br>`ANTHROPIC_API_KEY`<br>`OPENAI_API_KEY` | API keys. You only need the one for the service you use |
 | `DRGT_INCOMING_TARGET` | Which language incoming messages are translated into |
@@ -293,20 +310,21 @@ An environment variable of the same name set in Windows takes priority over
 
 ### Change the language
 
-**Normally picking a language at step `[1]` of the first-run setup is all you need.**
+**Normally picking a language at question `[1]` on the first launch is all you need.**
 It writes `DRGT_UI_LANG`, `DRGT_INCOMING_TARGET`, `DRGT_INCOMING_FORMAT`,
 `DRGT_OUTGOING_SOURCE`, `DRGT_OUTGOING_TARGETS` and `DRGT_RELAY_TARGETS`
 together to match (plus `DRGT_INCOMING_SKIP_LANGUAGES` for
 traditional Chinese, because the language check cannot tell it apart from
 simplified). Edit `settings.ini` when you want to change it later, or to use a
-language that is not on the list ([running setup again](#install) lets you pick
-another one).
+language that is not on the list (deleting `settings.ini` and starting
+`DRGTranslate.exe` again lets you pick another one at `[1]`).
 
-> Setup up to 0.7.0 also wrote `DRGT_INCOMING_SKIP_LANGUAGES` and `DRGT_RELAY_MAX_LANGS`.
-> If those two lines are still there without a leading `#`, they stop following your
-> language when you edit it. Put `#` in front of them, or run setup again.
-> The one exception is `DRGT_INCOMING_SKIP_LANGUAGES=zh` written for traditional
-> Chinese: that line is still needed, so leave it as it is.
+> Versions up to 0.7.0 also wrote `DRGT_INCOMING_SKIP_LANGUAGES` and `DRGT_RELAY_MAX_LANGS`
+> on the first launch. If those two lines are still there without a leading `#`, they stop
+> following your language when you edit it. Put `#` in front of them, or delete
+> `settings.ini` and start `DRGTranslate.exe` again.
+> The one exception is `DRGT_INCOMING_SKIP_LANGUAGES=zh` written when you pick traditional
+> Chinese at `[1]`: that line is still needed, so leave it as it is.
 
 Languages are written like `ja` (Japanese), `en` (English), `ko` (Korean),
 `zh` (Chinese, simplified), `zh-tw` (Chinese, traditional), `ru` (Russian).
@@ -459,8 +477,9 @@ It lives in the game folder, at
 
 The file is commented in English so that it is readable whatever language you play in.
 **Restart the game** after editing `config.lua`.
-[Running setup again](#install) reinstalls the mod, and the `config.lua` you edited is
-moved aside to `Mods\DRGTranslate.bak`.
+Deleting `settings.ini` and starting `DRGTranslate.exe` again, or
+[updating to a new version](#updating-to-a-new-version), reinstalls the mod, and the
+`config.lua` you edited is moved aside to `Mods\DRGTranslate.bak`.
 
 ---
 
@@ -472,7 +491,7 @@ moved aside to `Mods\DRGTranslate.bak`.
 - Translating English messages into Japanese and Korean
   ([Change the language](#change-the-language)) confirmed on a real machine as well.
 - DeepL, Claude and OpenAI have all been confirmed to actually translate.
-- Setup and the console messages were checked in all six languages, on Windows, using an
+- The first-launch questions and the console messages were checked in all six languages, on Windows, using an
   exe built the same way the released one is.
 - The game does list Traditional Chinese and Russian among its languages (confirmed from
   the game's own data). **Whether translations actually render in those two has not been
@@ -497,8 +516,9 @@ moved aside to `Mods\DRGTranslate.bak`.
      and so on) are set to `: 0` in `Mods\mods.txt`. They are not needed for translation,
      and since they alter engine internals they are a common source of crashes.
 
-  Setup does both of these automatically since v0.2.1. If you installed with an older
-  version, delete `settings.ini`, start `DRGTranslate.exe` and go through setup again.
+  Since v0.2.1 both are done automatically on the first launch. If you installed with an
+  older version, delete `settings.ini`, start `DRGTranslate.exe` and answer the same
+  questions as the first time again.
   If it still crashes, change `DRGTranslate : 1` in `mods.txt` to `: 0` and start the
   game to find out whether this mod itself is the cause.
 
@@ -592,7 +612,7 @@ Please read Ghost Ship Games' UGC policy before installing.
 
 | | License | How it is handled |
 |---|---|---|
-| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | MIT | **Not bundled.** Setup fetches it from the official release |
+| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | MIT | **Not bundled.** It is fetched from the official release on the first launch |
 | [DRG-Modding/FSD-Template](https://github.com/DRG-Modding/FSD-Template)<br>[DRG-Modding/Header-Dumps](https://github.com/DRG-Modding/Header-Dumps) | Not stated | No code taken from them. See below |
 | DeepL / Anthropic / OpenAI | Their own terms of service | You bring your own API key. Following their terms is your responsibility |
 

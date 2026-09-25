@@ -14,7 +14,7 @@
 
 「房主」是自己開房的一方，「用戶端」是加入別人房間的一方。
 
-安裝時會先問你用哪種語言閱讀，並依此寫好設定。選擇繁體中文後，日語、英語、韓語等發言會
+第一次啟動時會先問你用哪種語言閱讀，並依此寫好設定。選擇繁體中文後，日語、英語、韓語等發言會
 被翻成**繁體中文**，你用中文打的話會被翻成**日語 · 英語 · 韓語 · 簡體中文**。哪種語言翻
 成哪種語言都可以在設定檔（`settings.ini`）中修改（[變更語言](#變更語言)）。
 
@@ -40,8 +40,8 @@ You: 回復お願いします / Please heal me / 회복 부탁드립니다 / 请
 ## 開始之前：準備翻譯服務的 API 金鑰
 
 翻譯交給外部的翻譯服務處理。**開始使用之前，請先在下列服務中任選一個註冊並建立
-「API 金鑰」。** API 金鑰是讓本程式代你使用該服務的一串文字，會在首次啟動的安裝過程中
-貼上。事先沒有準備好的話，安裝過程會中途停住。
+「API 金鑰」。** API 金鑰是讓本程式代你使用該服務的一串文字，第一次啟動 `DRGTranslate.exe`
+時會在提問中讓你貼上。事先沒有準備好的話，會在中途停住。
 
 | 服務 | 特點 | 費用 | 註冊 · 建立金鑰 |
 |---|---|---|---|
@@ -77,8 +77,8 @@ LICENSE               授權（MIT）
 
 ```
 [1] 言語を選んでください / Choose your language
-      セットアップの案内と、他の人の発言の訳がこの言語になります。
-      Setup and the chat you read are shown in this language.
+      この画面の案内と、他の人の発言の訳がこの言語になります。
+      These questions and the chat you read are shown in this language.
       1) 日本語 (ja)
       2) English (en)
       3) 한국어 (ko)
@@ -112,10 +112,26 @@ LICENSE               授權（MIT）
 
 設定完成後翻譯程式就會直接常駐，請保持視窗開啟並啟動遊戲。
 
-第二次之後會跳過安裝過程，直接進入常駐狀態。
+你的回答會儲存在 exe 同一資料夾的 `settings.ini` 中。第二次之後因為已有 `settings.ini`，
+不會再出現這些問題，直接進入常駐狀態。
 
-**想重新走一次安裝過程時**，刪除 exe 同一資料夾中的 `settings.ini`，再啟動
-`DRGTranslate.exe`，就會從最開始重來（API 金鑰也要重新輸入，請先準備好）。
+**想重新選擇語言、遊戲位置、API 金鑰，或想重新安裝 MOD 時**，刪除 exe 同一資料夾中的
+`settings.ini`，再啟動 `DRGTranslate.exe`。上面 `[1]`〜`[6]` 的問題會再出現一次
+（API 金鑰也要重新輸入，請先準備好）。
+
+### 更新到新版本時
+
+1. 關閉遊戲。
+2. 下載新版本的 zip 並解壓縮。
+3. 把舊版本資料夾裡的 `settings.ini` 複製到新版本的資料夾。
+4. 啟動新版本的 `DRGTranslate.exe`。
+
+啟動時如果遊戲資料夾裡的 MOD 較舊，會自動換成新版本（黑色視窗會顯示類似「已將遊戲資料夾中的
+MOD 從 0.8.1 更新到 0.8.2」的訊息）。舊的 MOD 保留在 `Mods\DRGTranslate.bak`。如果更換時遊戲
+正在執行，請關閉遊戲再重新啟動，新的 MOD 才會被載入。
+
+如果找不到遊戲資料夾（例如遊戲位置是你手動輸入的），MOD 不會自動更換。這時請依照黑色視窗的
+提示，關閉遊戲，刪除 `settings.ini`，再重新啟動 `DRGTranslate.exe`。
 
 > **關於防毒軟體的警告**
 >
@@ -201,8 +217,8 @@ You: Karl: 気をつけろ、大群が来るぞ / 조심해, 무리가 온다 / 
 把看得懂的東西再顯示一次反而礙事），但會送到用其他語言交流的同伴那裡。這樣，就算說中文
 的同伴沒裝 MOD，他的發言也能傳達給說外語的同伴。
 
-> 語言判斷是看文字種類，因此無法分辨簡體字和繁體字，兩者都會被當成「中文」。所以安裝時
-> 會寫入 `DRGT_INCOMING_SKIP_LANGUAGES=zh`，讓所有中文發言都不在你自己的聊天裡重複顯示
+> 語言判斷是看文字種類，因此無法分辨簡體字和繁體字，兩者都會被當成「中文」。所以在 `[1]` 選擇
+> 繁體中文時會寫入 `DRGT_INCOMING_SKIP_LANGUAGES=zh`，讓所有中文發言都不在你自己的聊天裡重複顯示
 > 譯文。
 
 - **房主（單人）和作為用戶端時不轉發。** 單人時沒有人要讀，所以只產生繁體中文譯文顯示在
@@ -224,7 +240,7 @@ You: Karl: 気をつけろ、大群が来るぞ / 조심해, 무리가 온다 / 
 
 ### `settings.ini` — 翻譯相關
 
-按兩下 exe 同一資料夾中的 **`settings.ini`** 會用記事本開啟（首次安裝時建立）。改完存檔
+按兩下 exe 同一資料夾中的 **`settings.ini`** 會用記事本開啟（第一次啟動 `DRGTranslate.exe` 時建立）。改完存檔
 後，請重新啟動 `DRGTranslate.exe`。在不顯示副檔名的電腦上，它會顯示為 `settings`。
 
 **所有項目都帶著預設值被註解掉了。**
@@ -246,7 +262,7 @@ OPENAI_API_KEY=sk-...
 
 | 鍵 | 說明 |
 |---|---|
-| `DRGT_UI_LANG` | 安裝過程和黑色視窗訊息的語言。`ja` / `en` / `ko` / `zh` / `zh-tw` / `ru`。未設定時與 `DRGT_INCOMING_TARGET` 相同 |
+| `DRGT_UI_LANG` | 第一次啟動時的問題和黑色視窗訊息的語言。`ja` / `en` / `ko` / `zh` / `zh-tw` / `ru`。未設定時與 `DRGT_INCOMING_TARGET` 相同 |
 | `DRGT_PROVIDER` | `deepl` / `claude` / `openai` |
 | `DEEPL_AUTH_KEY`<br>`ANTHROPIC_API_KEY`<br>`OPENAI_API_KEY` | API 金鑰。只需要你所用服務的那一個 |
 | `DRGT_INCOMING_TARGET` | 把收到的發言翻成哪種語言 |
@@ -268,16 +284,16 @@ OPENAI_API_KEY=sk-...
 
 ### 變更語言
 
-**通常只要在首次安裝的 `[1]` 選一次就夠了。** 會依所選語言一併寫入 `DRGT_UI_LANG` /
+**通常只要在第一次啟動時的問題 `[1]` 選一次就夠了。** 會依所選語言一併寫入 `DRGT_UI_LANG` /
 `DRGT_INCOMING_TARGET` / `DRGT_INCOMING_FORMAT` / `DRGT_OUTGOING_SOURCE` /
 `DRGT_OUTGOING_TARGETS` / `DRGT_RELAY_TARGETS`（繁體中文時還會
 寫入 `DRGT_INCOMING_SKIP_LANGUAGES`）。之後想修改，或想用清單裡沒有的語言時，請直接編輯
-`settings.ini`（[重新安裝](#安裝)也可以重新選擇）。
+`settings.ini`（刪除 `settings.ini` 後重新啟動 `DRGTranslate.exe`，也可以在 `[1]` 重新選擇）。
 
-> 0.7.0 及以前的安裝還會寫入 `DRGT_INCOMING_SKIP_LANGUAGES` 和 `DRGT_RELAY_MAX_LANGS`。
+> 0.7.0 及以前的版本在第一次啟動時還會寫入 `DRGT_INCOMING_SKIP_LANGUAGES` 和 `DRGT_RELAY_MAX_LANGS`。
 > 這兩行如果沒有 `#` 仍留在檔案裡，修改語言後它們不會跟著變。請在行首加上 `#`，
-> 或者重新安裝一次。
-> 但以繁體中文安裝時寫入的 `DRGT_INCOMING_SKIP_LANGUAGES=zh` 現在仍然需要，請保持不變。
+> 或者刪除 `settings.ini` 後重新啟動 `DRGTranslate.exe`。
+> 但在 `[1]` 選擇繁體中文時寫入的 `DRGT_INCOMING_SKIP_LANGUAGES=zh` 現在仍然需要，請保持不變。
 
 語言寫成 `ja`（日語）/ `en`（英語）/ `ko`（韓語）/ `zh`（中文簡體）/
 `zh-tw`（中文繁體）/ `ru`（俄語）這樣的形式。
@@ -300,7 +316,7 @@ DRGT_RELAY_TARGETS=en,ja,ko
 - **送出時被翻譯的只有用 `DRGT_OUTGOING_SOURCE` 的語言打的發言。** 其他語言的發言會原樣
   送出。
 - `DRGT_INCOMING_SKIP_LANGUAGES` 預設與 `DRGT_INCOMING_TARGET` 相同。繁體中文時因為無法
-  和簡體字區分，安裝過程會寫成 `zh`。想再加上自己看得懂的語言時才需要修改（中文閱讀但也
+  和簡體字區分，第一次啟動時會寫成 `zh`。想再加上自己看得懂的語言時才需要修改（中文閱讀但也
   看得懂英語就寫 `zh,en`）。
 - **`DRGT_RELAY_TARGETS` 裡要放自己的語言。** 房主（連線）時你自己要讀的譯文也是從這一行
   讀的，拿掉的話你的畫面上什麼都不會顯示。
@@ -416,8 +432,8 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 檔案裡的說明用英文書寫，讓使用任何語言的人都讀得懂。
 修改 `config.lua` 後請**重新啟動遊戲**。
-[重新安裝](#安裝)會重新裝入 MOD，你編輯過的 `config.lua` 會被移到
-`Mods\DRGTranslate.bak`。
+刪除 `settings.ini` 後重新啟動 `DRGTranslate.exe`，或[更新到新版本](#更新到新版本時)時，
+會重新裝入 MOD，你編輯過的 `config.lua` 會被移到 `Mods\DRGTranslate.bak`。
 
 ---
 
@@ -427,7 +443,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
   日語/韓語/中文的顯示。
 - 把用英語打的發言翻成日語、韓語的設定（[變更語言](#變更語言)）也在實機上確認過。
 - DeepL / Claude / OpenAI 三者都已確認可以實際翻譯。
-- 安裝過程和黑色視窗的訊息，已用與發布相同方式建置的 exe 在 Windows 上逐一驗證了 6 種語言。
+- 第一次啟動時的問題和黑色視窗的訊息，已用與發布相同方式建置的 exe 在 Windows 上逐一驗證了 6 種語言。
 - 已確認遊戲的語言設定裡有繁體中文和俄語的選項（來自遊戲本身的資料）。
   不過**這兩種語言下譯文能否實際顯示尚未確認**（日語、韓語、簡體中文已確認）。
 - **多人房間裡轉發能否送達同伴，尚未確認。**
@@ -447,8 +463,8 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
   2. `Mods\mods.txt` 裡 UE4SS 內建的範例 MOD（`ConsoleEnablerMod`、`BPModLoaderMod` 等）
      是否為 `: 0`。翻譯不需要它們，而且它們會改寫引擎內部，容易成為當機來源。
 
-  這兩點從 v0.2.1 起安裝過程會自動處理。如果是用舊版本裝的，刪除 `settings.ini` 後啟動
-  `DRGTranslate.exe` 重新走一次安裝過程即可解決。
+  這兩點從 v0.2.1 起會在第一次啟動時自動處理。如果是用舊版本裝的，刪除 `settings.ini` 後啟動
+  `DRGTranslate.exe`，重新回答一次和第一次相同的問題即可解決。
   如果還是當掉，把 `mods.txt` 裡的 `DRGTranslate : 1` 改成 `: 0` 後啟動，看看是不是 MOD
   本身的問題。
 
@@ -529,7 +545,7 @@ DRGT_OPENAI_MODEL=qwen2.5:7b
 
 | | 授權 | 處理方式 |
 |---|---|---|
-| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | MIT | **未內建。** 安裝時從官方發布頁取得 |
+| [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) | MIT | **未內建。** 第一次啟動時從官方發布頁取得 |
 | [DRG-Modding/FSD-Template](https://github.com/DRG-Modding/FSD-Template)<br>[DRG-Modding/Header-Dumps](https://github.com/DRG-Modding/Header-Dumps) | 未設定 | 沒有引入其程式碼。見下文 |
 | DeepL / Anthropic / OpenAI | 各公司的使用條款 | API 金鑰由使用者自行準備。遵守各公司條款是使用者的責任 |
 

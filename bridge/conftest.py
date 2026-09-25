@@ -5,6 +5,7 @@
 - bridge       … make_bridge() で作った既定の Bridge
 - read_out     … to_game.txt（bridge → MOD）に書かれた行を読む
 - clean_env    … 設定に関わる環境変数を消し、渡した値だけを入れる
+- no_real_game … （自動）実機のゲームフォルダを見つけない。MOD を書き換えないように
 - isolated     … main() を走らせても、環境変数・表示言語・ログの設定をほかのテストに残さない
 """
 
@@ -19,10 +20,16 @@ import pytest
 
 import drg_bridge
 import i18n
+import setup_wizard
 from drg_bridge import DEFAULTS, Bridge, decode_line
 
 # 設定に関わる環境変数（利用者の環境や settings.ini の値がテストに混ざらないように消す）
 CONFIG_ENV = ("DRGT_",) + drg_bridge.SECRET_ENV_NAMES
+
+
+@pytest.fixture(autouse=True)
+def no_real_game(monkeypatch) -> None:
+    monkeypatch.setattr(setup_wizard, "find_game", lambda: None)
 
 
 @pytest.fixture
