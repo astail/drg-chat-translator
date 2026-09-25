@@ -7,7 +7,20 @@ from __future__ import annotations
 
 import time
 
+import pytest
+
+import drg_bridge
 from drg_bridge import VERSION, Ipc
+
+
+@pytest.fixture(autouse=True)
+def disk_version(monkeypatch):
+    """ゲームフォルダの MOD の版。既定は「見つからない」（実機のゲームフォルダを読まない）。"""
+    def set_version(version: str | None) -> None:
+        monkeypatch.setattr(drg_bridge, "installed_mod_version", lambda: version)
+
+    set_version(None)
+    return set_version
 
 
 def test_same_version_sends_only_hello(bridge, read_out) -> None:
@@ -25,6 +38,35 @@ def test_mismatch_notifies_in_game(bridge, read_out) -> None:
     assert len(notes) == 1
     assert "0.0.1" in notes[0] and VERSION in notes[0]
     assert notes[0].isascii()
+
+
+def _notes(rows: list[list[str]]) -> list[str]:
+    return [r[1] for r in rows if r[0] == "NOTE"]
+
+
+def test_mismatch_asks_for_restart_when_disk_is_updated(bridge, read_out, disk_version) -> None:
+    """ゲームフォルダの MOD がもう exe と同じ版なら、セットアップではなく再起動を案内すること。
+
+    ゲームを起動したままセットアップすると、ディスク上だけ新しくなり、動いているのは前の MOD。
+    """
+    disk_version(VERSION)
+    bridge.handle(["HELLO", "0.0.1"])
+    notes = _notes(read_out(bridge))
+    assert len(notes) == 1
+    assert "Restart the game" in notes[0] and "setup" not in notes[0]
+    assert "0.0.1" in notes[0] and VERSION in notes[0]
+    assert notes[0].isascii()
+
+
+@pytest.mark.parametrize("on_disk", [None, "0.0.1"])
+def test_mismatch_asks_for_setup_when_disk_is_old(bridge, read_out, disk_version,
+                                                  on_disk) -> None:
+    """ゲームフォルダが見つからないか、そこでも古いなら、これまでどおりセットアップを案内すること。"""
+    disk_version(on_disk)
+    bridge.handle(["HELLO", "0.0.1"])
+    notes = _notes(read_out(bridge))
+    assert len(notes) == 1
+    assert "Run the setup again" in notes[0]
 
 
 def test_missing_version_is_mismatch(bridge, read_out) -> None:

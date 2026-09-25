@@ -420,6 +420,14 @@ _M.update({
         "zh-tw": "請先關閉遊戲，然後再次執行。",
         "ru": "Закройте игру и запустите снова.",
     },
+    "w.mod.restart_game": {
+        "ja": "ゲームが起動しています。新しい MOD は、ゲームを終了してもう一度起動すると反映されます",
+        "en": "The game is running. The new MOD is loaded after you close the game and start it again",
+        "ko": "게임이 실행 중입니다. 새 MOD는 게임을 종료하고 다시 실행하면 적용됩니다",
+        "zh": "游戏正在运行。退出游戏并重新启动后，新的 MOD 才会生效",
+        "zh-tw": "遊戲正在執行。關閉遊戲並重新啟動後，新的 MOD 才會生效",
+        "ru": "Игра запущена. Новый MOD загрузится, когда вы закроете игру и запустите её снова",
+    },
     "w.mod.registered": {
         "ja": "mods.txt に登録しました（{entry}）",
         "en": "Registered in mods.txt ({entry})",
@@ -997,6 +1005,18 @@ _M.update({
         "zh-tw": "exe（%s）與遊戲資料夾中的 MOD（%s）版本不一致。請重新執行設定以更新 MOD",
         "ru": "Версии exe (%s) и MOD в папке игры (%s) различаются. "
               "Запустите настройку заново, чтобы обновить MOD",
+    },
+    "b.version_restart": {
+        "ja": "exe（%s）とゲームが読み込んでいる MOD（%s）のバージョンが違います。"
+              "ゲームフォルダの MOD はもう新しくなっているので、ゲームを再起動してください",
+        "en": "The exe (%s) and the MOD the game has loaded (%s) are different versions. "
+              "The MOD in the game folder is already updated, so restart the game",
+        "ko": "exe(%s)와 게임이 불러온 MOD(%s) 버전이 다릅니다. "
+              "게임 폴더의 MOD는 이미 업데이트되었으니 게임을 다시 시작하세요",
+        "zh": "exe（%s）与游戏已加载的 MOD（%s）版本不一致。游戏文件夹中的 MOD 已更新，请重新启动游戏",
+        "zh-tw": "exe（%s）與遊戲已載入的 MOD（%s）版本不一致。遊戲資料夾中的 MOD 已更新，請重新啟動遊戲",
+        "ru": "Версии exe (%s) и MOD, загруженного игрой (%s), различаются. "
+              "MOD в папке игры уже обновлён, перезапустите игру",
     },
     "b.config.bad_format": {
         "ja": "settings.ini の %s（%s）が使えません（%s）。使える差し込みは %s です。"

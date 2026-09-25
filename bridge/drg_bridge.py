@@ -921,11 +921,20 @@ class Bridge:
             log.info(t("b.mod_version"), mod_version)
             self.ipc.write("HELLO", VERSION)
             if mod_version != VERSION:
-                # MOD はゲームフォルダにあるので、exe だけ更新して MOD が古いままになりやすい
-                log.warning(t("b.version_mismatch"), VERSION, mod_version)
                 # ゲーム内の表示は、どの言語設定でもフォントがある英数字で書く
-                self.ipc.write("NOTE", f"[DRGTranslate] Version mismatch: exe {VERSION} / "
-                                       f"MOD {mod_version}. Run the setup again to update the MOD")
+                if installed_mod_version() == VERSION:
+                    # ゲームを起動したまま MOD を入れ替えた。UE4SS は起動時にしか Lua を
+                    # 読まないので、ディスク上は新しくても、動いているのは前の MOD
+                    log.warning(t("b.version_restart"), VERSION, mod_version)
+                    self.ipc.write("NOTE", f"[DRGTranslate] Version mismatch: exe {VERSION} / "
+                                           f"MOD {mod_version}. The MOD is already updated. "
+                                           f"Restart the game to load it")
+                else:
+                    # MOD はゲームフォルダにあるので、exe だけ更新して MOD が古いままになりやすい
+                    log.warning(t("b.version_mismatch"), VERSION, mod_version)
+                    self.ipc.write("NOTE", f"[DRGTranslate] Version mismatch: exe {VERSION} / "
+                                           f"MOD {mod_version}. Run the setup again to update "
+                                           f"the MOD")
 
         elif kind == "NAME":
             self.player_name = fields[1] if len(fields) > 1 else ""
@@ -1188,6 +1197,14 @@ def with_default_settings(cfg: dict) -> dict:
     out["providers"] = copy.deepcopy(cfg["providers"])
     out["network"] = copy.deepcopy(cfg["network"])
     return out
+
+
+def installed_mod_version() -> str | None:
+    """ゲームフォルダに入っている MOD の版。ゲームフォルダが見つからなければ None。"""
+    import setup_wizard
+
+    game = setup_wizard.find_game()
+    return setup_wizard.installed_mod_version(game) if game else None
 
 
 def needs_setup(env_path: str) -> bool:
