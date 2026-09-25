@@ -492,8 +492,8 @@ def choose_language() -> str:
     書き込みは save_language で、APIキーが入ったあとに行う。
     """
     step(1, "言語を選んでください / Choose your language")
-    print("      セットアップの案内と、他の人の発言の訳がこの言語になります。")
-    print("      Setup and the chat you read are shown in this language.")
+    print("      この画面の案内と、他の人の発言の訳がこの言語になります。")
+    print("      These questions and the chat you read are shown in this language.")
     for i, (code, label) in enumerate(LANGUAGES, 1):
         print(f"      {i}) {label} ({code})")
 
