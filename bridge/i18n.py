@@ -649,12 +649,18 @@ _M.update({
         "ru": "- Настройки меняются в {ini} (откройте его в Блокноте).",
     },
     "w.done.redo": {
-        "ja": "・セットアップをやり直したいときは、{ini} を削除してからもう一度起動してください",
-        "en": "- To redo this setup, delete {ini} and start the program again.",
-        "ko": "- 설치를 처음부터 다시 하려면 {ini} 를 지우고 다시 실행하세요.",
-        "zh": "- 想重新进行设置时，删除 {ini} 后再次启动。",
-        "zh-tw": "- 想重新進行設定時，刪除 {ini} 後再次啟動。",
-        "ru": "- Чтобы пройти установку заново, удалите {ini} и запустите программу снова.",
+        "ja": "・言語・ゲームの場所・APIキーを選び直したいときや、MOD を入れ直したいときは、"
+              "{ini} を削除してから DRGTranslate.exe をもう一度起動してください（今と同じ質問がもう一度出ます）",
+        "en": "- To choose the language, game folder or API key again, or to reinstall the MOD, "
+              "delete {ini} and start DRGTranslate.exe again (you get the same questions as now).",
+        "ko": "- 언어·게임 위치·API 키를 다시 고르거나 MOD를 다시 설치하려면, "
+              "{ini} 를 지우고 DRGTranslate.exe를 다시 실행하세요 (지금과 같은 질문이 다시 나옵니다).",
+        "zh": "- 想重新选择语言、游戏位置、API 密钥，或重新安装 MOD 时，"
+              "删除 {ini} 后重新运行 DRGTranslate.exe（会再次出现与现在相同的问题）。",
+        "zh-tw": "- 想重新選擇語言、遊戲位置、API 金鑰，或重新安裝 MOD 時，"
+                 "刪除 {ini} 後重新執行 DRGTranslate.exe（會再次出現與現在相同的問題）。",
+        "ru": "- Чтобы заново выбрать язык, папку игры или API-ключ либо переустановить MOD, "
+              "удалите {ini} и снова запустите DRGTranslate.exe (появятся те же вопросы, что сейчас).",
     },
     "w.done.readme": {
         "ja": "・詳しい説明: {readme}",
@@ -996,28 +1002,28 @@ _M.update({
     },
     "b.version_mismatch": {
         "ja": "exe（%s）とゲームが読み込んでいる MOD（%s）のバージョンが違います。"
-              "ゲームフォルダの MOD を自動で更新できませんでした。ゲームを終了し、"
-              "settings.ini の名前を変えて（例: settings.old.ini）から DRGTranslate.exe を"
-              "もう一度起動してください。セットアップが始まり、MOD が入れ直されます"
-              "（APIキーはもう一度入力します）",
+              "ゲームフォルダの MOD を自動で更新できませんでした。次の順に操作すると MOD が入れ直されます: "
+              "(1) ゲームを終了する (2) settings.ini を削除する (3) DRGTranslate.exe をもう一度起動し、"
+              "最初に使ったときと同じ質問（言語・ゲームの場所・APIキー）に答える",
         "en": "The exe (%s) and the MOD the game has loaded (%s) are different versions, "
-              "and the MOD in the game folder could not be updated automatically. Close the "
-              "game, rename settings.ini (e.g. settings.old.ini) and start DRGTranslate.exe "
-              "again. The setup starts and reinstalls the MOD (you enter the API key again)",
+              "and the MOD in the game folder could not be updated automatically. To reinstall "
+              "the MOD: (1) close the game (2) delete settings.ini (3) start DRGTranslate.exe "
+              "again and answer the same questions as the first time (language, game folder, "
+              "API key)",
         "ko": "exe(%s)와 게임이 불러온 MOD(%s) 버전이 다르며, 게임 폴더의 MOD를 자동으로 "
-              "업데이트하지 못했습니다. 게임을 종료하고 settings.ini의 이름을 바꾼 뒤"
-              "(예: settings.old.ini) DRGTranslate.exe를 다시 실행하세요. 설정이 시작되어 "
-              "MOD를 다시 설치합니다(API 키를 다시 입력합니다)",
+              "업데이트하지 못했습니다. 다음 순서로 하면 MOD가 다시 설치됩니다: "
+              "(1) 게임을 종료한다 (2) settings.ini를 삭제한다 (3) DRGTranslate.exe를 다시 "
+              "실행하고, 처음 사용할 때와 같은 질문(언어·게임 위치·API 키)에 답한다",
         "zh": "exe（%s）与游戏已加载的 MOD（%s）版本不一致，且无法自动更新游戏文件夹中的 MOD。"
-              "请退出游戏，将 settings.ini 改名（例如 settings.old.ini）后重新运行 "
-              "DRGTranslate.exe。设置将会开始并重新安装 MOD（需要重新输入 API 密钥）",
+              "按以下步骤操作即可重新安装 MOD：(1) 退出游戏 (2) 删除 settings.ini "
+              "(3) 重新运行 DRGTranslate.exe，回答与第一次使用时相同的问题（语言、游戏位置、API 密钥）",
         "zh-tw": "exe（%s）與遊戲已載入的 MOD（%s）版本不一致，且無法自動更新遊戲資料夾中的 MOD。"
-                 "請關閉遊戲，將 settings.ini 改名（例如 settings.old.ini）後重新執行 "
-                 "DRGTranslate.exe。設定將會開始並重新安裝 MOD（需要重新輸入 API 金鑰）",
+                 "依以下步驟操作即可重新安裝 MOD：(1) 關閉遊戲 (2) 刪除 settings.ini "
+                 "(3) 重新執行 DRGTranslate.exe，回答與第一次使用時相同的問題（語言、遊戲位置、API 金鑰）",
         "ru": "Версии exe (%s) и MOD, загруженного игрой (%s), различаются, а MOD в папке "
-              "игры не удалось обновить автоматически. Закройте игру, переименуйте "
-              "settings.ini (например, в settings.old.ini) и снова запустите DRGTranslate.exe. "
-              "Начнётся настройка, и MOD будет установлен заново (API-ключ нужно ввести снова)",
+              "игры не удалось обновить автоматически. Чтобы установить MOD заново: "
+              "(1) закройте игру (2) удалите settings.ini (3) снова запустите DRGTranslate.exe "
+              "и ответьте на те же вопросы, что и в первый раз (язык, папка игры, API-ключ)",
     },
     "b.version_restart": {
         "ja": "exe（%s）とゲームが読み込んでいる MOD（%s）のバージョンが違います。"

@@ -934,7 +934,7 @@ class Bridge:
                     # 見つからないときは、セットアップで場所を指定して入れ直すしかない
                     log.warning(t("b.version_mismatch"), VERSION, mod_version)
                     self.ipc.write("NOTE", f"[DRGTranslate] Version mismatch: exe {VERSION} / "
-                                           f"MOD {mod_version}. Close the game, rename "
+                                           f"MOD {mod_version}. Close the game, delete "
                                            f"settings.ini and start DRGTranslate.exe again "
                                            f"to reinstall the MOD")
 
